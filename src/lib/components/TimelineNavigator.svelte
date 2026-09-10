@@ -19,6 +19,8 @@ let {
 
 // Smallest on-screen width (px) the zoom window may shrink to
 const MIN_WINDOW_PX = 10
+// Maximum zoom-in: never show fewer than this many frames. Zooming past this point doesn't meaningfully improve precision.
+const MIN_VISIBLE_FRAMES = 30
 
 let drag = $state<NavDrag>(null)
 
@@ -41,8 +43,9 @@ function minWindowLength(track: HTMLElement): number {
 	const rect = track.getBoundingClientRect()
 	if (rect.width <= 0) return 0
 	const pixelMin = (MIN_WINDOW_PX / rect.width) * duration
-	const frameMin = frameRate > 0 ? 1 / frameRate : 0
-	return Math.max(pixelMin, frameMin)
+	const frameMin = frameRate > 0 ? MIN_VISIBLE_FRAMES / frameRate : 0
+	// Never require a window longer than the whole video (very short clips).
+	return Math.min(duration, Math.max(pixelMin, frameMin))
 }
 
 function onPointerDown(event: PointerEvent) {
