@@ -1,8 +1,10 @@
 <script lang="ts">
+import Timeline from "#lib/components/Timeline.svelte"
 import { getLapseData, getTimelapse, logout } from "../api.remote.js"
 
 let timelapseId = $state("")
 let submittedId = $state("")
+let videoEl = $state<HTMLVideoElement>()
 </script>
 
 <main class="flex min-h-screen flex-col">
@@ -96,15 +98,29 @@ let submittedId = $state("")
 					{@const timelapse = await getTimelapse(submittedId)}
 					{#if timelapse}
 						{#if timelapse.playbackUrl}
-							<video
-								src={timelapse.playbackUrl}
-								poster={timelapse.thumbnailUrl ?? undefined}
-								controls
-								preload="metadata"
-								class="max-h-[80vh] w-full max-w-5xl rounded"
+							<div
+								class="flex w-full max-w-5xl flex-col items-center"
 							>
-								<track kind="captions">
-							</video>
+								<video
+									src={timelapse.playbackUrl}
+									poster={timelapse.thumbnailUrl ?? undefined}
+									controls
+									preload="metadata"
+									bind:this={videoEl}
+									class="max-h-[70vh] w-full rounded"
+								>
+									<track kind="captions">
+								</video>
+								{#key videoEl}
+									<Timeline
+										timelapse={{
+											playbackUrl: timelapse.playbackUrl,
+											thumbnailUrl: timelapse.thumbnailUrl,
+										}}
+										video={videoEl}
+									/>
+								{/key}
+							</div>
 						{:else}
 							<p>
 								This timelapse is still being processed and has
