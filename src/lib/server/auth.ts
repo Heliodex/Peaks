@@ -222,6 +222,50 @@ export async function fetchLapseUserInfo(
 	return body.data.user
 }
 
+export type LapseTimelapse = {
+	id: string
+	name: string
+	description: string
+	visibility: string
+	playbackUrl: string | null
+	thumbnailUrl: string | null
+	duration: number
+	owner: {
+		handle: string
+		displayName: string
+		profilePictureUrl: string
+	}
+}
+
+/**
+ * Fetches a timelapse by ID from the Lapse API.
+ * Returns null when the timelapse doesn't exist or isn't visible to the caller.
+ */
+export async function fetchLapseTimelapse(
+	accessToken: string,
+	timelapseId: string
+): Promise<LapseTimelapse | null> {
+	const response = await fetch(
+		`https://api.lapse.hackclub.com/api/timelapse/query?id=${encodeURIComponent(timelapseId)}`,
+		{
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+			},
+		}
+	)
+	if (response.status === 404) return null
+
+	if (!response.ok) {
+		const error = await response.text()
+		throw new Error(`Failed to fetch Lapse timelapse: ${error}`)
+	}
+
+	const body = await response.json()
+	if (!body?.ok || !body?.data?.timelapse) return null
+
+	return body.data.timelapse as LapseTimelapse
+}
+
 /**
  * Finds or creates a user from their Lapse profile, updating stored
  * profile data and tokens on every login.

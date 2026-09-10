@@ -1,8 +1,10 @@
 // Contains various api methods that cannot be accessed in a page context, usually because they are requested from a component.
 
 import { redirect } from "@sveltejs/kit"
+import { type } from "arktype"
 import {
 	authorise,
+	fetchLapseTimelapse,
 	invalidateSession,
 	sessionCookieName,
 	startLapseAuth,
@@ -57,4 +59,36 @@ export const lapseDisconnect = form(async () => {
 	await db.update(user.id).merge({ lapseData: undefined })
 
 	await getLapseData().refresh()
+})
+
+export const getTimelapse = query(type("string"), async timelapseId => {
+	const { user } = await authorise()
+
+	const id = timelapseId.trim()
+	if (!id) return null
+
+	const [result] = await db.query<string[][]>(
+		"SELECT VALUE lapseData.accessToken FROM $user",
+		{ user: user.id }
+	)
+	const accessToken = result?.[0] ?? user.lapseData.accessToken
+	if (!accessToken) return null
+
+	const timelapse = await fetchLapseTimelapse(accessToken, id)
+	if (!timelapse) return null
+
+	return {
+		id: timelapse.id,
+		name: timelapse.name,
+		description: timelapse.description,
+		playbackUrl: timelapse.playbackUrl,
+		thumbnailUrl: timelapse.thumbnailUrl,
+		duration: timelapse.duration,
+		visibility: timelapse.visibility,
+		owner: {
+			handle: timelapse.owner.handle,
+			displayName: timelapse.owner.displayName,
+			profilePictureUrl: timelapse.owner.profilePictureUrl,
+		},
+	}
 })
