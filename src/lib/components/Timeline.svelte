@@ -1,5 +1,8 @@
 <script lang="ts">
+import TimelineNavigator from "./TimelineNavigator.svelte"
+
 type TimelineSelection = { id: string; start: number; end: number }
+type ViewWindow = { start: number; end: number }
 
 type DragState =
 	| {
@@ -38,6 +41,8 @@ const FRAME_COUNT = 12
 const DRAG_THRESHOLD_PX = 4
 // Minimum on-screen width (px) of a selection so its handles stay usable
 const MIN_SELECTION_PX = 4
+// Wait this long after the view stops changing before recapturing frames
+const FRAME_REFRESH_MS = 120
 
 let videoDuration = $state(0)
 let hoverTime = $state<number | null>(null)
@@ -46,6 +51,10 @@ let frames = $state<string[]>([])
 // False when frame capture fails
 let previewsAvailable = $state(false)
 const duration = $derived(videoDuration)
+
+// The part of the timeline currently visible on the main track, in seconds.
+let view = $state<ViewWindow>({ start: 0, end: 0 })
+const viewSpan = $derived(Math.max(0, view.end - view.start))
 
 let drag = $state<DragState>(null)
 let nextId = 0
@@ -65,11 +74,25 @@ function formatTime(seconds: number): string {
 	return `${m}:${String(r).padStart(2, "0")}`
 }
 
+/** Map an absolute time to a position within the visible window, as a percentage. */
+function timeToPercent(time: number): number {
+	if (viewSpan <= 0) return 0
+	return ((time - view.start) / viewSpan) * 100
+}
+
+/** The absolute time represented by a frame slot in the current window. */
+function frameTime(index: number): number {
+	return view.start + (viewSpan * index) / (FRAME_COUNT - 1)
+}
+
 let captureToken = 0
-async function captureFrames(src: string, duration: number) {
+async function captureFrames(src: string, start: number, end: number) {
 	const token = ++captureToken
 	previewsAvailable = false
 	frames = []
+
+	const span = end - start
+	const epsilon = Math.min(0.05, span / (FRAME_COUNT * 2))
 
 	const capture = document.createElement("video")
 	capture.muted = true
@@ -95,10 +118,13 @@ async function captureFrames(src: string, duration: number) {
 		const results: string[] = []
 		for (let i = 0; i < FRAME_COUNT; i++) {
 			if (token !== captureToken) return
-			const time = (duration * i) / (FRAME_COUNT - 1)
+			const time = start + (span * i) / (FRAME_COUNT - 1)
 			await new Promise<void>(resolve => {
 				capture.onseeked = () => resolve()
-				capture.currentTime = Math.min(time, duration - 0.05)
+				capture.currentTime = Math.max(
+					start,
+					Math.min(time, end - epsilon)
+				)
 			})
 			ctx.drawImage(capture, 0, 0, canvas.width, canvas.height)
 			results.push(canvas.toDataURL("image/jpeg", 0.7))
@@ -121,10 +147,11 @@ $effect(() => {
 	if (!el || !timelapse.playbackUrl) return
 
 	const onLoaded = () => {
-		videoDuration =
+		const next =
 			Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0
-		if (videoDuration > 0) {
-			void captureFrames(timelapse.playbackUrl, videoDuration)
+		videoDuration = next
+		if (next > 0) {
+			view = { start: 0, end: next }
 		}
 	}
 	el.addEventListener("loadedmetadata", onLoaded)
@@ -132,10 +159,24 @@ $effect(() => {
 	return () => el.removeEventListener("loadedmetadata", onLoaded)
 })
 
+// Recapture the frame strip for the visible window, debounced so panning and
+// zooming don't kick off a capture on every pointer move.
+$effect(() => {
+	const src = timelapse.playbackUrl
+	const start = view.start
+	const end = view.end
+	if (!src || !(end > start)) return
+
+	const timer = setTimeout(() => {
+		void captureFrames(src, start, end)
+	}, FRAME_REFRESH_MS)
+	return () => clearTimeout(timer)
+})
+
 function pointerToTime(clientX: number, target: HTMLElement): number {
 	const rect = target.getBoundingClientRect()
 	const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
-	return ratio * duration
+	return view.start + ratio * viewSpan
 }
 
 function seekTo(seconds: number) {
@@ -170,11 +211,12 @@ function updateSelection(
 
 function minSelectionLength(track: HTMLElement): number {
 	const rect = track.getBoundingClientRect()
-	if (rect.width <= 0) return 0
-	return (MIN_SELECTION_PX / rect.width) * duration
+	if (rect.width <= 0 || viewSpan <= 0) return 0
+	return (MIN_SELECTION_PX / rect.width) * viewSpan
 }
 
-// Class for the hover-only controls (handles + delete button). They stay visible while their selection is the one being dragged.
+// Class for the hover-only controls (handles + delete button). They stay
+// visible while their selection is the one being dragged.
 function controlsClass(id: string): string {
 	return drag?.id === id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
 }
@@ -360,7 +402,7 @@ function deleteSelection(id: string, event: MouseEvent) {
 						{#if previewsAvailable && frames[i]}
 							<img
 								src={frames[i]}
-								alt={`Frame at ${formatTime((duration * i) / (FRAME_COUNT - 1))}`}
+								alt={`Frame at ${formatTime(frameTime(i))}`}
 								class="h-full w-full object-cover"
 								draggable="false"
 							>
@@ -370,69 +412,78 @@ function deleteSelection(id: string, event: MouseEvent) {
 							>
 								{previewsAvailable
 									? ""
-									: formatTime((duration * i) / (FRAME_COUNT - 1))}
+									: formatTime(frameTime(i))}
 							</div>
 						{/if}
 					</div>
 				{/each}
 			</div>
 
-			<!-- Selections -->
+			<!-- Selections, clamped to the visible window -->
 			{#each selections as sel (sel.id)}
-				<div
-					class="group absolute inset-y-0 cursor-grab active:cursor-grabbing"
-					data-selection-id={sel.id}
-					style:left="{(sel.start / duration) * 100}%"
-					style:width="{((sel.end - sel.start) / duration) * 100}%"
-				>
+				{@const visibleStart = Math.max(sel.start, view.start)}
+				{@const visibleEnd = Math.min(sel.end, view.end)}
+				{#if visibleEnd > visibleStart}
 					<div
-						class="pointer-events-none absolute inset-0 border-x-2 border-red-500 bg-red-500/40"
-					></div>
-
-					<div
-						data-resize="start"
+						class="group absolute inset-y-0 cursor-grab active:cursor-grabbing"
 						data-selection-id={sel.id}
-						class="absolute inset-y-0 -left-1 flex w-2 cursor-ew-resize items-center justify-center transition-opacity {controlsClass(
-							sel.id
-						)}"
-						role="presentation"
+						style:left="{timeToPercent(visibleStart)}%"
+						style:width="{timeToPercent(visibleEnd) -
+							timeToPercent(visibleStart)}%"
 					>
-						<span
-							class="h-6 w-1 rounded-full bg-red-600 shadow"
-						></span>
-					</div>
+						<div
+							class="pointer-events-none absolute inset-0 border-x-2 border-red-500 bg-red-500/40"
+						></div>
 
-					<div
-						data-resize="end"
-						data-selection-id={sel.id}
-						class="absolute inset-y-0 -right-1 flex w-2 cursor-ew-resize items-center justify-center transition-opacity {controlsClass(
-							sel.id
-						)}"
-						role="presentation"
-					>
-						<span
-							class="h-6 w-1 rounded-full bg-red-600 shadow"
-						></span>
-					</div>
+						{#if sel.start >= view.start}
+							<div
+								data-resize="start"
+								data-selection-id={sel.id}
+								class="absolute inset-y-0 -left-1 flex w-2 cursor-ew-resize items-center justify-center transition-opacity {controlsClass(
+									sel.id
+								)}"
+								role="presentation"
+							>
+								<span
+									class="h-6 w-1 rounded-full bg-red-600 shadow"
+								></span>
+							</div>
+						{/if}
 
-					<button
-						type="button"
-						data-delete={sel.id}
-						aria-label="Delete selection"
-						onclick={e => deleteSelection(sel.id, e)}
-						class="absolute -top-3 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-red-500 bg-white text-xs leading-none text-red-600 shadow transition-opacity {controlsClass(
-							sel.id
-						)}"
-					>
-						×
-					</button>
-				</div>
+						{#if sel.end <= view.end}
+							<div
+								data-resize="end"
+								data-selection-id={sel.id}
+								class="absolute inset-y-0 -right-1 flex w-2 cursor-ew-resize items-center justify-center transition-opacity {controlsClass(
+									sel.id
+								)}"
+								role="presentation"
+							>
+								<span
+									class="h-6 w-1 rounded-full bg-red-600 shadow"
+								></span>
+							</div>
+						{/if}
+
+						<button
+							type="button"
+							data-delete={sel.id}
+							aria-label="Delete selection"
+							onclick={e => deleteSelection(sel.id, e)}
+							class="absolute -top-3 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-red-500 bg-white text-xs leading-none text-red-600 shadow transition-opacity {controlsClass(
+								sel.id
+							)}"
+						>
+							×
+						</button>
+					</div>
+				{/if}
 			{/each}
 
 			{#if hoverTime !== null && hoveredSelectionId === null}
 				<div
 					class="pointer-events-none absolute top-1 rounded bg-black/80 px-1.5 py-0.5 text-xs text-white"
-					style:left="{(hoverTime / duration) * 100}%"
+					style:left="{timeToPercent(hoverTime)}%"
 				>
 					{formatTime(hoverTime)}
 				</div>
@@ -440,8 +491,10 @@ function deleteSelection(id: string, event: MouseEvent) {
 		</div>
 
 		<div class="pt-2 flex justify-between text-xs text-neutral-500">
-			<span>0:00</span>
-			<span>{formatTime(duration)}</span>
+			<span>{formatTime(view.start)}</span>
+			<span>{formatTime(view.end)}</span>
 		</div>
+
+		<TimelineNavigator {duration} bind:view />
 	</div>
 {/if}
