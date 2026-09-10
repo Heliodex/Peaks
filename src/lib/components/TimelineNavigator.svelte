@@ -14,12 +14,14 @@ let {
 	duration,
 	frameRate = 0,
 	playbackUrl = "",
+	currentTime = 0,
 	selections = [],
 	view = $bindable<ViewWindow>({ start: 0, end: 0 }),
 }: {
 	duration: number
 	frameRate?: number
 	playbackUrl?: string
+	currentTime?: number
 	selections?: { id: string; start: number; end: number }[]
 	view?: ViewWindow
 } = $props()
@@ -216,4 +218,12 @@ function onPointerUp(event: PointerEvent) {
 			></div>
 		{/each}
 	</div>
+
+	<!-- Current playback position -->
+	{#if currentTime >= 0 && currentTime <= duration}
+		<div
+			class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-emerald-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
+			style:left="{(currentTime / duration) * 100}%"
+		></div>
+	{/if}
 </div>

@@ -53,6 +53,7 @@ const FRAME_CACHE_LIMIT = 200
 
 let videoDuration = $state(0)
 let frameRate = $state(0)
+let currentTime = $state(0)
 let hoverTime = $state<number | null>(null)
 let hoveredSelectionId = $state<string | null>(null)
 const duration = $derived(videoDuration)
@@ -259,9 +260,48 @@ $effect(() => {
 			view = { start: 0, end: next }
 		}
 	}
+	const onTime = () => {
+		currentTime = el.currentTime
+	}
+
+	// Track playback with rAF so the playhead moves smoothly, while still
+	// updating immediately on seeks.
+	let rafId = 0
+	const stopRaf = () => {
+		if (rafId) {
+			cancelAnimationFrame(rafId)
+			rafId = 0
+		}
+	}
+	const onPlay = () => {
+		stopRaf()
+		const tick = () => {
+			onTime()
+			rafId = requestAnimationFrame(tick)
+		}
+		rafId = requestAnimationFrame(tick)
+	}
+	const onPause = () => stopRaf()
+
 	el.addEventListener("loadedmetadata", onLoaded)
+	el.addEventListener("timeupdate", onTime)
+	el.addEventListener("seeking", onTime)
+	el.addEventListener("seeked", onTime)
+	el.addEventListener("play", onPlay)
+	el.addEventListener("pause", onPause)
+	el.addEventListener("ended", onPause)
 	if (el.readyState >= 1) onLoaded()
-	return () => el.removeEventListener("loadedmetadata", onLoaded)
+	onTime()
+	return () => {
+		stopRaf()
+		el.removeEventListener("loadedmetadata", onLoaded)
+		el.removeEventListener("timeupdate", onTime)
+		el.removeEventListener("seeking", onTime)
+		el.removeEventListener("seeked", onTime)
+		el.removeEventListener("play", onPlay)
+		el.removeEventListener("pause", onPause)
+		el.removeEventListener("ended", onPause)
+	}
 })
 
 // Fill in thumbnails for the visible window, debounced so panning and zooming don't kick off captures on every pointer move. Cached frames stay visible meanwhile, so the strip slides smoothly and only missing frames appear.
@@ -353,6 +393,7 @@ function seekTo(seconds: number) {
 	const el = video
 	if (!el || el.readyState < 1 || !Number.isFinite(seconds)) return
 	el.currentTime = seconds
+	currentTime = seconds
 }
 
 /**
@@ -602,6 +643,7 @@ function onPointerMove(event: PointerEvent) {
 	hoverTime = pointerToTime(event.clientX, track)
 	if (video && video.readyState >= 1) {
 		video.currentTime = hoverTime
+		currentTime = hoverTime
 	}
 }
 
@@ -743,6 +785,13 @@ function deleteSelection(id: string, event: MouseEvent) {
 				{/if}
 			{/each}
 
+			{#if currentTime >= view.start && currentTime <= view.end}
+				<div
+					class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-emerald-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
+					style:left="{timeToPercent(currentTime)}%"
+				></div>
+			{/if}
+
 			{#if hoverTime !== null && hoveredSelectionId === null}
 				<div
 					class="pointer-events-none absolute top-1 rounded bg-black/80 px-1.5 py-0.5 text-xs text-white"
@@ -761,6 +810,7 @@ function deleteSelection(id: string, event: MouseEvent) {
 		<TimelineNavigator
 			{duration}
 			{frameRate}
+			{currentTime}
 			{selections}
 			playbackUrl={timelapse.playbackUrl}
 			bind:view
