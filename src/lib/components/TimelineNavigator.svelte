@@ -23,7 +23,8 @@ let {
 	currentTime = 0,
 	selections = [],
 	idleRanges = [],
-	view = $bindable<ViewWindow>({ start: 0, end: 0 }),
+	view = { start: 0, end: 0 },
+	onviewchange = () => {},
 }: {
 	duration: number
 	frameRate?: number
@@ -32,6 +33,7 @@ let {
 	selections?: TimelineSelection[]
 	idleRanges?: IdleRange[]
 	view?: ViewWindow
+	onviewchange?: (view: ViewWindow) => void
 } = $props()
 
 // Smallest on-screen width (px) the zoom window may shrink to
@@ -112,7 +114,7 @@ function onPointerDown(event: PointerEvent) {
 		0,
 		Math.max(0, duration - length)
 	)
-	view = { start, end: start + length }
+	onviewchange({ start, end: start + length })
 }
 
 function onPointerMove(event: PointerEvent) {
@@ -127,21 +129,21 @@ function onPointerMove(event: PointerEvent) {
 			0,
 			Math.max(0, duration - state.length)
 		)
-		view = { start, end: start + state.length }
+		onviewchange({ start, end: start + state.length })
 	} else if (state.kind === "resize-start") {
 		const start = clamp(
 			snapToFrame(time, frameRate),
 			0,
 			Math.max(0, view.end - state.minLength)
 		)
-		view = { start, end: view.end }
+		onviewchange({ start, end: view.end })
 	} else {
 		const end = clamp(
 			snapToFrame(time, frameRate),
 			view.start + state.minLength,
 			duration
 		)
-		view = { start: view.start, end }
+		onviewchange({ start: view.start, end })
 	}
 }
 

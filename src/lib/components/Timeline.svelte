@@ -1,4 +1,5 @@
 <script lang="ts">
+import { prefersReducedMotion, Spring } from "svelte/motion"
 import { detectFrameRate } from "#lib/frame-rate.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import { createIdleAnalysis } from "#lib/idle-time.svelte.js"
@@ -70,11 +71,15 @@ let hoveredSelectionId = $state<string | null>(null)
 const duration = $derived(videoDuration)
 
 // The part of the timeline currently visible on the main track, in seconds.
-let view = $state<ViewWindow>({ start: 0, end: 0 })
+// Wheel-zoom animates through a spring so scroll-zoom glides instead of stepping; drags set it instantly so they stay locked to the pointer.
+const viewSpring = new Spring<ViewWindow>(
+	{ start: 0, end: 0 },
+	{ stiffness: 0.4, damping: 0.85, precision: 0.001 }
+)
+const view = $derived(viewSpring.current)
 const viewSpan = $derived(Math.max(0, view.end - view.start))
 
-// Thumbnails captured at absolute times, reused across zooming and panning so
-// the strip can slide/scale smoothly instead of blanking on every view change.
+// Thumbnails captured at absolute times, reused across zooming and panning so the strip can slide/scale smoothly instead of blanking on every view change.
 const frameStrip = createFrameStrip({
 	src: () => timelapse.playbackUrl,
 	duration: () => duration,
@@ -86,8 +91,7 @@ let drag = $state<DragState>(null)
 let pan = $state<PanState>(null)
 let nextId = 0
 
-// Scan the video for stretches where the picture never changes (time spent
-// AFK) and publish them to the parent so it can report an "actual" duration.
+// Scan the video for stretches where the picture never changes (time spent AFK) and publish them to the parent so it can report an "actual" duration.
 const idle = createIdleAnalysis({
 	src: () => timelapse.playbackUrl,
 	duration: () => duration,
@@ -117,7 +121,7 @@ $effect(() => {
 			Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0
 		videoDuration = next
 		if (next > 0) {
-			view = { start: 0, end: next }
+			void viewSpring.set({ start: 0, end: next }, { instant: true })
 		}
 	}
 	const onTime = () => {
@@ -247,18 +251,31 @@ function onWheel(event: WheelEvent) {
 		event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1
 	const factor = Math.exp(event.deltaY * unit * 0.0015)
 
+	// Compute from the spring's target rather than its current value so rapid wheel events accumulate instead of being swallowed while it catches up.
+	const base = viewSpring.target
+	const baseSpan = base.end - base.start
+	if (baseSpan <= 0) return
+
 	const span = clamp(
-		snapToFrame(viewSpan * factor, frameRate),
+		snapToFrame(baseSpan * factor, frameRate),
 		minViewSpan(),
 		duration
 	)
-	const anchor = view.start + ratio * viewSpan
+	const anchor = base.start + ratio * baseSpan
 	const start = clamp(
 		snapToFrame(anchor - ratio * span, frameRate),
 		0,
 		Math.max(0, duration - span)
 	)
-	view = { start, end: start + span }
+	void viewSpring.set(
+		{ start, end: start + span },
+		{ instant: prefersReducedMotion.current }
+	)
+}
+
+/** Snap the visible window immediately (used by drags and the navigator). */
+function setView(next: ViewWindow) {
+	void viewSpring.set(next, { instant: true })
 }
 
 /**
@@ -393,7 +410,7 @@ function onPointerMove(event: PointerEvent) {
 				0,
 				Math.max(0, duration - pan.span)
 			)
-			view = { start, end: start + pan.span }
+			setView({ start, end: start + pan.span })
 		}
 		return
 	}
@@ -688,8 +705,9 @@ function onKeyDown(event: KeyboardEvent) {
 			{currentTime}
 			{selections}
 			{idleRanges}
+			{view}
+			onviewchange={setView}
 			playbackUrl={timelapse.playbackUrl}
-			bind:view
 		/>
 	</div>
 {/if}
