@@ -14,9 +14,8 @@ const FRAME_COUNT = 12
 let videoDuration = $state(0)
 let hoverTime = $state<number | null>(null)
 let frames = $state<string[]>([])
-// False when frame capture fails (e.g. cross-origin video without CORS headers)
+// False when frame capture fails
 let previewsAvailable = $state(false)
-
 const duration = $derived(video?.duration ?? videoDuration)
 
 function formatTime(seconds: number): string {
@@ -33,10 +32,10 @@ async function captureFrames(src: string, duration: number) {
 	frames = []
 
 	const capture = document.createElement("video")
-	capture.crossOrigin = "anonymous"
 	capture.muted = true
 	capture.preload = "auto"
-	capture.src = src
+	// Same-origin proxy keeps the canvas untainted without the CDN sending CORS headers
+	capture.src = `/lapse-proxy?url=${encodeURIComponent(src)}`
 
 	try {
 		await new Promise<void>((resolve, reject) => {
@@ -69,8 +68,7 @@ async function captureFrames(src: string, duration: number) {
 		frames = results
 		previewsAvailable = true
 	} catch {
-		// Cross-origin video without CORS headers taints the canvas; fall back to
-		// time-only placeholders and scrubbing without previews.
+		// Fall back to time-only placeholders and scrubbing without previews.
 		if (token !== captureToken) return
 		previewsAvailable = false
 	} finally {
