@@ -1,5 +1,6 @@
 <script lang="ts">
 import { captureFramesAt } from "#lib/frame-capture.js"
+import type { IdleRange } from "#lib/idle-time.js"
 import {
 	clamp,
 	MIN_VISIBLE_FRAMES,
@@ -21,6 +22,7 @@ let {
 	playbackUrl = "",
 	currentTime = 0,
 	selections = [],
+	idleRanges = [],
 	view = $bindable<ViewWindow>({ start: 0, end: 0 }),
 }: {
 	duration: number
@@ -28,6 +30,7 @@ let {
 	playbackUrl?: string
 	currentTime?: number
 	selections?: TimelineSelection[]
+	idleRanges?: IdleRange[]
 	view?: ViewWindow
 } = $props()
 
@@ -174,6 +177,17 @@ function onPointerUp(event: PointerEvent) {
 					>
 				{/if}
 			</div>
+		{/each}
+	</div>
+
+	<!-- Idle stretches where the picture never changes -->
+	<div class="pointer-events-none absolute inset-0">
+		{#each idleRanges as range (range.start)}
+			<div
+				class="absolute inset-y-0 border-x border-amber-400/50 bg-amber-400/25"
+				style:left="{percentOf(range.start, duration)}%"
+				style:width="{percentOf(range.end - range.start, duration)}%"
+			></div>
 		{/each}
 	</div>
 

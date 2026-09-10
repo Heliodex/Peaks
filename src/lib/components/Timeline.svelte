@@ -1,5 +1,7 @@
 <script lang="ts">
 import { detectFrameRate } from "#lib/frame-rate.js"
+import type { IdleRange } from "#lib/idle-time.js"
+import { createIdleAnalysis } from "#lib/idle-time.svelte.js"
 import {
 	clamp,
 	formatClock,
@@ -40,10 +42,14 @@ let {
 	timelapse,
 	video,
 	selections = $bindable<TimelineSelection[]>([]),
+	idleRanges = $bindable<IdleRange[]>([]),
+	idleAnalyzing = $bindable(false),
 }: {
 	timelapse: { playbackUrl: string; thumbnailUrl?: string | null }
 	video: HTMLVideoElement | undefined
 	selections?: TimelineSelection[]
+	idleRanges?: IdleRange[]
+	idleAnalyzing?: boolean
 } = $props()
 
 const FRAME_COUNT = 12
@@ -79,6 +85,19 @@ const frameStrip = createFrameStrip({
 let drag = $state<DragState>(null)
 let pan = $state<PanState>(null)
 let nextId = 0
+
+// Scan the video for stretches where the picture never changes (time spent
+// AFK) and publish them to the parent so it can report an "actual" duration.
+const idle = createIdleAnalysis({
+	src: () => timelapse.playbackUrl,
+	duration: () => duration,
+	frameRate: () => frameRate,
+})
+
+$effect(() => {
+	idleRanges = idle.ranges
+	idleAnalyzing = idle.analyzing
+})
 
 function makeId(): string {
 	return `selection-${++nextId}`
@@ -566,6 +585,20 @@ function onKeyDown(event: KeyboardEvent) {
 				{/if}
 			</div>
 
+			<!-- Idle stretches where the picture never changes (time spent AFK) -->
+			{#each idleRanges as range (range.start)}
+				{@const idleStart = Math.max(range.start, view.start)}
+				{@const idleEnd = Math.min(range.end, view.end)}
+				{#if idleEnd > idleStart}
+					<div
+						class="pointer-events-none absolute inset-y-0 border-x border-amber-400/50 bg-amber-400/25"
+						style:left="{percentWithin(idleStart, view)}%"
+						style:width="{percentWithin(idleEnd, view) -
+							percentWithin(idleStart, view)}%"
+					></div>
+				{/if}
+			{/each}
+
 			<!-- Selections, clamped to the visible window -->
 			{#each selections as sel (sel.id)}
 				{@const visibleStart = Math.max(sel.start, view.start)}
@@ -654,6 +687,7 @@ function onKeyDown(event: KeyboardEvent) {
 			{frameRate}
 			{currentTime}
 			{selections}
+			{idleRanges}
 			playbackUrl={timelapse.playbackUrl}
 			bind:view
 		/>

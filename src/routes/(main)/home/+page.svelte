@@ -1,5 +1,6 @@
 <script lang="ts">
 import Timeline from "#lib/components/Timeline.svelte"
+import type { IdleRange } from "#lib/idle-time.js"
 import { formatClock, type TimelineSelection } from "#lib/timeline.js"
 import { getLapseData, getTimelapse, logout } from "../api.remote.js"
 
@@ -7,6 +8,8 @@ let timelapseId = $state("")
 let submittedId = $state("")
 let videoEl = $state<HTMLVideoElement>()
 let selections = $state<TimelineSelection[]>([])
+let idleRanges = $state<IdleRange[]>([])
+let idleAnalyzing = $state(false)
 
 function formatDuration(seconds: number): string {
 	if (!Number.isFinite(seconds) || seconds <= 0) return "—"
@@ -66,6 +69,8 @@ const sortedSelections = $derived(
 					e.preventDefault()
 					submittedId = timelapseId.trim()
 					selections = []
+					idleRanges = []
+					idleAnalyzing = false
 				}}
 			>
 				<label class="flex items-center gap-2">
@@ -125,6 +130,14 @@ const sortedSelections = $derived(
 
 					{@const timelapse = await getTimelapse(submittedId)}
 					{#if timelapse}
+						{@const idleDuration = idleRanges.reduce(
+							(sum, range) => sum + (range.end - range.start),
+							0
+						)}
+						{@const actualDuration = Math.max(
+							0,
+							timelapse.duration - idleDuration
+						)}
 						<div
 							class="flex w-full max-w-5xl flex-col items-center gap-4"
 						>
@@ -142,6 +155,8 @@ const sortedSelections = $derived(
 								{#if videoEl}
 									<Timeline
 										bind:selections
+										bind:idleRanges
+										bind:idleAnalyzing
 										timelapse={{
 											playbackUrl: timelapse.playbackUrl,
 											thumbnailUrl: timelapse.thumbnailUrl,
@@ -177,6 +192,17 @@ const sortedSelections = $derived(
 											an annotation.
 										</p>
 									{/if}
+									{#if idleRanges.length > 0}
+										<p
+											class="flex items-center gap-2 text-xs text-neutral-500"
+										>
+											<span
+												class="inline-block h-2 w-3 rounded-sm border border-amber-400/50 bg-amber-400/25"
+											></span>
+											Amber regions have no visual changes
+											(time spent away).
+										</p>
+									{/if}
 								{/if}
 							{:else}
 								<p>
@@ -186,7 +212,7 @@ const sortedSelections = $derived(
 							{/if}
 
 							<dl
-								class="grid w-full grid-cols-2 gap-3 sm:grid-cols-3"
+								class="grid w-full grid-cols-2 gap-3 sm:grid-cols-4"
 							>
 								<div class="rounded border p-3">
 									<dt
@@ -197,6 +223,30 @@ const sortedSelections = $derived(
 									<dd class="mt-1 font-medium">
 										{formatDuration(timelapse.duration)}
 									</dd>
+								</div>
+								<div class="rounded border p-3">
+									<dt
+										class="text-xs uppercase tracking-wide text-neutral-500"
+									>
+										Actual time
+									</dt>
+									<dd class="mt-1 font-medium">
+										{formatDuration(actualDuration)}
+									</dd>
+									{#if idleAnalyzing}
+										<p
+											class="mt-0.5 text-xs text-amber-600"
+										>
+											Analyzing idle frames…
+										</p>
+									{:else if idleDuration > 0}
+										<p
+											class="mt-0.5 text-xs text-neutral-500"
+										>
+											−{formatDuration(idleDuration)}
+											idle
+										</p>
+									{/if}
 								</div>
 								<div class="rounded border p-3">
 									<dt
