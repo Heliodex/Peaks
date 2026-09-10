@@ -1,19 +1,16 @@
 <script lang="ts">
-import { createFrameCapturer, type FrameCapturer } from "#lib/frame-capture.js"
 import { detectFrameRate } from "#lib/frame-rate.js"
 import {
 	clamp,
 	formatClock,
-	frameStepFor,
 	MIN_VISIBLE_FRAMES,
 	percentWithin,
 	snapToFrame,
 	type TimelineSelection,
 	type ViewWindow,
 } from "#lib/timeline.js"
+import { createFrameStrip } from "#lib/timeline-frames.svelte.js"
 import TimelineNavigator from "./TimelineNavigator.svelte"
-
-type CachedFrame = { time: number; url: string; fresh: boolean }
 
 type DragState =
 	| {
@@ -54,10 +51,6 @@ const FRAME_COUNT = 12
 const DRAG_THRESHOLD_PX = 4
 // Minimum on-screen width (px) of a selection so its handles stay usable
 const MIN_SELECTION_PX = 4
-// Wait this long after the view stops changing before filling in new frames
-const FRAME_REFRESH_MS = 120
-// Upper bound on cached thumbnails kept in memory (small JPEGs)
-const FRAME_CACHE_LIMIT = 200
 // Seconds to skip when the left/right arrow keys are pressed
 const ARROW_SEEK_SECONDS = 5
 // Assumed frame rate for single-frame stepping if detection hasn't finished
@@ -76,14 +69,12 @@ const viewSpan = $derived(Math.max(0, view.end - view.start))
 
 // Thumbnails captured at absolute times, reused across zooming and panning so
 // the strip can slide/scale smoothly instead of blanking on every view change.
-let frameCache = $state<CachedFrame[]>([])
-let captureQueue: number[] = []
-let capturing = false
-let captureTolerance = 0.05
-let captureSrc = ""
-
-let capturer: FrameCapturer | null = null
-let settleTimers: ReturnType<typeof setTimeout>[] = []
+const frameStrip = createFrameStrip({
+	src: () => timelapse.playbackUrl,
+	duration: () => duration,
+	frameRate: () => frameRate,
+	view: () => view,
+})
 
 let drag = $state<DragState>(null)
 let pan = $state<PanState>(null)
@@ -96,86 +87,6 @@ function makeId(): string {
 /** The absolute time represented by a frame slot in the current window. */
 function frameTime(index: number): number {
 	return view.start + (viewSpan * index) / (FRAME_COUNT - 1)
-}
-
-function getCapturer(src: string): FrameCapturer {
-	if (!capturer) capturer = createFrameCapturer(src)
-	return capturer
-}
-
-/** Seek the shared capture video to a time and grab a small JPEG snapshot. */
-function captureFrameAt(src: string, time: number): Promise<string> {
-	const epsilon = Math.min(0.05, (frameRate > 0 ? 1 / frameRate : 0.05) / 2)
-	return getCapturer(src).captureAt(time, epsilon)
-}
-
-function isCached(time: number, tolerance: number): boolean {
-	return frameCache.some(frame => Math.abs(frame.time - time) <= tolerance)
-}
-
-function addFrame(time: number, url: string) {
-	let next = [...frameCache, { time, url, fresh: true }]
-	if (next.length > FRAME_CACHE_LIMIT) {
-		// Keep the thumbnails nearest the visible window.
-		const center = (view.start + view.end) / 2
-		next = next
-			.sort(
-				(a, b) => Math.abs(a.time - center) - Math.abs(b.time - center)
-			)
-			.slice(0, FRAME_CACHE_LIMIT)
-	}
-	frameCache = next
-	// Only freshly captured frames should fade in; clear the flag shortly after so frames merely re-sampled during zooming/panning don't flash.
-	const timer = setTimeout(() => {
-		frameCache = frameCache.map(frame =>
-			frame.time === time && frame.fresh
-				? { ...frame, fresh: false }
-				: frame
-		)
-		settleTimers = settleTimers.filter(t => t !== timer)
-	}, 200)
-	settleTimers = [...settleTimers, timer]
-}
-
-/** Sequentially capture any queued frames, adding each as soon as it's ready. */
-async function runQueue() {
-	if (capturing) return
-	capturing = true
-	try {
-		while (captureQueue.length > 0) {
-			const time = captureQueue.shift() as number
-			if (isCached(time, captureTolerance)) continue
-			const url = await captureFrameAt(captureSrc, time)
-			addFrame(time, url)
-		}
-	} catch {
-		// Leave gaps for any frames we couldn't capture.
-	} finally {
-		capturing = false
-	}
-}
-
-/**
- * Work out which absolute times should have thumbnails for the current window
- * and queue up the ones missing from the cache.
- */
-function populateFrames(src: string, start: number, end: number) {
-	const span = end - start
-	if (span <= 0) return
-
-	captureSrc = src
-	const step = frameStepFor(span, frameRate, FRAME_COUNT)
-	captureTolerance = step / 2
-
-	const queue: number[] = []
-	const first = Math.floor(start / step)
-	const last = Math.floor(end / step)
-	for (let k = first; k <= last; k++) {
-		const time = clamp(k * step, 0, duration)
-		if (!isCached(time, captureTolerance)) queue.push(time)
-	}
-	captureQueue = queue
-	void runQueue()
 }
 
 $effect(() => {
@@ -234,19 +145,6 @@ $effect(() => {
 	}
 })
 
-// Fill in thumbnails for the visible window, debounced so panning and zooming don't kick off captures on every pointer move. Cached frames stay visible meanwhile, so the strip slides smoothly and only missing frames appear.
-$effect(() => {
-	const src = timelapse.playbackUrl
-	const start = view.start
-	const end = view.end
-	if (!src || !(end > start)) return
-
-	const timer = setTimeout(() => {
-		populateFrames(src, start, end)
-	}, FRAME_REFRESH_MS)
-	return () => clearTimeout(timer)
-})
-
 // Measure the video's frame rate once so dragging can snap to real frames.
 $effect(() => {
 	const src = timelapse.playbackUrl
@@ -258,58 +156,6 @@ $effect(() => {
 	return () => {
 		cancelled = true
 	}
-})
-
-// Release the shared capture element when the timeline is destroyed.
-$effect(() => {
-	return () => {
-		for (const timer of settleTimers) clearTimeout(timer)
-		settleTimers = []
-		capturer?.dispose()
-	}
-})
-
-const layoutFrames = $derived.by(() => {
-	const span = viewSpan
-	if (span <= 0) return []
-
-	// Sample the cache onto an absolute, zoom-quantized grid. Because the grid is anchored to time (not to `view.start`), the chosen frame for each grid point stays the same while panning, so the strip slides instead of flickering.
-	const step = frameStepFor(span, frameRate, FRAME_COUNT)
-	const tolerance = step / 2
-	const picks: CachedFrame[] = []
-
-	const first = Math.floor(view.start / step)
-	const last = Math.floor(view.end / step)
-	for (let k = first; k <= last; k++) {
-		const target = k * step
-		let best: CachedFrame | null = null
-		let bestDistance = Number.POSITIVE_INFINITY
-		for (const frame of frameCache) {
-			const distance = Math.abs(frame.time - target)
-			if (distance < bestDistance) {
-				bestDistance = distance
-				best = frame
-			}
-		}
-		if (best && bestDistance <= tolerance && !picks.includes(best)) {
-			picks.push(best)
-		}
-	}
-
-	picks.sort((a, b) => a.time - b.time)
-
-	return picks.map((frame, i) => {
-		const next = picks[i + 1]
-		const left = percentWithin(frame.time, view)
-		const right = next ? percentWithin(next.time, view) : 100
-		return {
-			time: frame.time,
-			url: frame.url,
-			fresh: frame.fresh,
-			left,
-			width: Math.max(0, right - left),
-		}
-	})
 })
 
 function pointerToTime(clientX: number, target: HTMLElement): number {
@@ -676,6 +522,7 @@ function onKeyDown(event: KeyboardEvent) {
 <svelte:window onkeydown={onKeyDown} />
 
 {#if duration > 0}
+	{@const layoutFrames = frameStrip.layout}
 	<div class="pt-4 w-full max-w-5xl">
 		<div
 			class="relative h-20 w-full touch-none rounded border select-none {pan
