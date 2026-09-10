@@ -50,6 +50,8 @@ const MIN_SELECTION_PX = 4
 const FRAME_REFRESH_MS = 120
 // Upper bound on cached thumbnails kept in memory (small JPEGs)
 const FRAME_CACHE_LIMIT = 200
+// Seconds to skip when the left/right arrow keys are pressed
+const ARROW_SEEK_SECONDS = 5
 
 let videoDuration = $state(0)
 let frameRate = $state(0)
@@ -680,10 +682,13 @@ function deleteSelection(id: string, event: MouseEvent) {
 }
 
 /**
- * Spacebar plays/pauses the video instead of scrolling the page. Ignored while typing in a form field or contenteditable element.
+ * Spacebar plays/pauses the video and the arrow keys seek ±5s, instead of scrolling the page. Ignored while typing in a form field or contenteditable element.
  */
 function onKeyDown(event: KeyboardEvent) {
-	if (event.code !== "Space" && event.key !== " ") return
+	const isSpace = event.code === "Space" || event.key === " "
+	const isLeft = event.key === "ArrowLeft"
+	const isRight = event.key === "ArrowRight"
+	if (!isSpace && !isLeft && !isRight) return
 
 	const target = event.target as HTMLElement | null
 	if (
@@ -695,17 +700,23 @@ function onKeyDown(event: KeyboardEvent) {
 	}
 
 	const el = video
-	if (!el) return
+	if (!el || duration <= 0) return
 
 	// Stop the page from scrolling even while a key is held down.
 	event.preventDefault()
-	if (event.repeat) return
 
-	if (el.paused) {
-		void el.play().catch(() => {})
-	} else {
-		el.pause()
+	if (isSpace) {
+		if (event.repeat) return
+		if (el.paused) {
+			void el.play().catch(() => {})
+		} else {
+			el.pause()
+		}
+		return
 	}
+
+	const delta = isLeft ? -ARROW_SEEK_SECONDS : ARROW_SEEK_SECONDS
+	seekTo(clamp(el.currentTime + delta, 0, duration))
 }
 </script>
 
