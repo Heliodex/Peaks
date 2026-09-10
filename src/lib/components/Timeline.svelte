@@ -1,34 +1,61 @@
 <script lang="ts">
-type TimelineSelection = { start: number; end: number }
+type TimelineSelection = { id: string; start: number; end: number }
+
+type DragState =
+	| {
+			kind: "create"
+			id: string
+			anchor: number
+			anchorX: number
+			min: number
+			max: number
+			moved: boolean
+	  }
+	| {
+			kind: "move"
+			id: string
+			offset: number
+			length: number
+			min: number
+			max: number
+	  }
+	| { kind: "resize-start"; id: string; min: number; max: number }
+	| { kind: "resize-end"; id: string; min: number; max: number }
+	| null
 
 let {
 	timelapse,
 	video,
-	selection = $bindable<TimelineSelection | null>(null),
+	selections = $bindable<TimelineSelection[]>([]),
 }: {
 	timelapse: { playbackUrl: string; thumbnailUrl?: string | null }
 	video: HTMLVideoElement | undefined
-	selection?: TimelineSelection | null
+	selections?: TimelineSelection[]
 } = $props()
 
 const FRAME_COUNT = 12
 // Pointer travel (px) required before a press counts as a drag rather than a click
 const DRAG_THRESHOLD_PX = 4
+// Minimum on-screen width (px) of a selection so its handles stay usable
+const MIN_SELECTION_PX = 4
 
 let videoDuration = $state(0)
 let hoverTime = $state<number | null>(null)
+let hoveredSelectionId = $state<string | null>(null)
 let frames = $state<string[]>([])
 // False when frame capture fails
 let previewsAvailable = $state(false)
 const duration = $derived(videoDuration)
 
-// Drag-selection state. `selectionAnchor` is the time where the current drag started; the resulting range lives in the bindable `selection` prop so parents can read the current annotation.
-let selectionAnchor = $state<number | null>(null)
-let isSelecting = $state(false)
-let selectionAnchorX: number | null = null
+let drag = $state<DragState>(null)
+let nextId = 0
 
-function normalizeSelection(a: number, b: number): TimelineSelection {
-	return { start: Math.min(a, b), end: Math.max(a, b) }
+function makeId(): string {
+	return `selection-${++nextId}`
+}
+
+function clamp(value: number, min: number, max: number): number {
+	return Math.min(max, Math.max(min, value))
 }
 
 function formatTime(seconds: number): string {
@@ -111,101 +138,289 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 	return ratio * duration
 }
 
-function startSelection(event: PointerEvent, track: HTMLElement) {
-	selectionAnchor = pointerToTime(event.clientX, track)
-	selectionAnchorX = event.clientX
-	isSelecting = true
-	hoverTime = null
-	selection = normalizeSelection(selectionAnchor, selectionAnchor)
-	track.setPointerCapture(event.pointerId)
+/**
+ * The open space directly left and right of an interval, ignoring `id`.
+ * Used to keep selections from overlapping while creating, moving or resizing.
+ */
+function neighborBounds(id: string, start: number, end: number) {
+	let left = 0
+	let right = duration
+	for (const other of selections) {
+		if (other.id === id) continue
+		if (other.end <= start) left = Math.max(left, other.end)
+		else if (other.start >= end) right = Math.min(right, other.start)
+	}
+	return { left, right }
 }
 
-function updateSelection(event: PointerEvent, track: HTMLElement) {
-	if (selectionAnchor === null) return
-	selection = normalizeSelection(
-		selectionAnchor,
-		pointerToTime(event.clientX, track)
+function updateSelection(
+	id: string,
+	patch: Partial<Omit<TimelineSelection, "id">>
+) {
+	selections = selections.map(other =>
+		other.id === id ? { ...other, ...patch } : other
 	)
 }
 
-function endSelection(event: PointerEvent, track: HTMLElement) {
-	if (!isSelecting) return
+function minSelectionLength(track: HTMLElement): number {
+	const rect = track.getBoundingClientRect()
+	if (rect.width <= 0) return 0
+	return (MIN_SELECTION_PX / rect.width) * duration
+}
 
-	const time = pointerToTime(event.clientX, track)
-	isSelecting = false
+// Class for the hover-only controls (handles + delete button). They stay visible while their selection is the one being dragged.
+function controlsClass(id: string): string {
+	return drag?.id === id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+}
 
-	const dragged =
-		selectionAnchorX !== null &&
-		Math.abs(event.clientX - selectionAnchorX) >= DRAG_THRESHOLD_PX
-	// A plain click (no meaningful drag) clears the current selection.
-	if (dragged && selectionAnchor !== null) {
-		selection = normalizeSelection(selectionAnchor, time)
-	} else {
-		selection = null
+function onPointerDown(event: PointerEvent) {
+	if (event.button !== 0) return
+	const target = event.target as HTMLElement
+	const track = event.currentTarget as HTMLElement
+
+	// The delete button handles its own click.
+	if (target.closest("[data-delete]")) return
+
+	const resizeEl = target.closest<HTMLElement>("[data-resize]")
+	if (resizeEl) {
+		const id = resizeEl.dataset.selectionId
+		const selection = selections.find(s => s.id === id)
+		if (!id || !selection) return
+
+		const { left, right } = neighborBounds(
+			id,
+			selection.start,
+			selection.end
+		)
+		const minLength = minSelectionLength(track)
+		if (resizeEl.dataset.resize === "start") {
+			drag = {
+				kind: "resize-start",
+				id,
+				min: left,
+				max: Math.max(left, selection.end - minLength),
+			}
+		} else {
+			drag = {
+				kind: "resize-end",
+				id,
+				min: Math.min(right, selection.start + minLength),
+				max: right,
+			}
+		}
+		track.setPointerCapture(event.pointerId)
+		event.preventDefault()
+		return
 	}
-	selectionAnchor = null
-	selectionAnchorX = null
+
+	const selectionEl = target.closest<HTMLElement>("[data-selection-id]")
+	if (selectionEl) {
+		const id = selectionEl.dataset.selectionId
+		const selection = selections.find(s => s.id === id)
+		if (!id || !selection) return
+
+		const length = selection.end - selection.start
+		const { left, right } = neighborBounds(
+			id,
+			selection.start,
+			selection.end
+		)
+		drag = {
+			kind: "move",
+			id,
+			offset: pointerToTime(event.clientX, track) - selection.start,
+			length,
+			min: left,
+			max: Math.max(left, right - length),
+		}
+		track.setPointerCapture(event.pointerId)
+		event.preventDefault()
+		return
+	}
+
+	// Empty space: start drawing a brand new selection inside the nearest gap.
+	const anchor = clamp(pointerToTime(event.clientX, track), 0, duration)
+	const { left, right } = neighborBounds("", anchor, anchor)
+	if (right - left <= 0) return
+
+	const id = makeId()
+	selections = [...selections, { id, start: anchor, end: anchor }]
+	drag = {
+		kind: "create",
+		id,
+		anchor,
+		anchorX: event.clientX,
+		min: left,
+		max: right,
+		moved: false,
+	}
+	track.setPointerCapture(event.pointerId)
+	event.preventDefault()
+}
+
+function onPointerMove(event: PointerEvent) {
+	const track = event.currentTarget as HTMLElement
+	const state = drag
+
+	if (state) {
+		const time = pointerToTime(event.clientX, track)
+		if (state.kind === "create") {
+			const end = clamp(time, state.min, state.max)
+			state.moved =
+				state.moved ||
+				Math.abs(event.clientX - state.anchorX) >= DRAG_THRESHOLD_PX
+			updateSelection(state.id, {
+				start: Math.min(state.anchor, end),
+				end: Math.max(state.anchor, end),
+			})
+		} else if (state.kind === "move") {
+			const start = clamp(time - state.offset, state.min, state.max)
+			updateSelection(state.id, { start, end: start + state.length })
+		} else if (state.kind === "resize-start") {
+			updateSelection(state.id, {
+				start: clamp(time, state.min, state.max),
+			})
+		} else {
+			updateSelection(state.id, {
+				end: clamp(time, state.min, state.max),
+			})
+		}
+		return
+	}
+
+	// Hovering: preview-scrub and remember which selection is under the pointer.
+	const selectionEl = (event.target as HTMLElement).closest<HTMLElement>(
+		"[data-selection-id]"
+	)
+	hoveredSelectionId = selectionEl?.dataset.selectionId ?? null
+	hoverTime = pointerToTime(event.clientX, track)
+	if (video && video.readyState >= 1) {
+		video.currentTime = hoverTime
+	}
+}
+
+function onPointerUp(event: PointerEvent) {
+	const track = event.currentTarget as HTMLElement
+	const state = drag
+	drag = null
 
 	if (track.hasPointerCapture(event.pointerId)) {
 		track.releasePointerCapture(event.pointerId)
 	}
+	if (!state) return
+
+	if (state.kind === "create") {
+		const created = selections.find(s => s.id === state.id)
+		// An un-dragged press (or an empty range) is discarded like a click.
+		if (!state.moved || !created || created.end - created.start <= 0) {
+			selections = selections.filter(s => s.id !== state.id)
+		}
+	}
+}
+
+function onPointerLeave() {
+	if (drag) return
+	hoverTime = null
+	hoveredSelectionId = null
+}
+
+function deleteSelection(id: string, event: MouseEvent) {
+	event.stopPropagation()
+	selections = selections.filter(s => s.id !== id)
+	if (hoveredSelectionId === id) hoveredSelectionId = null
 }
 </script>
 
 {#if duration > 0}
 	<div class="pt-4 w-full max-w-5xl">
 		<div
-			class="relative flex h-20 w-full touch-none overflow-hidden rounded border select-none"
-			onpointerdown={e => {
-				if (e.button === 0) startSelection(e, e.currentTarget)
-			}}
-			onpointermove={e => {
-				if (isSelecting) {
-					updateSelection(e, e.currentTarget)
-					return
-				}
-				hoverTime = pointerToTime(e.clientX, e.currentTarget)
-				if (video && video.readyState >= 1) {
-					video.currentTime = hoverTime
-				}
-			}}
-			onpointerup={e => endSelection(e, e.currentTarget)}
-			onpointercancel={e => endSelection(e, e.currentTarget)}
-			onpointerleave={() => {
-				if (!isSelecting) hoverTime = null
-			}}
+			class="relative h-20 w-full touch-none rounded border select-none"
+			onpointerdown={onPointerDown}
+			onpointermove={onPointerMove}
+			onpointerup={onPointerUp}
+			onpointercancel={onPointerUp}
+			onpointerleave={onPointerLeave}
 			role="presentation"
 		>
-			{#each Array(FRAME_COUNT) as _, i (i)}
-				<div class="relative h-full min-w-0 flex-1">
-					{#if previewsAvailable && frames[i]}
-						<img
-							src={frames[i]}
-							alt={`Frame at ${formatTime((duration * i) / (FRAME_COUNT - 1))}`}
-							class="h-full w-full object-cover"
-							draggable="false"
-						>
-					{:else}
-						<div
-							class="flex h-full w-full items-center justify-center border-r border-white/10 bg-neutral-800 text-[10px] text-neutral-500 last:border-r-0"
-						>
-							{previewsAvailable
-								? ""
-								: formatTime((duration * i) / (FRAME_COUNT - 1))}
-						</div>
-					{/if}
+			<!-- Frame previews, clipped to the rounded track -->
+			<div
+				class="pointer-events-none absolute inset-0 flex overflow-hidden rounded"
+			>
+				{#each Array(FRAME_COUNT) as _, i (i)}
+					<div class="relative h-full min-w-0 flex-1">
+						{#if previewsAvailable && frames[i]}
+							<img
+								src={frames[i]}
+								alt={`Frame at ${formatTime((duration * i) / (FRAME_COUNT - 1))}`}
+								class="h-full w-full object-cover"
+								draggable="false"
+							>
+						{:else}
+							<div
+								class="flex h-full w-full items-center justify-center border-r border-white/10 bg-neutral-800 text-[10px] text-neutral-500 last:border-r-0"
+							>
+								{previewsAvailable
+									? ""
+									: formatTime((duration * i) / (FRAME_COUNT - 1))}
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+
+			<!-- Selections -->
+			{#each selections as sel (sel.id)}
+				<div
+					class="group absolute inset-y-0 cursor-grab active:cursor-grabbing"
+					data-selection-id={sel.id}
+					style:left="{(sel.start / duration) * 100}%"
+					style:width="{((sel.end - sel.start) / duration) * 100}%"
+				>
+					<div
+						class="pointer-events-none absolute inset-0 border-x-2 border-red-500 bg-red-500/40"
+					></div>
+
+					<div
+						data-resize="start"
+						data-selection-id={sel.id}
+						class="absolute inset-y-0 -left-1 flex w-2 cursor-ew-resize items-center justify-center transition-opacity {controlsClass(
+							sel.id
+						)}"
+						role="presentation"
+					>
+						<span
+							class="h-6 w-1 rounded-full bg-red-600 shadow"
+						></span>
+					</div>
+
+					<div
+						data-resize="end"
+						data-selection-id={sel.id}
+						class="absolute inset-y-0 -right-1 flex w-2 cursor-ew-resize items-center justify-center transition-opacity {controlsClass(
+							sel.id
+						)}"
+						role="presentation"
+					>
+						<span
+							class="h-6 w-1 rounded-full bg-red-600 shadow"
+						></span>
+					</div>
+
+					<button
+						type="button"
+						data-delete={sel.id}
+						aria-label="Delete selection"
+						onclick={e => deleteSelection(sel.id, e)}
+						class="absolute -top-3 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-red-500 bg-white text-xs leading-none text-red-600 shadow transition-opacity {controlsClass(
+							sel.id
+						)}"
+					>
+						×
+					</button>
 				</div>
 			{/each}
 
-			{#if selection}
-				<div
-					class="pointer-events-none absolute inset-y-0 border-x-2 border-red-500 bg-red-500/40"
-					style:left="{(selection.start / duration) * 100}%"
-					style:width="{((selection.end - selection.start) / duration) * 100}%"
-				></div>
-			{/if}
-
-			{#if hoverTime !== null}
+			{#if hoverTime !== null && hoveredSelectionId === null}
 				<div
 					class="pointer-events-none absolute top-1 rounded bg-black/80 px-1.5 py-0.5 text-xs text-white"
 					style:left="{(hoverTime / duration) * 100}%"

@@ -5,7 +5,7 @@ import { getLapseData, getTimelapse, logout } from "../api.remote.js"
 let timelapseId = $state("")
 let submittedId = $state("")
 let videoEl = $state<HTMLVideoElement>()
-let selectedRange = $state<{ start: number; end: number } | null>(null)
+let selections = $state<{ id: string; start: number; end: number }[]>([])
 
 function formatDuration(seconds: number): string {
 	if (!Number.isFinite(seconds) || seconds <= 0) return "—"
@@ -34,6 +34,10 @@ function formatCreatedAt(timestamp: number): string {
 		timeStyle: "short",
 	})
 }
+
+const sortedSelections = $derived(
+	[...selections].sort((a, b) => a.start - b.start)
+)
 </script>
 
 <main class="flex min-h-screen flex-col">
@@ -67,7 +71,7 @@ function formatCreatedAt(timestamp: number): string {
 				onsubmit={e => {
 					e.preventDefault()
 					submittedId = timelapseId.trim()
-					selectedRange = null
+					selections = []
 				}}
 			>
 				<label class="flex items-center gap-2">
@@ -143,28 +147,34 @@ function formatCreatedAt(timestamp: number): string {
 								</video>
 								{#if videoEl}
 									<Timeline
-										bind:selection={selectedRange}
+										bind:selections
 										timelapse={{
 											playbackUrl: timelapse.playbackUrl,
 											thumbnailUrl: timelapse.thumbnailUrl,
 										}}
 										video={videoEl}
 									/>
-									{#if selectedRange}
-										<p class="pt-2 text-sm">
-											Annotation:
-											<span class="font-medium"
-												>{formatTimestamp(
-													selectedRange.start
-												)}</span
-											>
-											–
-											<span class="font-medium"
-												>{formatTimestamp(
-													selectedRange.end
-												)}</span
-											>
-										</p>
+									{#if sortedSelections.length > 0}
+										<ul
+											class="flex flex-col gap-1 pt-2 text-sm"
+										>
+											{#each sortedSelections as sel, i (sel.id)}
+												<li>
+													Selection {i + 1}:
+													<span class="font-medium"
+														>{formatTimestamp(
+															sel.start
+														)}</span
+													>
+													–
+													<span class="font-medium"
+														>{formatTimestamp(
+															sel.end
+														)}</span
+													>
+												</li>
+											{/each}
+										</ul>
 									{:else}
 										<p
 											class="pt-2 text-sm text-neutral-500"
