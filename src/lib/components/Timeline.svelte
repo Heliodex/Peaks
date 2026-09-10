@@ -98,7 +98,7 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 </script>
 
 {#if duration > 0}
-	<div class="mt-3 w-full max-w-5xl">
+	<div class="pt-4 w-full max-w-5xl">
 		<div
 			class="relative flex h-20 w-full overflow-hidden rounded border select-none"
 			onpointermove={e => {
@@ -143,7 +143,7 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 			{/if}
 		</div>
 
-		<div class="mt-1 flex justify-between text-xs text-neutral-500">
+		<div class="pt-2 flex justify-between text-xs text-neutral-500">
 			<span>0:00</span>
 			<span>{formatTime(duration)}</span>
 		</div>
