@@ -678,7 +678,38 @@ function deleteSelection(id: string, event: MouseEvent) {
 	selections = selections.filter(s => s.id !== id)
 	if (hoveredSelectionId === id) hoveredSelectionId = null
 }
+
+/**
+ * Spacebar plays/pauses the video instead of scrolling the page. Ignored while typing in a form field or contenteditable element.
+ */
+function onKeyDown(event: KeyboardEvent) {
+	if (event.code !== "Space" && event.key !== " ") return
+
+	const target = event.target as HTMLElement | null
+	if (
+		target &&
+		(target.isContentEditable ||
+			target.closest("input, textarea, select, [contenteditable]"))
+	) {
+		return
+	}
+
+	const el = video
+	if (!el) return
+
+	// Stop the page from scrolling even while a key is held down.
+	event.preventDefault()
+	if (event.repeat) return
+
+	if (el.paused) {
+		void el.play().catch(() => {})
+	} else {
+		el.pause()
+	}
+}
 </script>
+
+<svelte:window onkeydown={onKeyDown} />
 
 {#if duration > 0}
 	<div class="pt-4 w-full max-w-5xl">
