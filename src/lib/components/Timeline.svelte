@@ -1,4 +1,5 @@
 <script lang="ts">
+import { detectFrameRate } from "#lib/frame-rate.js"
 import TimelineNavigator from "./TimelineNavigator.svelte"
 
 type TimelineSelection = { id: string; start: number; end: number }
@@ -45,6 +46,7 @@ const MIN_SELECTION_PX = 4
 const FRAME_REFRESH_MS = 120
 
 let videoDuration = $state(0)
+let frameRate = $state(0)
 let hoverTime = $state<number | null>(null)
 let hoveredSelectionId = $state<string | null>(null)
 let frames = $state<string[]>([])
@@ -65,6 +67,15 @@ function makeId(): string {
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, value))
+}
+
+/**
+ * Quantize a time to the nearest video frame boundary. When the frame rate is
+ * unknown the time is returned unchanged (snapping disabled).
+ */
+function snapToFrame(time: number): number {
+	if (frameRate <= 0) return time
+	return Math.round(time * frameRate) / frameRate
 }
 
 function formatTime(seconds: number): string {
@@ -173,6 +184,19 @@ $effect(() => {
 	return () => clearTimeout(timer)
 })
 
+// Measure the video's frame rate once so dragging can snap to real frames.
+$effect(() => {
+	const src = timelapse.playbackUrl
+	if (!src) return
+	let cancelled = false
+	void detectFrameRate(src).then(rate => {
+		if (!cancelled && rate > 0) frameRate = rate
+	})
+	return () => {
+		cancelled = true
+	}
+})
+
 function pointerToTime(clientX: number, target: HTMLElement): number {
 	const rect = target.getBoundingClientRect()
 	const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
@@ -212,7 +236,9 @@ function updateSelection(
 function minSelectionLength(track: HTMLElement): number {
 	const rect = track.getBoundingClientRect()
 	if (rect.width <= 0 || viewSpan <= 0) return 0
-	return (MIN_SELECTION_PX / rect.width) * viewSpan
+	const pixelMin = (MIN_SELECTION_PX / rect.width) * viewSpan
+	const frameMin = frameRate > 0 ? 1 / frameRate : 0
+	return Math.max(pixelMin, frameMin)
 }
 
 // Class for the hover-only controls (handles + delete button). They stay
@@ -287,7 +313,11 @@ function onPointerDown(event: PointerEvent) {
 	}
 
 	// Empty space: start drawing a brand new selection inside the nearest gap.
-	const anchor = clamp(pointerToTime(event.clientX, track), 0, duration)
+	const anchor = clamp(
+		snapToFrame(pointerToTime(event.clientX, track)),
+		0,
+		duration
+	)
 	const { left, right } = neighborBounds("", anchor, anchor)
 	if (right - left <= 0) return
 
@@ -313,7 +343,7 @@ function onPointerMove(event: PointerEvent) {
 	if (state) {
 		const time = pointerToTime(event.clientX, track)
 		if (state.kind === "create") {
-			const end = clamp(time, state.min, state.max)
+			const end = clamp(snapToFrame(time), state.min, state.max)
 			state.moved =
 				state.moved ||
 				Math.abs(event.clientX - state.anchorX) >= DRAG_THRESHOLD_PX
@@ -324,15 +354,19 @@ function onPointerMove(event: PointerEvent) {
 			// Seek to the moving edge so the frame being selected is visible.
 			seekTo(end)
 		} else if (state.kind === "move") {
-			const start = clamp(time - state.offset, state.min, state.max)
+			const start = clamp(
+				snapToFrame(time - state.offset),
+				state.min,
+				state.max
+			)
 			updateSelection(state.id, { start, end: start + state.length })
 		} else if (state.kind === "resize-start") {
-			const start = clamp(time, state.min, state.max)
+			const start = clamp(snapToFrame(time), state.min, state.max)
 			updateSelection(state.id, { start })
 			// Seek to the exact new boundary so the frame is visible while resizing.
 			seekTo(start)
 		} else {
-			const end = clamp(time, state.min, state.max)
+			const end = clamp(snapToFrame(time), state.min, state.max)
 			updateSelection(state.id, { end })
 			seekTo(end)
 		}
@@ -495,6 +529,6 @@ function deleteSelection(id: string, event: MouseEvent) {
 			<span>{formatTime(view.end)}</span>
 		</div>
 
-		<TimelineNavigator {duration} bind:view />
+		<TimelineNavigator {duration} {frameRate} bind:view />
 	</div>
 {/if}

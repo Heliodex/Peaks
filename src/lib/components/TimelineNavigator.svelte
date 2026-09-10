@@ -9,9 +9,11 @@ type NavDrag =
 
 let {
 	duration,
+	frameRate = 0,
 	view = $bindable<ViewWindow>({ start: 0, end: 0 }),
 }: {
 	duration: number
+	frameRate?: number
 	view?: ViewWindow
 } = $props()
 
@@ -24,6 +26,11 @@ function clamp(value: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, value))
 }
 
+function snapToFrame(time: number): number {
+	if (frameRate <= 0) return time
+	return Math.round(time * frameRate) / frameRate
+}
+
 function pointerToTime(clientX: number, target: HTMLElement): number {
 	const rect = target.getBoundingClientRect()
 	const ratio = clamp((clientX - rect.left) / rect.width, 0, 1)
@@ -33,7 +40,9 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 function minWindowLength(track: HTMLElement): number {
 	const rect = track.getBoundingClientRect()
 	if (rect.width <= 0) return 0
-	return (MIN_WINDOW_PX / rect.width) * duration
+	const pixelMin = (MIN_WINDOW_PX / rect.width) * duration
+	const frameMin = frameRate > 0 ? 1 / frameRate : 0
+	return Math.max(pixelMin, frameMin)
 }
 
 function onPointerDown(event: PointerEvent) {
@@ -65,7 +74,11 @@ function onPointerDown(event: PointerEvent) {
 	}
 
 	// Clicking empty space recenters the zoom window on that point.
-	const start = clamp(time - length / 2, 0, Math.max(0, duration - length))
+	const start = clamp(
+		snapToFrame(time - length / 2),
+		0,
+		Math.max(0, duration - length)
+	)
 	view = { start, end: start + length }
 }
 
@@ -77,16 +90,24 @@ function onPointerMove(event: PointerEvent) {
 
 	if (state.kind === "move") {
 		const start = clamp(
-			time - state.offset,
+			snapToFrame(time - state.offset),
 			0,
 			Math.max(0, duration - state.length)
 		)
 		view = { start, end: start + state.length }
 	} else if (state.kind === "resize-start") {
-		const start = clamp(time, 0, Math.max(0, view.end - state.minLength))
+		const start = clamp(
+			snapToFrame(time),
+			0,
+			Math.max(0, view.end - state.minLength)
+		)
 		view = { start, end: view.end }
 	} else {
-		const end = clamp(time, view.start + state.minLength, duration)
+		const end = clamp(
+			snapToFrame(time),
+			view.start + state.minLength,
+			duration
+		)
 		view = { start: view.start, end }
 	}
 }
