@@ -1,6 +1,4 @@
 <script lang="ts">
-import type { Snippet } from "svelte"
-
 let {
 	timelapse,
 	video,
@@ -16,7 +14,7 @@ let hoverTime = $state<number | null>(null)
 let frames = $state<string[]>([])
 // False when frame capture fails
 let previewsAvailable = $state(false)
-const duration = $derived(video?.duration ?? videoDuration)
+const duration = $derived(videoDuration)
 
 function formatTime(seconds: number): string {
 	const s = Math.max(0, Math.floor(seconds))
@@ -81,9 +79,10 @@ $effect(() => {
 	if (!el || !timelapse.playbackUrl) return
 
 	const onLoaded = () => {
-		videoDuration = el.duration
-		if (Number.isFinite(el.duration) && el.duration > 0) {
-			void captureFrames(timelapse.playbackUrl, el.duration)
+		videoDuration =
+			Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0
+		if (videoDuration > 0) {
+			void captureFrames(timelapse.playbackUrl, videoDuration)
 		}
 	}
 	el.addEventListener("loadedmetadata", onLoaded)
@@ -113,7 +112,7 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 			}}
 			role="presentation"
 		>
-			{#each Array(FRAME_COUNT) as _, i}
+			{#each Array(FRAME_COUNT) as _, i (i)}
 				<div class="relative h-full min-w-0 flex-1">
 					{#if previewsAvailable && frames[i]}
 						<img

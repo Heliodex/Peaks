@@ -111,7 +111,7 @@ let videoEl = $state<HTMLVideoElement>()
 								>
 									<track kind="captions">
 								</video>
-								{#key videoEl}
+								{#if videoEl}
 									<Timeline
 										timelapse={{
 											playbackUrl: timelapse.playbackUrl,
@@ -119,7 +119,7 @@ let videoEl = $state<HTMLVideoElement>()
 										}}
 										video={videoEl}
 									/>
-								{/key}
+								{/if}
 							</div>
 						{:else}
 							<p>
