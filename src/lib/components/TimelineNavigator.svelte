@@ -1,4 +1,6 @@
 <script lang="ts">
+import { MIN_VISIBLE_FRAMES } from "#lib/timeline-config.js"
+
 type ViewWindow = { start: number; end: number }
 
 type NavDrag =
@@ -19,8 +21,6 @@ let {
 
 // Smallest on-screen width (px) the zoom window may shrink to
 const MIN_WINDOW_PX = 10
-// Maximum zoom-in: never show fewer than this many frames. Zooming past this point doesn't meaningfully improve precision.
-const MIN_VISIBLE_FRAMES = 30
 
 let drag = $state<NavDrag>(null)
 

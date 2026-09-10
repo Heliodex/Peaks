@@ -1,5 +1,6 @@
 <script lang="ts">
 import { detectFrameRate } from "#lib/frame-rate.js"
+import { MIN_VISIBLE_FRAMES } from "#lib/timeline-config.js"
 import TimelineNavigator from "./TimelineNavigator.svelte"
 
 type TimelineSelection = { id: string; start: number; end: number }
@@ -26,6 +27,8 @@ type DragState =
 	| { kind: "resize-start"; id: string; min: number; max: number }
 	| { kind: "resize-end"; id: string; min: number; max: number }
 	| null
+
+type PanState = { startX: number; startView: number; span: number } | null
 
 let {
 	timelapse,
@@ -59,6 +62,7 @@ let view = $state<ViewWindow>({ start: 0, end: 0 })
 const viewSpan = $derived(Math.max(0, view.end - view.start))
 
 let drag = $state<DragState>(null)
+let pan = $state<PanState>(null)
 let nextId = 0
 
 function makeId(): string {
@@ -241,6 +245,57 @@ function minSelectionLength(track: HTMLElement): number {
 	return Math.max(pixelMin, frameMin)
 }
 
+/** Smallest allowed visible span (maximum scroll zoom-in), capped at the video. */
+function minViewSpan(): number {
+	if (duration <= 0) return 0
+	if (frameRate > 0) {
+		return Math.min(duration, MIN_VISIBLE_FRAMES / frameRate)
+	}
+	// Without a known frame rate, don't zoom in past one second.
+	return Math.min(duration, 1)
+}
+
+/** Scroll to zoom in/out, keeping the time under the cursor fixed. */
+function onWheel(event: WheelEvent) {
+	if (duration <= 0 || viewSpan <= 0 || drag || pan) return
+	const track = event.currentTarget as HTMLElement
+	const rect = track.getBoundingClientRect()
+	if (rect.width <= 0) return
+
+	event.preventDefault()
+
+	const ratio = clamp((event.clientX - rect.left) / rect.width, 0, 1)
+	// Normalize line/page deltas to pixels before converting to a zoom factor.
+	const unit =
+		event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1
+	const factor = Math.exp(event.deltaY * unit * 0.0015)
+
+	const span = clamp(snapToFrame(viewSpan * factor), minViewSpan(), duration)
+	const anchor = view.start + ratio * viewSpan
+	const start = clamp(
+		snapToFrame(anchor - ratio * span),
+		0,
+		Math.max(0, duration - span)
+	)
+	view = { start, end: start + span }
+}
+
+/**
+ * Attaches wheel-to-zoom and right-drag support to the track. Uses an
+ * attachment so the wheel listener can be non-passive (reliably preventing page
+ * scroll) and so the right-click context menu can be suppressed for panning.
+ */
+function timelineGestures(node: HTMLElement) {
+	const handleWheel = (event: WheelEvent) => onWheel(event)
+	const handleContextMenu = (event: MouseEvent) => event.preventDefault()
+	node.addEventListener("wheel", handleWheel, { passive: false })
+	node.addEventListener("contextmenu", handleContextMenu)
+	return () => {
+		node.removeEventListener("wheel", handleWheel)
+		node.removeEventListener("contextmenu", handleContextMenu)
+	}
+}
+
 // Class for the hover-only controls (handles + delete button). They stay
 // visible while their selection is the one being dragged.
 function controlsClass(id: string): string {
@@ -248,9 +303,18 @@ function controlsClass(id: string): string {
 }
 
 function onPointerDown(event: PointerEvent) {
-	if (event.button !== 0) return
-	const target = event.target as HTMLElement
 	const track = event.currentTarget as HTMLElement
+
+	// Right-drag pans the visible window.
+	if (event.button === 2) {
+		event.preventDefault()
+		pan = { startX: event.clientX, startView: view.start, span: viewSpan }
+		track.setPointerCapture(event.pointerId)
+		return
+	}
+	if (event.button !== 0) return
+
+	const target = event.target as HTMLElement
 
 	// The delete button handles its own click.
 	if (target.closest("[data-delete]")) return
@@ -338,6 +402,21 @@ function onPointerDown(event: PointerEvent) {
 
 function onPointerMove(event: PointerEvent) {
 	const track = event.currentTarget as HTMLElement
+
+	if (pan) {
+		const rect = track.getBoundingClientRect()
+		if (rect.width > 0) {
+			const delta = ((event.clientX - pan.startX) / rect.width) * pan.span
+			const start = clamp(
+				snapToFrame(pan.startView - delta),
+				0,
+				Math.max(0, duration - pan.span)
+			)
+			view = { start, end: start + pan.span }
+		}
+		return
+	}
+
 	const state = drag
 
 	if (state) {
@@ -388,6 +467,7 @@ function onPointerUp(event: PointerEvent) {
 	const track = event.currentTarget as HTMLElement
 	const state = drag
 	drag = null
+	pan = null
 
 	if (track.hasPointerCapture(event.pointerId)) {
 		track.releasePointerCapture(event.pointerId)
@@ -404,7 +484,7 @@ function onPointerUp(event: PointerEvent) {
 }
 
 function onPointerLeave() {
-	if (drag) return
+	if (drag || pan) return
 	hoverTime = null
 	hoveredSelectionId = null
 }
@@ -419,12 +499,15 @@ function deleteSelection(id: string, event: MouseEvent) {
 {#if duration > 0}
 	<div class="pt-4 w-full max-w-5xl">
 		<div
-			class="relative h-20 w-full touch-none rounded border select-none"
+			class="relative h-20 w-full touch-none rounded border select-none {pan
+				? 'cursor-grabbing'
+				: ''}"
 			onpointerdown={onPointerDown}
 			onpointermove={onPointerMove}
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerUp}
 			onpointerleave={onPointerLeave}
+			{@attach timelineGestures}
 			role="presentation"
 		>
 			<!-- Frame previews, clipped to the rounded track -->
