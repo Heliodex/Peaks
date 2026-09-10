@@ -50,8 +50,6 @@ const MIN_SELECTION_PX = 4
 const FRAME_REFRESH_MS = 120
 // Upper bound on cached thumbnails kept in memory (small JPEGs)
 const FRAME_CACHE_LIMIT = 200
-// Upper bound on thumbnails rendered at once, to keep the DOM light
-const MAX_RENDERED_FRAMES = 48
 
 let videoDuration = $state(0)
 let frameRate = $state(0)
@@ -286,17 +284,34 @@ $effect(() => {
 })
 
 const layoutFrames = $derived.by(() => {
-	const visible = frameCache
-		.filter(frame => frame.time >= view.start && frame.time < view.end)
-		.sort((a, b) => a.time - b.time)
-	const step =
-		visible.length > MAX_RENDERED_FRAMES
-			? Math.ceil(visible.length / MAX_RENDERED_FRAMES)
-			: 1
-	const chosen = step > 1 ? visible.filter((_, i) => i % step === 0) : visible
+	const span = viewSpan
+	if (span <= 0) return []
 
-	return chosen.map((frame, i) => {
-		const next = chosen[i + 1]
+	// Sample the cache onto an even grid for the current view. This reuses the denser frames captured at a previous (higher) zoom level, but stops them from rendering as thin slivers when zoomed back out.
+	const step = span / (FRAME_COUNT - 1)
+	const tolerance = step / 2
+	const picks: CachedFrame[] = []
+
+	for (let i = 0; i < FRAME_COUNT; i++) {
+		const target = view.start + step * i
+		let best: CachedFrame | null = null
+		let bestDistance = Number.POSITIVE_INFINITY
+		for (const frame of frameCache) {
+			const distance = Math.abs(frame.time - target)
+			if (distance < bestDistance) {
+				bestDistance = distance
+				best = frame
+			}
+		}
+		if (best && bestDistance <= tolerance && !picks.includes(best)) {
+			picks.push(best)
+		}
+	}
+
+	picks.sort((a, b) => a.time - b.time)
+
+	return picks.map((frame, i) => {
+		const next = picks[i + 1]
 		const left = timeToPercent(frame.time)
 		const right = next ? timeToPercent(next.time) : 100
 		return {
@@ -626,7 +641,7 @@ function deleteSelection(id: string, event: MouseEvent) {
 					<img
 						src={frame.url}
 						alt=""
-						class="frame-in absolute inset-y-0 object-cover"
+						class="frame-in absolute inset-y-0 h-full object-cover"
 						style:left="{frame.left}%"
 						style:width="{frame.width}%"
 						draggable="false"
