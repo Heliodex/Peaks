@@ -2,11 +2,12 @@
 // playing a hidden, muted copy for a short window and counting how many frames
 // are presented per second of media time.
 
+import { lapseProxyUrl } from "./lapse.js"
+
 // Stop once we've seen this many frame presentations (enough for a stable rate)
 const MIN_FRAMES = 3
 // Give up after this long, e.g. for extremely low frame rate videos
 const PROBE_TIMEOUT_MS = 6000
-const PROXY_PATH = "/lapse-proxy"
 
 type FrameCallbackMetadata = { presentedFrames: number; mediaTime: number }
 type FrameCallback = (now: number, metadata: FrameCallbackMetadata) => void
@@ -30,7 +31,7 @@ export async function detectFrameRate(src: string): Promise<number> {
 	video.preload = "auto"
 	video.style.cssText =
 		"position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none"
-	video.src = `${PROXY_PATH}?url=${encodeURIComponent(src)}`
+	video.src = lapseProxyUrl(src)
 	document.body.appendChild(video)
 
 	return new Promise<number>(resolve => {

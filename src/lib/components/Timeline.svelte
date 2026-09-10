@@ -1,10 +1,18 @@
 <script lang="ts">
+import { createFrameCapturer, type FrameCapturer } from "#lib/frame-capture.js"
 import { detectFrameRate } from "#lib/frame-rate.js"
-import { MIN_VISIBLE_FRAMES } from "#lib/timeline-config.js"
+import {
+	clamp,
+	formatClock,
+	frameStepFor,
+	MIN_VISIBLE_FRAMES,
+	percentWithin,
+	snapToFrame,
+	type TimelineSelection,
+	type ViewWindow,
+} from "#lib/timeline.js"
 import TimelineNavigator from "./TimelineNavigator.svelte"
 
-type TimelineSelection = { id: string; start: number; end: number }
-type ViewWindow = { start: number; end: number }
 type CachedFrame = { time: number; url: string; fresh: boolean }
 
 type DragState =
@@ -74,9 +82,8 @@ let capturing = false
 let captureTolerance = 0.05
 let captureSrc = ""
 
-let captureEl: HTMLVideoElement | null = null
-let captureElPromise: Promise<HTMLVideoElement> | null = null
-let captureCanvas: HTMLCanvasElement | null = null
+let capturer: FrameCapturer | null = null
+let settleTimers: ReturnType<typeof setTimeout>[] = []
 
 let drag = $state<DragState>(null)
 let pan = $state<PanState>(null)
@@ -86,103 +93,20 @@ function makeId(): string {
 	return `selection-${++nextId}`
 }
 
-function clamp(value: number, min: number, max: number): number {
-	return Math.min(max, Math.max(min, value))
-}
-
-/**
- * Quantize a time to the nearest video frame boundary. When the frame rate is
- * unknown the time is returned unchanged (snapping disabled).
- */
-function snapToFrame(time: number): number {
-	if (frameRate <= 0) return time
-	return Math.round(time * frameRate) / frameRate
-}
-
-function formatTime(seconds: number): string {
-	const s = Math.max(0, Math.floor(seconds))
-	const m = Math.floor(s / 60)
-	const r = s % 60
-	return `${m}:${String(r).padStart(2, "0")}`
-}
-
-/** Map an absolute time to a position within the visible window, as a percentage. */
-function timeToPercent(time: number): number {
-	if (viewSpan <= 0) return 0
-	return ((time - view.start) / viewSpan) * 100
-}
-
 /** The absolute time represented by a frame slot in the current window. */
 function frameTime(index: number): number {
 	return view.start + (viewSpan * index) / (FRAME_COUNT - 1)
 }
 
-/**
- * Spacing for the rendered thumbnail grid. Quantized to a power-of-two multiple of a base (one video frame when known), and independent of `view.start`, so the grid stays anchored to absolute time and doesn't reshuffle while panning.
- */
-function frameStepFor(span: number): number {
-	const base = frameRate > 0 ? 1 / frameRate : 0.1
-	const ideal = span / (FRAME_COUNT - 1)
-	const ratio = Math.max(1, ideal / base)
-	return base * 2 ** Math.round(Math.log2(ratio))
-}
-
-function getCaptureVideo(src: string): Promise<HTMLVideoElement> {
-	if (captureElPromise) return captureElPromise
-	const el = document.createElement("video")
-	el.muted = true
-	el.preload = "auto"
-	// Same-origin proxy keeps the canvas untainted without the CDN sending CORS headers
-	el.src = `/lapse-proxy?url=${encodeURIComponent(src)}`
-	captureEl = el
-	captureElPromise = new Promise<HTMLVideoElement>((resolve, reject) => {
-		el.onloadeddata = () => resolve(el)
-		el.onerror = () => reject(new Error("Failed to load video"))
-	})
-	return captureElPromise
+function getCapturer(src: string): FrameCapturer {
+	if (!capturer) capturer = createFrameCapturer(src)
+	return capturer
 }
 
 /** Seek the shared capture video to a time and grab a small JPEG snapshot. */
-async function captureFrameAt(src: string, time: number): Promise<string> {
-	const el = await getCaptureVideo(src)
+function captureFrameAt(src: string, time: number): Promise<string> {
 	const epsilon = Math.min(0.05, (frameRate > 0 ? 1 / frameRate : 0.05) / 2)
-	const target = Math.max(
-		0,
-		Math.min(time, (el.duration || duration) - epsilon)
-	)
-
-	await new Promise<void>((resolve, reject) => {
-		if (el.readyState >= 2 && Math.abs(el.currentTime - target) < 0.001) {
-			resolve()
-			return
-		}
-		const onSeeked = () => {
-			cleanup()
-			resolve()
-		}
-		const onError = () => {
-			cleanup()
-			reject(new Error("Failed to seek video"))
-		}
-		const cleanup = () => {
-			el.removeEventListener("seeked", onSeeked)
-			el.removeEventListener("error", onError)
-		}
-		el.addEventListener("seeked", onSeeked)
-		el.addEventListener("error", onError)
-		el.currentTime = target
-	})
-
-	if (!captureCanvas) captureCanvas = document.createElement("canvas")
-	captureCanvas.width = 160
-	captureCanvas.height = Math.max(
-		1,
-		Math.round((160 * el.videoHeight) / (el.videoWidth || 1))
-	)
-	const ctx = captureCanvas.getContext("2d")
-	if (!ctx) throw new Error("No canvas context")
-	ctx.drawImage(el, 0, 0, captureCanvas.width, captureCanvas.height)
-	return captureCanvas.toDataURL("image/jpeg", 0.7)
+	return getCapturer(src).captureAt(time, epsilon)
 }
 
 function isCached(time: number, tolerance: number): boolean {
@@ -202,13 +126,15 @@ function addFrame(time: number, url: string) {
 	}
 	frameCache = next
 	// Only freshly captured frames should fade in; clear the flag shortly after so frames merely re-sampled during zooming/panning don't flash.
-	setTimeout(() => {
+	const timer = setTimeout(() => {
 		frameCache = frameCache.map(frame =>
 			frame.time === time && frame.fresh
 				? { ...frame, fresh: false }
 				: frame
 		)
+		settleTimers = settleTimers.filter(t => t !== timer)
 	}, 200)
+	settleTimers = [...settleTimers, timer]
 }
 
 /** Sequentially capture any queued frames, adding each as soon as it's ready. */
@@ -238,7 +164,7 @@ function populateFrames(src: string, start: number, end: number) {
 	if (span <= 0) return
 
 	captureSrc = src
-	const step = frameStepFor(span)
+	const step = frameStepFor(span, frameRate, FRAME_COUNT)
 	captureTolerance = step / 2
 
 	const queue: number[] = []
@@ -337,10 +263,9 @@ $effect(() => {
 // Release the shared capture element when the timeline is destroyed.
 $effect(() => {
 	return () => {
-		if (captureEl) {
-			captureEl.removeAttribute("src")
-			captureEl.load()
-		}
+		for (const timer of settleTimers) clearTimeout(timer)
+		settleTimers = []
+		capturer?.dispose()
 	}
 })
 
@@ -349,7 +274,7 @@ const layoutFrames = $derived.by(() => {
 	if (span <= 0) return []
 
 	// Sample the cache onto an absolute, zoom-quantized grid. Because the grid is anchored to time (not to `view.start`), the chosen frame for each grid point stays the same while panning, so the strip slides instead of flickering.
-	const step = frameStepFor(span)
+	const step = frameStepFor(span, frameRate, FRAME_COUNT)
 	const tolerance = step / 2
 	const picks: CachedFrame[] = []
 
@@ -375,8 +300,8 @@ const layoutFrames = $derived.by(() => {
 
 	return picks.map((frame, i) => {
 		const next = picks[i + 1]
-		const left = timeToPercent(frame.time)
-		const right = next ? timeToPercent(next.time) : 100
+		const left = percentWithin(frame.time, view)
+		const right = next ? percentWithin(next.time, view) : 100
 		return {
 			time: frame.time,
 			url: frame.url,
@@ -457,10 +382,14 @@ function onWheel(event: WheelEvent) {
 		event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1
 	const factor = Math.exp(event.deltaY * unit * 0.0015)
 
-	const span = clamp(snapToFrame(viewSpan * factor), minViewSpan(), duration)
+	const span = clamp(
+		snapToFrame(viewSpan * factor, frameRate),
+		minViewSpan(),
+		duration
+	)
 	const anchor = view.start + ratio * viewSpan
 	const start = clamp(
-		snapToFrame(anchor - ratio * span),
+		snapToFrame(anchor - ratio * span, frameRate),
 		0,
 		Math.max(0, duration - span)
 	)
@@ -565,7 +494,7 @@ function onPointerDown(event: PointerEvent) {
 
 	// Empty space: start drawing a brand new selection inside the nearest gap.
 	const anchor = clamp(
-		snapToFrame(pointerToTime(event.clientX, track)),
+		snapToFrame(pointerToTime(event.clientX, track), frameRate),
 		0,
 		duration
 	)
@@ -595,7 +524,7 @@ function onPointerMove(event: PointerEvent) {
 		if (rect.width > 0) {
 			const delta = ((event.clientX - pan.startX) / rect.width) * pan.span
 			const start = clamp(
-				snapToFrame(pan.startView - delta),
+				snapToFrame(pan.startView - delta, frameRate),
 				0,
 				Math.max(0, duration - pan.span)
 			)
@@ -609,7 +538,11 @@ function onPointerMove(event: PointerEvent) {
 	if (state) {
 		const time = pointerToTime(event.clientX, track)
 		if (state.kind === "create") {
-			const end = clamp(snapToFrame(time), state.min, state.max)
+			const end = clamp(
+				snapToFrame(time, frameRate),
+				state.min,
+				state.max
+			)
 			state.moved =
 				state.moved ||
 				Math.abs(event.clientX - state.anchorX) >= DRAG_THRESHOLD_PX
@@ -621,18 +554,26 @@ function onPointerMove(event: PointerEvent) {
 			seekTo(end)
 		} else if (state.kind === "move") {
 			const start = clamp(
-				snapToFrame(time - state.offset),
+				snapToFrame(time - state.offset, frameRate),
 				state.min,
 				state.max
 			)
 			updateSelection(state.id, { start, end: start + state.length })
 		} else if (state.kind === "resize-start") {
-			const start = clamp(snapToFrame(time), state.min, state.max)
+			const start = clamp(
+				snapToFrame(time, frameRate),
+				state.min,
+				state.max
+			)
 			updateSelection(state.id, { start })
 			// Seek to the exact new boundary so the frame is visible while resizing.
 			seekTo(start)
 		} else {
-			const end = clamp(snapToFrame(time), state.min, state.max)
+			const end = clamp(
+				snapToFrame(time, frameRate),
+				state.min,
+				state.max
+			)
 			updateSelection(state.id, { end })
 			seekTo(end)
 		}
@@ -771,7 +712,7 @@ function onKeyDown(event: KeyboardEvent) {
 							<div
 								class="flex h-full min-w-0 flex-1 items-center justify-center border-r border-white/10 text-[10px] text-neutral-500 last:border-r-0"
 							>
-								{formatTime(frameTime(i))}
+								{formatClock(frameTime(i))}
 							</div>
 						{/each}
 					</div>
@@ -786,9 +727,9 @@ function onKeyDown(event: KeyboardEvent) {
 					<div
 						class="group absolute inset-y-0 cursor-grab active:cursor-grabbing"
 						data-selection-id={sel.id}
-						style:left="{timeToPercent(visibleStart)}%"
-						style:width="{timeToPercent(visibleEnd) -
-							timeToPercent(visibleStart)}%"
+						style:left="{percentWithin(visibleStart, view)}%"
+						style:width="{percentWithin(visibleEnd, view) -
+							percentWithin(visibleStart, view)}%"
 					>
 						<div
 							class="pointer-events-none absolute inset-0 border-x-2 border-red-500 bg-red-500/40"
@@ -842,23 +783,23 @@ function onKeyDown(event: KeyboardEvent) {
 			{#if currentTime >= view.start && currentTime <= view.end}
 				<div
 					class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-emerald-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
-					style:left="{timeToPercent(currentTime)}%"
+					style:left="{percentWithin(currentTime, view)}%"
 				></div>
 			{/if}
 
 			{#if hoverTime !== null && hoveredSelectionId === null}
 				<div
 					class="pointer-events-none absolute top-1 rounded bg-black/80 px-1.5 py-0.5 text-xs text-white"
-					style:left="{timeToPercent(hoverTime)}%"
+					style:left="{percentWithin(hoverTime, view)}%"
 				>
-					{formatTime(hoverTime)}
+					{formatClock(hoverTime)}
 				</div>
 			{/if}
 		</div>
 
 		<div class="pt-2 flex justify-between text-xs text-neutral-500">
-			<span>{formatTime(view.start)}</span>
-			<span>{formatTime(view.end)}</span>
+			<span>{formatClock(view.start)}</span>
+			<span>{formatClock(view.end)}</span>
 		</div>
 
 		<TimelineNavigator

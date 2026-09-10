@@ -1,8 +1,13 @@
 <script lang="ts">
 import { captureFramesAt } from "#lib/frame-capture.js"
-import { MIN_VISIBLE_FRAMES } from "#lib/timeline-config.js"
-
-type ViewWindow = { start: number; end: number }
+import {
+	clamp,
+	MIN_VISIBLE_FRAMES,
+	percentOf,
+	snapToFrame,
+	type TimelineSelection,
+	type ViewWindow,
+} from "#lib/timeline.js"
 
 type NavDrag =
 	| { kind: "move"; offset: number; length: number }
@@ -22,7 +27,7 @@ let {
 	frameRate?: number
 	playbackUrl?: string
 	currentTime?: number
-	selections?: { id: string; start: number; end: number }[]
+	selections?: TimelineSelection[]
 	view?: ViewWindow
 } = $props()
 
@@ -54,15 +59,6 @@ $effect(() => {
 	})
 	return () => job.cancel()
 })
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.min(max, Math.max(min, value))
-}
-
-function snapToFrame(time: number): number {
-	if (frameRate <= 0) return time
-	return Math.round(time * frameRate) / frameRate
-}
 
 function pointerToTime(clientX: number, target: HTMLElement): number {
 	const rect = target.getBoundingClientRect()
@@ -109,7 +105,7 @@ function onPointerDown(event: PointerEvent) {
 
 	// Clicking empty space recenters the zoom window on that point.
 	const start = clamp(
-		snapToFrame(time - length / 2),
+		snapToFrame(time - length / 2, frameRate),
 		0,
 		Math.max(0, duration - length)
 	)
@@ -124,21 +120,21 @@ function onPointerMove(event: PointerEvent) {
 
 	if (state.kind === "move") {
 		const start = clamp(
-			snapToFrame(time - state.offset),
+			snapToFrame(time - state.offset, frameRate),
 			0,
 			Math.max(0, duration - state.length)
 		)
 		view = { start, end: start + state.length }
 	} else if (state.kind === "resize-start") {
 		const start = clamp(
-			snapToFrame(time),
+			snapToFrame(time, frameRate),
 			0,
 			Math.max(0, view.end - state.minLength)
 		)
 		view = { start, end: view.end }
 	} else {
 		const end = clamp(
-			snapToFrame(time),
+			snapToFrame(time, frameRate),
 			view.start + state.minLength,
 			duration
 		)
@@ -184,8 +180,8 @@ function onPointerUp(event: PointerEvent) {
 	<div
 		data-nav-window
 		class="absolute inset-y-0 cursor-grab active:cursor-grabbing"
-		style:left="{(view.start / duration) * 100}%"
-		style:width="{((view.end - view.start) / duration) * 100}%"
+		style:left="{percentOf(view.start, duration)}%"
+		style:width="{percentOf(view.end - view.start, duration)}%"
 	>
 		<div
 			class="pointer-events-none absolute inset-0 border-x-2 border-sky-400 bg-sky-400/30"
@@ -213,8 +209,8 @@ function onPointerUp(event: PointerEvent) {
 		{#each selections as sel (sel.id)}
 			<div
 				class="absolute inset-y-0 min-w-0.5 rounded-full bg-red-500"
-				style:left="{(sel.start / duration) * 100}%"
-				style:width="{((sel.end - sel.start) / duration) * 100}%"
+				style:left="{percentOf(sel.start, duration)}%"
+				style:width="{percentOf(sel.end - sel.start, duration)}%"
 			></div>
 		{/each}
 	</div>
@@ -223,7 +219,7 @@ function onPointerUp(event: PointerEvent) {
 	{#if currentTime >= 0 && currentTime <= duration}
 		<div
 			class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-emerald-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
-			style:left="{(currentTime / duration) * 100}%"
+			style:left="{percentOf(currentTime, duration)}%"
 		></div>
 	{/if}
 </div>

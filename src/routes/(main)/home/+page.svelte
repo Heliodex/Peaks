@@ -1,11 +1,12 @@
 <script lang="ts">
 import Timeline from "#lib/components/Timeline.svelte"
+import { formatClock, type TimelineSelection } from "#lib/timeline.js"
 import { getLapseData, getTimelapse, logout } from "../api.remote.js"
 
 let timelapseId = $state("")
 let submittedId = $state("")
 let videoEl = $state<HTMLVideoElement>()
-let selections = $state<{ id: string; start: number; end: number }[]>([])
+let selections = $state<TimelineSelection[]>([])
 
 function formatDuration(seconds: number): string {
 	if (!Number.isFinite(seconds) || seconds <= 0) return "—"
@@ -16,13 +17,6 @@ function formatDuration(seconds: number): string {
 	if (hours > 0) return `${hours}h ${minutes}m ${secs}s`
 	if (minutes > 0) return `${minutes}m ${secs}s`
 	return `${secs}s`
-}
-
-function formatTimestamp(seconds: number): string {
-	const safe = Math.max(0, Number.isFinite(seconds) ? seconds : 0)
-	const minutes = Math.floor(safe / 60)
-	const secs = Math.floor(safe % 60)
-	return `${minutes}:${String(secs).padStart(2, "0")}`
 }
 
 function formatCreatedAt(timestamp: number): string {
@@ -162,13 +156,13 @@ const sortedSelections = $derived(
 												<li>
 													Selection {i + 1}:
 													<span class="font-medium"
-														>{formatTimestamp(
+														>{formatClock(
 															sel.start
 														)}</span
 													>
 													–
 													<span class="font-medium"
-														>{formatTimestamp(
+														>{formatClock(
 															sel.end
 														)}</span
 													>
