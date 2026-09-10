@@ -1,1 +1,7 @@
 @import "tailwindcss";
+
+* {
+	@apply accent-blue-500;
+	box-sizing: border-box;
+	font-family: Lexend, sans-serif;
+}
