@@ -19,7 +19,7 @@
 		"typescript": "~6.0.3"
 	},
 	"dependencies": {
-		"@surrealdb/wasm": "^3.0.3",
+		"@surrealdb/node": "^3.0.3",
 		"@sveltejs/adapter-node": "^6.0.0-next.12",
 		"@sveltejs/kit": "next",
 		"@sveltejs/vite-plugin-svelte": "^7.3.0",

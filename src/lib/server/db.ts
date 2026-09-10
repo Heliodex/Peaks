@@ -1,13 +1,16 @@
-import { createWasmEngines } from "@surrealdb/wasm"
+import { createNodeEngines } from "@surrealdb/node"
 import { Surreal, RecordId as SurrealRecordId, Table } from "surrealdb"
 import initQuery from "#lib/server/init.surql?raw"
 
 export const db = new Surreal({
 	codecOptions: { useNativeDates: true },
-	engines: { ...createWasmEngines() },
+	engines: { ...createNodeEngines() },
 })
 
-await db.connect("mem://", { namespace: "main", database: "main" })
+await db.connect("surrealkv://./data/surreal", {
+	namespace: "main",
+	database: "main",
+})
 await db.query(initQuery)
 
 type RecordIdTypes = {
