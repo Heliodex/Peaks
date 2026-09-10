@@ -1,4 +1,5 @@
 <script lang="ts">
+import { captureFramesAt } from "#lib/frame-capture.js"
 import { MIN_VISIBLE_FRAMES } from "#lib/timeline-config.js"
 
 type ViewWindow = { start: number; end: number }
@@ -12,19 +13,45 @@ type NavDrag =
 let {
 	duration,
 	frameRate = 0,
+	playbackUrl = "",
 	selections = [],
 	view = $bindable<ViewWindow>({ start: 0, end: 0 }),
 }: {
 	duration: number
 	frameRate?: number
+	playbackUrl?: string
 	selections?: { id: string; start: number; end: number }[]
 	view?: ViewWindow
 } = $props()
 
 // Smallest on-screen width (px) the zoom window may shrink to
 const MIN_WINDOW_PX = 10
+// Number of thumbnails captured across the whole video for the overview strip
+const NAV_FRAME_COUNT = 24
 
 let drag = $state<NavDrag>(null)
+let navFrames = $state<string[]>([])
+
+$effect(() => {
+	const src = playbackUrl
+	const total = duration
+	if (!src || total <= 0) return
+
+	navFrames = []
+	const times: number[] = []
+	for (let i = 0; i < NAV_FRAME_COUNT; i++) {
+		times.push((total * i) / (NAV_FRAME_COUNT - 1))
+	}
+	const job = captureFramesAt(src, times, (index, url) => {
+		const next = [...navFrames]
+		next[index] = url
+		navFrames = next
+	})
+	void job.promise.catch(() => {
+		// Leave any uncaptured slots blank.
+	})
+	return () => job.cancel()
+})
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, value))
@@ -134,6 +161,24 @@ function onPointerUp(event: PointerEvent) {
 	onpointercancel={onPointerUp}
 	role="presentation"
 >
+	<!-- Static overview thumbnails spanning the whole video -->
+	<div
+		class="pointer-events-none absolute inset-0 flex overflow-hidden rounded"
+	>
+		{#each Array(NAV_FRAME_COUNT) as _, i (i)}
+			<div class="relative h-full min-w-0 flex-1">
+				{#if navFrames[i]}
+					<img
+						src={navFrames[i]}
+						alt=""
+						class="h-full w-full object-cover"
+						draggable="false"
+					>
+				{/if}
+			</div>
+		{/each}
+	</div>
+
 	<div
 		data-nav-window
 		class="absolute inset-y-0 cursor-grab active:cursor-grabbing"

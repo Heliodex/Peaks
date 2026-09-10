@@ -758,7 +758,13 @@ function deleteSelection(id: string, event: MouseEvent) {
 			<span>{formatTime(view.end)}</span>
 		</div>
 
-		<TimelineNavigator {duration} {frameRate} {selections} bind:view />
+		<TimelineNavigator
+			{duration}
+			{frameRate}
+			{selections}
+			playbackUrl={timelapse.playbackUrl}
+			bind:view
+		/>
 	</div>
 {/if}
 
