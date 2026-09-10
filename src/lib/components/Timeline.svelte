@@ -138,6 +138,12 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 	return ratio * duration
 }
 
+function seekTo(seconds: number) {
+	const el = video
+	if (!el || el.readyState < 1 || !Number.isFinite(seconds)) return
+	el.currentTime = seconds
+}
+
 /**
  * The open space directly left and right of an interval, ignoring `id`.
  * Used to keep selections from overlapping while creating, moving or resizing.
@@ -277,13 +283,14 @@ function onPointerMove(event: PointerEvent) {
 			const start = clamp(time - state.offset, state.min, state.max)
 			updateSelection(state.id, { start, end: start + state.length })
 		} else if (state.kind === "resize-start") {
-			updateSelection(state.id, {
-				start: clamp(time, state.min, state.max),
-			})
+			const start = clamp(time, state.min, state.max)
+			updateSelection(state.id, { start })
+			// Seek to the exact new boundary so the frame is visible while resizing.
+			seekTo(start)
 		} else {
-			updateSelection(state.id, {
-				end: clamp(time, state.min, state.max),
-			})
+			const end = clamp(time, state.min, state.max)
+			updateSelection(state.id, { end })
+			seekTo(end)
 		}
 		return
 	}
