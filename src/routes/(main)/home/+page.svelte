@@ -5,6 +5,7 @@ import { getLapseData, getTimelapse, logout } from "../api.remote.js"
 let timelapseId = $state("")
 let submittedId = $state("")
 let videoEl = $state<HTMLVideoElement>()
+let selectedRange = $state<{ start: number; end: number } | null>(null)
 
 function formatDuration(seconds: number): string {
 	if (!Number.isFinite(seconds) || seconds <= 0) return "—"
@@ -15,6 +16,13 @@ function formatDuration(seconds: number): string {
 	if (hours > 0) return `${hours}h ${minutes}m ${secs}s`
 	if (minutes > 0) return `${minutes}m ${secs}s`
 	return `${secs}s`
+}
+
+function formatTimestamp(seconds: number): string {
+	const safe = Math.max(0, Number.isFinite(seconds) ? seconds : 0)
+	const minutes = Math.floor(safe / 60)
+	const secs = Math.floor(safe % 60)
+	return `${minutes}:${String(secs).padStart(2, "0")}`
 }
 
 function formatCreatedAt(timestamp: number): string {
@@ -59,6 +67,7 @@ function formatCreatedAt(timestamp: number): string {
 				onsubmit={e => {
 					e.preventDefault()
 					submittedId = timelapseId.trim()
+					selectedRange = null
 				}}
 			>
 				<label class="flex items-center gap-2">
@@ -134,12 +143,36 @@ function formatCreatedAt(timestamp: number): string {
 								</video>
 								{#if videoEl}
 									<Timeline
+										bind:selection={selectedRange}
 										timelapse={{
 											playbackUrl: timelapse.playbackUrl,
 											thumbnailUrl: timelapse.thumbnailUrl,
 										}}
 										video={videoEl}
 									/>
+									{#if selectedRange}
+										<p class="pt-2 text-sm">
+											Annotation:
+											<span class="font-medium"
+												>{formatTimestamp(
+													selectedRange.start
+												)}</span
+											>
+											–
+											<span class="font-medium"
+												>{formatTimestamp(
+													selectedRange.end
+												)}</span
+											>
+										</p>
+									{:else}
+										<p
+											class="pt-2 text-sm text-neutral-500"
+										>
+											Drag across the timeline to select
+											an annotation.
+										</p>
+									{/if}
 								{/if}
 							{:else}
 								<p>

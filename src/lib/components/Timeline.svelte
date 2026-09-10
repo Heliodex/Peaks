@@ -1,10 +1,14 @@
 <script lang="ts">
+type TimelineSelection = { start: number; end: number }
+
 let {
 	timelapse,
 	video,
+	selection = $bindable<TimelineSelection | null>(null),
 }: {
 	timelapse: { playbackUrl: string; thumbnailUrl?: string | null }
 	video: HTMLVideoElement | undefined
+	selection?: TimelineSelection | null
 } = $props()
 
 const FRAME_COUNT = 12
@@ -18,20 +22,14 @@ let frames = $state<string[]>([])
 let previewsAvailable = $state(false)
 const duration = $derived(videoDuration)
 
-// Drag-selection state. Anchor/focus are times in seconds; `selection` is
-// always normalized so `start` is the earlier edge regardless of drag direction.
+// Drag-selection state. `selectionAnchor` is the time where the current drag started; the resulting range lives in the bindable `selection` prop so parents can read the current annotation.
 let selectionAnchor = $state<number | null>(null)
-let selectionFocus = $state<number | null>(null)
 let isSelecting = $state(false)
 let selectionAnchorX: number | null = null
-const selection = $derived(
-	selectionAnchor !== null && selectionFocus !== null
-		? {
-				start: Math.min(selectionAnchor, selectionFocus),
-				end: Math.max(selectionAnchor, selectionFocus),
-			}
-		: null
-)
+
+function normalizeSelection(a: number, b: number): TimelineSelection {
+	return { start: Math.min(a, b), end: Math.max(a, b) }
+}
 
 function formatTime(seconds: number): string {
 	const s = Math.max(0, Math.floor(seconds))
@@ -115,31 +113,37 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 
 function startSelection(event: PointerEvent, track: HTMLElement) {
 	selectionAnchor = pointerToTime(event.clientX, track)
-	selectionFocus = selectionAnchor
 	selectionAnchorX = event.clientX
 	isSelecting = true
 	hoverTime = null
+	selection = normalizeSelection(selectionAnchor, selectionAnchor)
 	track.setPointerCapture(event.pointerId)
 }
 
 function updateSelection(event: PointerEvent, track: HTMLElement) {
-	selectionFocus = pointerToTime(event.clientX, track)
+	if (selectionAnchor === null) return
+	selection = normalizeSelection(
+		selectionAnchor,
+		pointerToTime(event.clientX, track)
+	)
 }
 
 function endSelection(event: PointerEvent, track: HTMLElement) {
 	if (!isSelecting) return
 
-	selectionFocus = pointerToTime(event.clientX, track)
+	const time = pointerToTime(event.clientX, track)
 	isSelecting = false
 
 	const dragged =
 		selectionAnchorX !== null &&
 		Math.abs(event.clientX - selectionAnchorX) >= DRAG_THRESHOLD_PX
 	// A plain click (no meaningful drag) clears the current selection.
-	if (!dragged) {
-		selectionAnchor = null
-		selectionFocus = null
+	if (dragged && selectionAnchor !== null) {
+		selection = normalizeSelection(selectionAnchor, time)
+	} else {
+		selection = null
 	}
+	selectionAnchor = null
 	selectionAnchorX = null
 
 	if (track.hasPointerCapture(event.pointerId)) {
