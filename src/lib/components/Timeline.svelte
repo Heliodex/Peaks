@@ -279,6 +279,8 @@ function onPointerMove(event: PointerEvent) {
 				start: Math.min(state.anchor, end),
 				end: Math.max(state.anchor, end),
 			})
+			// Seek to the moving edge so the frame being selected is visible.
+			seekTo(end)
 		} else if (state.kind === "move") {
 			const start = clamp(time - state.offset, state.min, state.max)
 			updateSelection(state.id, { start, end: start + state.length })
