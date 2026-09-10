@@ -12,10 +12,12 @@ type NavDrag =
 let {
 	duration,
 	frameRate = 0,
+	selections = [],
 	view = $bindable<ViewWindow>({ start: 0, end: 0 }),
 }: {
 	duration: number
 	frameRate?: number
+	selections?: { id: string; start: number; end: number }[]
 	view?: ViewWindow
 } = $props()
 
@@ -157,5 +159,16 @@ function onPointerUp(event: PointerEvent) {
 		>
 			<span class="h-5 w-1 rounded-full bg-sky-400 shadow"></span>
 		</div>
+	</div>
+
+	<!-- Read-only markers for the timeline's selections -->
+	<div class="pointer-events-none absolute inset-x-0 bottom-0 h-1">
+		{#each selections as sel (sel.id)}
+			<div
+				class="absolute inset-y-0 min-w-0.5 rounded-full bg-red-500"
+				style:left="{(sel.start / duration) * 100}%"
+				style:width="{((sel.end - sel.start) / duration) * 100}%"
+			></div>
+		{/each}
 	</div>
 </div>
