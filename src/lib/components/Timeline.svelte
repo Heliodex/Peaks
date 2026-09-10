@@ -52,6 +52,8 @@ const FRAME_REFRESH_MS = 120
 const FRAME_CACHE_LIMIT = 200
 // Seconds to skip when the left/right arrow keys are pressed
 const ARROW_SEEK_SECONDS = 5
+// Assumed frame rate for single-frame stepping if detection hasn't finished
+const FALLBACK_FRAME_RATE = 30
 
 let videoDuration = $state(0)
 let frameRate = $state(0)
@@ -682,13 +684,15 @@ function deleteSelection(id: string, event: MouseEvent) {
 }
 
 /**
- * Spacebar plays/pauses the video and the arrow keys seek ±5s, instead of scrolling the page. Ignored while typing in a form field or contenteditable element.
+ * Spacebar plays/pauses the video, the left/right arrow keys seek ±5s, and the up/down arrow keys step one frame, instead of scrolling the page. Ignored while typing in a form field or contenteditable element.
  */
 function onKeyDown(event: KeyboardEvent) {
 	const isSpace = event.code === "Space" || event.key === " "
 	const isLeft = event.key === "ArrowLeft"
 	const isRight = event.key === "ArrowRight"
-	if (!isSpace && !isLeft && !isRight) return
+	const isUp = event.key === "ArrowUp"
+	const isDown = event.key === "ArrowDown"
+	if (!isSpace && !isLeft && !isRight && !isUp && !isDown) return
 
 	const target = event.target as HTMLElement | null
 	if (
@@ -712,6 +716,14 @@ function onKeyDown(event: KeyboardEvent) {
 		} else {
 			el.pause()
 		}
+		return
+	}
+
+	if (isUp || isDown) {
+		const fps = frameRate > 0 ? frameRate : FALLBACK_FRAME_RATE
+		// Move relative to the frame currently on screen.
+		const index = Math.floor(el.currentTime * fps + 0.001)
+		seekTo(clamp((index + (isUp ? 1 : -1)) / fps, 0, duration))
 		return
 	}
 
