@@ -5,6 +5,7 @@ import TimelineNavigator from "./TimelineNavigator.svelte"
 
 type TimelineSelection = { id: string; start: number; end: number }
 type ViewWindow = { start: number; end: number }
+type CachedFrame = { time: number; url: string }
 
 type DragState =
 	| {
@@ -45,21 +46,34 @@ const FRAME_COUNT = 12
 const DRAG_THRESHOLD_PX = 4
 // Minimum on-screen width (px) of a selection so its handles stay usable
 const MIN_SELECTION_PX = 4
-// Wait this long after the view stops changing before recapturing frames
+// Wait this long after the view stops changing before filling in new frames
 const FRAME_REFRESH_MS = 120
+// Upper bound on cached thumbnails kept in memory (small JPEGs)
+const FRAME_CACHE_LIMIT = 200
+// Upper bound on thumbnails rendered at once, to keep the DOM light
+const MAX_RENDERED_FRAMES = 48
 
 let videoDuration = $state(0)
 let frameRate = $state(0)
 let hoverTime = $state<number | null>(null)
 let hoveredSelectionId = $state<string | null>(null)
-let frames = $state<string[]>([])
-// False when frame capture fails
-let previewsAvailable = $state(false)
 const duration = $derived(videoDuration)
 
 // The part of the timeline currently visible on the main track, in seconds.
 let view = $state<ViewWindow>({ start: 0, end: 0 })
 const viewSpan = $derived(Math.max(0, view.end - view.start))
+
+// Thumbnails captured at absolute times, reused across zooming and panning so
+// the strip can slide/scale smoothly instead of blanking on every view change.
+let frameCache = $state<CachedFrame[]>([])
+let captureQueue: number[] = []
+let capturing = false
+let captureTolerance = 0.05
+let captureSrc = ""
+
+let captureEl: HTMLVideoElement | null = null
+let captureElPromise: Promise<HTMLVideoElement> | null = null
+let captureCanvas: HTMLCanvasElement | null = null
 
 let drag = $state<DragState>(null)
 let pan = $state<PanState>(null)
@@ -100,61 +114,122 @@ function frameTime(index: number): number {
 	return view.start + (viewSpan * index) / (FRAME_COUNT - 1)
 }
 
-let captureToken = 0
-async function captureFrames(src: string, start: number, end: number) {
-	const token = ++captureToken
-	previewsAvailable = false
-	frames = []
-
-	const span = end - start
-	const epsilon = Math.min(0.05, span / (FRAME_COUNT * 2))
-
-	const capture = document.createElement("video")
-	capture.muted = true
-	capture.preload = "auto"
+function getCaptureVideo(src: string): Promise<HTMLVideoElement> {
+	if (captureElPromise) return captureElPromise
+	const el = document.createElement("video")
+	el.muted = true
+	el.preload = "auto"
 	// Same-origin proxy keeps the canvas untainted without the CDN sending CORS headers
-	capture.src = `/lapse-proxy?url=${encodeURIComponent(src)}`
+	el.src = `/lapse-proxy?url=${encodeURIComponent(src)}`
+	captureEl = el
+	captureElPromise = new Promise<HTMLVideoElement>((resolve, reject) => {
+		el.onloadeddata = () => resolve(el)
+		el.onerror = () => reject(new Error("Failed to load video"))
+	})
+	return captureElPromise
+}
 
-	try {
-		await new Promise<void>((resolve, reject) => {
-			capture.onloadeddata = () => resolve()
-			capture.onerror = () => reject(new Error("Failed to load video"))
-		})
+/** Seek the shared capture video to a time and grab a small JPEG snapshot. */
+async function captureFrameAt(src: string, time: number): Promise<string> {
+	const el = await getCaptureVideo(src)
+	const epsilon = Math.min(0.05, (frameRate > 0 ? 1 / frameRate : 0.05) / 2)
+	const target = Math.max(
+		0,
+		Math.min(time, (el.duration || duration) - epsilon)
+	)
 
-		const canvas = document.createElement("canvas")
-		canvas.width = 160
-		canvas.height = Math.max(
-			1,
-			Math.round((160 * capture.videoHeight) / (capture.videoWidth || 1))
-		)
-		const ctx = canvas.getContext("2d")
-		if (!ctx) throw new Error("No canvas context")
-
-		const results: string[] = []
-		for (let i = 0; i < FRAME_COUNT; i++) {
-			if (token !== captureToken) return
-			const time = start + (span * i) / (FRAME_COUNT - 1)
-			await new Promise<void>(resolve => {
-				capture.onseeked = () => resolve()
-				capture.currentTime = Math.max(
-					start,
-					Math.min(time, end - epsilon)
-				)
-			})
-			ctx.drawImage(capture, 0, 0, canvas.width, canvas.height)
-			results.push(canvas.toDataURL("image/jpeg", 0.7))
+	await new Promise<void>((resolve, reject) => {
+		if (el.readyState >= 2 && Math.abs(el.currentTime - target) < 0.001) {
+			resolve()
+			return
 		}
+		const onSeeked = () => {
+			cleanup()
+			resolve()
+		}
+		const onError = () => {
+			cleanup()
+			reject(new Error("Failed to seek video"))
+		}
+		const cleanup = () => {
+			el.removeEventListener("seeked", onSeeked)
+			el.removeEventListener("error", onError)
+		}
+		el.addEventListener("seeked", onSeeked)
+		el.addEventListener("error", onError)
+		el.currentTime = target
+	})
 
-		if (token !== captureToken) return
-		frames = results
-		previewsAvailable = true
-	} catch {
-		// Fall back to time-only placeholders and scrubbing without previews.
-		if (token !== captureToken) return
-		previewsAvailable = false
-	} finally {
-		capture.removeAttribute("src")
+	if (!captureCanvas) captureCanvas = document.createElement("canvas")
+	captureCanvas.width = 160
+	captureCanvas.height = Math.max(
+		1,
+		Math.round((160 * el.videoHeight) / (el.videoWidth || 1))
+	)
+	const ctx = captureCanvas.getContext("2d")
+	if (!ctx) throw new Error("No canvas context")
+	ctx.drawImage(el, 0, 0, captureCanvas.width, captureCanvas.height)
+	return captureCanvas.toDataURL("image/jpeg", 0.7)
+}
+
+function isCached(time: number, tolerance: number): boolean {
+	return frameCache.some(frame => Math.abs(frame.time - time) <= tolerance)
+}
+
+function addFrame(time: number, url: string) {
+	let next = [...frameCache, { time, url }]
+	if (next.length > FRAME_CACHE_LIMIT) {
+		// Keep the thumbnails nearest the visible window.
+		const center = (view.start + view.end) / 2
+		next = next
+			.sort(
+				(a, b) => Math.abs(a.time - center) - Math.abs(b.time - center)
+			)
+			.slice(0, FRAME_CACHE_LIMIT)
 	}
+	frameCache = next
+}
+
+/** Sequentially capture any queued frames, adding each as soon as it's ready. */
+async function runQueue() {
+	if (capturing) return
+	capturing = true
+	try {
+		while (captureQueue.length > 0) {
+			const time = captureQueue.shift() as number
+			if (isCached(time, captureTolerance)) continue
+			const url = await captureFrameAt(captureSrc, time)
+			addFrame(time, url)
+		}
+	} catch {
+		// Leave gaps for any frames we couldn't capture.
+	} finally {
+		capturing = false
+	}
+}
+
+/**
+ * Work out which absolute times should have thumbnails for the current window
+ * and queue up the ones missing from the cache.
+ */
+function populateFrames(src: string, start: number, end: number) {
+	const span = end - start
+	if (span <= 0) return
+
+	captureSrc = src
+	captureTolerance = span / (FRAME_COUNT - 1) / 2
+
+	const queue: number[] = []
+	for (let i = 0; i < FRAME_COUNT; i++) {
+		const time = clamp(
+			snapToFrame(start + (span * i) / (FRAME_COUNT - 1)),
+			0,
+			duration
+		)
+		if (!isCached(time, captureTolerance)) queue.push(time)
+	}
+	captureQueue = queue
+	void runQueue()
 }
 
 $effect(() => {
@@ -174,8 +249,7 @@ $effect(() => {
 	return () => el.removeEventListener("loadedmetadata", onLoaded)
 })
 
-// Recapture the frame strip for the visible window, debounced so panning and
-// zooming don't kick off a capture on every pointer move.
+// Fill in thumbnails for the visible window, debounced so panning and zooming don't kick off captures on every pointer move. Cached frames stay visible meanwhile, so the strip slides smoothly and only missing frames appear.
 $effect(() => {
 	const src = timelapse.playbackUrl
 	const start = view.start
@@ -183,7 +257,7 @@ $effect(() => {
 	if (!src || !(end > start)) return
 
 	const timer = setTimeout(() => {
-		void captureFrames(src, start, end)
+		populateFrames(src, start, end)
 	}, FRAME_REFRESH_MS)
 	return () => clearTimeout(timer)
 })
@@ -199,6 +273,39 @@ $effect(() => {
 	return () => {
 		cancelled = true
 	}
+})
+
+// Release the shared capture element when the timeline is destroyed.
+$effect(() => {
+	return () => {
+		if (captureEl) {
+			captureEl.removeAttribute("src")
+			captureEl.load()
+		}
+	}
+})
+
+const layoutFrames = $derived.by(() => {
+	const visible = frameCache
+		.filter(frame => frame.time >= view.start && frame.time < view.end)
+		.sort((a, b) => a.time - b.time)
+	const step =
+		visible.length > MAX_RENDERED_FRAMES
+			? Math.ceil(visible.length / MAX_RENDERED_FRAMES)
+			: 1
+	const chosen = step > 1 ? visible.filter((_, i) => i % step === 0) : visible
+
+	return chosen.map((frame, i) => {
+		const next = chosen[i + 1]
+		const left = timeToPercent(frame.time)
+		const right = next ? timeToPercent(next.time) : 100
+		return {
+			time: frame.time,
+			url: frame.url,
+			left,
+			width: Math.max(0, right - left),
+		}
+	})
 })
 
 function pointerToTime(clientX: number, target: HTMLElement): number {
@@ -510,30 +617,33 @@ function deleteSelection(id: string, event: MouseEvent) {
 			{@attach timelineGestures}
 			role="presentation"
 		>
-			<!-- Frame previews, clipped to the rounded track -->
+			<!-- Frame previews: cached thumbnails positioned by absolute time so
+			     they slide and scale with the view -->
 			<div
-				class="pointer-events-none absolute inset-0 flex overflow-hidden rounded"
+				class="pointer-events-none absolute inset-0 overflow-hidden rounded bg-neutral-800"
 			>
-				{#each Array(FRAME_COUNT) as _, i (i)}
-					<div class="relative h-full min-w-0 flex-1">
-						{#if previewsAvailable && frames[i]}
-							<img
-								src={frames[i]}
-								alt={`Frame at ${formatTime(frameTime(i))}`}
-								class="h-full w-full object-cover"
-								draggable="false"
-							>
-						{:else}
-							<div
-								class="flex h-full w-full items-center justify-center border-r border-white/10 bg-neutral-800 text-[10px] text-neutral-500 last:border-r-0"
-							>
-								{previewsAvailable
-									? ""
-									: formatTime(frameTime(i))}
-							</div>
-						{/if}
-					</div>
+				{#each layoutFrames as frame (frame.time)}
+					<img
+						src={frame.url}
+						alt=""
+						class="frame-in absolute inset-y-0 object-cover"
+						style:left="{frame.left}%"
+						style:width="{frame.width}%"
+						draggable="false"
+					>
 				{/each}
+
+				{#if layoutFrames.length === 0}
+					<div class="flex h-full w-full">
+						{#each Array(FRAME_COUNT) as _, i (i)}
+							<div
+								class="flex h-full min-w-0 flex-1 items-center justify-center border-r border-white/10 text-[10px] text-neutral-500 last:border-r-0"
+							>
+								{formatTime(frameTime(i))}
+							</div>
+						{/each}
+					</div>
+				{/if}
 			</div>
 
 			<!-- Selections, clamped to the visible window -->
@@ -615,3 +725,18 @@ function deleteSelection(id: string, event: MouseEvent) {
 		<TimelineNavigator {duration} {frameRate} bind:view />
 	</div>
 {/if}
+
+<style>
+@keyframes frame-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.frame-in {
+	animation: frame-in 150ms ease-out;
+}
+</style>
