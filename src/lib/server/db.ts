@@ -7,11 +7,16 @@ export const db = new Surreal({
 	engines: { ...createNodeEngines() },
 })
 
-await db.connect("surrealkv://./data/surreal", {
-	namespace: "main",
-	database: "main",
-})
-await db.query(initQuery)
+if (!db.isConnected) {
+	console.log("Starting SurrealDB")
+	await db.connect("surrealkv://./data/surreal", {
+		namespace: "main",
+		database: "main",
+	})
+	console.log("Running init query")
+	await db.query(initQuery)
+	console.log("Database ready!")
+}
 
 type RecordIdTypes = {
 	user: string
