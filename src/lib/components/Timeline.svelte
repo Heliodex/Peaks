@@ -8,6 +8,8 @@ let {
 } = $props()
 
 const FRAME_COUNT = 12
+// Pointer travel (px) required before a press counts as a drag rather than a click
+const DRAG_THRESHOLD_PX = 4
 
 let videoDuration = $state(0)
 let hoverTime = $state<number | null>(null)
@@ -15,6 +17,21 @@ let frames = $state<string[]>([])
 // False when frame capture fails
 let previewsAvailable = $state(false)
 const duration = $derived(videoDuration)
+
+// Drag-selection state. Anchor/focus are times in seconds; `selection` is
+// always normalized so `start` is the earlier edge regardless of drag direction.
+let selectionAnchor = $state<number | null>(null)
+let selectionFocus = $state<number | null>(null)
+let isSelecting = $state(false)
+let selectionAnchorX: number | null = null
+const selection = $derived(
+	selectionAnchor !== null && selectionFocus !== null
+		? {
+				start: Math.min(selectionAnchor, selectionFocus),
+				end: Math.max(selectionAnchor, selectionFocus),
+			}
+		: null
+)
 
 function formatTime(seconds: number): string {
 	const s = Math.max(0, Math.floor(seconds))
@@ -95,20 +112,63 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 	const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
 	return ratio * duration
 }
+
+function startSelection(event: PointerEvent, track: HTMLElement) {
+	selectionAnchor = pointerToTime(event.clientX, track)
+	selectionFocus = selectionAnchor
+	selectionAnchorX = event.clientX
+	isSelecting = true
+	hoverTime = null
+	track.setPointerCapture(event.pointerId)
+}
+
+function updateSelection(event: PointerEvent, track: HTMLElement) {
+	selectionFocus = pointerToTime(event.clientX, track)
+}
+
+function endSelection(event: PointerEvent, track: HTMLElement) {
+	if (!isSelecting) return
+
+	selectionFocus = pointerToTime(event.clientX, track)
+	isSelecting = false
+
+	const dragged =
+		selectionAnchorX !== null &&
+		Math.abs(event.clientX - selectionAnchorX) >= DRAG_THRESHOLD_PX
+	// A plain click (no meaningful drag) clears the current selection.
+	if (!dragged) {
+		selectionAnchor = null
+		selectionFocus = null
+	}
+	selectionAnchorX = null
+
+	if (track.hasPointerCapture(event.pointerId)) {
+		track.releasePointerCapture(event.pointerId)
+	}
+}
 </script>
 
 {#if duration > 0}
 	<div class="pt-4 w-full max-w-5xl">
 		<div
-			class="relative flex h-20 w-full overflow-hidden rounded border select-none"
+			class="relative flex h-20 w-full touch-none overflow-hidden rounded border select-none"
+			onpointerdown={e => {
+				if (e.button === 0) startSelection(e, e.currentTarget)
+			}}
 			onpointermove={e => {
+				if (isSelecting) {
+					updateSelection(e, e.currentTarget)
+					return
+				}
 				hoverTime = pointerToTime(e.clientX, e.currentTarget)
 				if (video && video.readyState >= 1) {
 					video.currentTime = hoverTime
 				}
 			}}
+			onpointerup={e => endSelection(e, e.currentTarget)}
+			onpointercancel={e => endSelection(e, e.currentTarget)}
 			onpointerleave={() => {
-				hoverTime = null
+				if (!isSelecting) hoverTime = null
 			}}
 			role="presentation"
 		>
@@ -132,6 +192,14 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 					{/if}
 				</div>
 			{/each}
+
+			{#if selection}
+				<div
+					class="pointer-events-none absolute inset-y-0 border-x-2 border-red-500 bg-red-500/40"
+					style:left="{(selection.start / duration) * 100}%"
+					style:width="{((selection.end - selection.start) / duration) * 100}%"
+				></div>
+			{/if}
 
 			{#if hoverTime !== null}
 				<div
