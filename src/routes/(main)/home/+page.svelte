@@ -5,6 +5,27 @@ import { getLapseData, getTimelapse, logout } from "../api.remote.js"
 let timelapseId = $state("")
 let submittedId = $state("")
 let videoEl = $state<HTMLVideoElement>()
+
+function formatDuration(seconds: number): string {
+	if (!Number.isFinite(seconds) || seconds <= 0) return "—"
+	const total = Math.round(seconds)
+	const hours = Math.floor(total / 3600)
+	const minutes = Math.floor((total % 3600) / 60)
+	const secs = total % 60
+	if (hours > 0) return `${hours}h ${minutes}m ${secs}s`
+	if (minutes > 0) return `${minutes}m ${secs}s`
+	return `${secs}s`
+}
+
+function formatCreatedAt(timestamp: number): string {
+	if (!Number.isFinite(timestamp) || timestamp <= 0) return "Unknown"
+	// Lapse returns a Unix timestamp; accept either seconds or milliseconds.
+	const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp
+	return new Date(ms).toLocaleString(undefined, {
+		dateStyle: "medium",
+		timeStyle: "short",
+	})
+}
 </script>
 
 <main class="flex min-h-screen flex-col">
@@ -97,10 +118,10 @@ let videoEl = $state<HTMLVideoElement>()
 
 					{@const timelapse = await getTimelapse(submittedId)}
 					{#if timelapse}
-						{#if timelapse.playbackUrl}
-							<div
-								class="flex w-full max-w-5xl flex-col items-center"
-							>
+						<div
+							class="flex w-full max-w-5xl flex-col items-center gap-4"
+						>
+							{#if timelapse.playbackUrl}
 								<video
 									src={timelapse.playbackUrl}
 									poster={timelapse.thumbnailUrl ?? undefined}
@@ -120,13 +141,48 @@ let videoEl = $state<HTMLVideoElement>()
 										video={videoEl}
 									/>
 								{/if}
-							</div>
-						{:else}
-							<p>
-								This timelapse is still being processed and has
-								no video yet.
-							</p>
-						{/if}
+							{:else}
+								<p>
+									This timelapse is still being processed and
+									has no video yet.
+								</p>
+							{/if}
+
+							<dl
+								class="grid w-full grid-cols-2 gap-3 sm:grid-cols-3"
+							>
+								<div class="rounded border p-3">
+									<dt
+										class="text-xs uppercase tracking-wide text-neutral-500"
+									>
+										Recorded
+									</dt>
+									<dd class="mt-1 font-medium">
+										{formatDuration(timelapse.duration)}
+									</dd>
+								</div>
+								<div class="rounded border p-3">
+									<dt
+										class="text-xs uppercase tracking-wide text-neutral-500"
+									>
+										Created
+									</dt>
+									<dd class="mt-1 font-medium">
+										{formatCreatedAt(timelapse.createdAt)}
+									</dd>
+								</div>
+								<div class="rounded border p-3">
+									<dt
+										class="text-xs uppercase tracking-wide text-neutral-500"
+									>
+										Visibility
+									</dt>
+									<dd class="mt-1 font-medium">
+										{timelapse.visibility}
+									</dd>
+								</div>
+							</dl>
+						</div>
 					{:else}
 						<p>No timelapse found for ID “{submittedId}”.</p>
 					{/if}

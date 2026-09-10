@@ -227,6 +227,7 @@ export type LapseTimelapse = {
 	name: string
 	description: string
 	visibility: string
+	createdAt: number
 	playbackUrl: string | null
 	thumbnailUrl: string | null
 	duration: number

@@ -84,6 +84,7 @@ export const getTimelapse = query(type("string"), async timelapseId => {
 		playbackUrl: timelapse.playbackUrl,
 		thumbnailUrl: timelapse.thumbnailUrl,
 		duration: timelapse.duration,
+		createdAt: timelapse.createdAt,
 		visibility: timelapse.visibility,
 		owner: {
 			handle: timelapse.owner.handle,
