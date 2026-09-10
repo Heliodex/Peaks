@@ -29,8 +29,8 @@ export async function GET({ cookies, url }: RequestEvent) {
 	if (!verifier) error(400, "Missing verifier cookie")
 
 	// Delete the state and verifier cookies
-	cookies.delete(lapseStateCookieName, {})
-	cookies.delete(lapseVerifierCookieName, {})
+	cookies.delete(lapseStateCookieName, { path: "/" })
+	cookies.delete(lapseVerifierCookieName, { path: "/" })
 
 	try {
 		const tokenResponse = await exchangeLapseCodeForToken(code, verifier)

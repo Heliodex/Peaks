@@ -3,13 +3,11 @@
 import { redirect } from "@sveltejs/kit"
 import {
 	authorise,
-	generatePkcePair,
-	getLapseAuthUrl,
 	invalidateSession,
 	sessionCookieName,
+	startLapseAuth,
 } from "#lib/server/auth.js"
 import { db } from "#lib/server/db.js"
-import { dev } from "$app/env"
 import { form, getRequestEvent, query } from "$app/server"
 
 export const logout = form(async () => {
@@ -23,28 +21,8 @@ export const logout = form(async () => {
 })
 
 export const lapseLogin = form(async () => {
-	const { cookies } = getRequestEvent()
-
-	const state = crypto.randomUUID()
-
-	// Store the state and PKCE verifier in cookies for verification in the callback
-	cookies.set("lapse_state", state, {
-		httpOnly: true,
-		maxAge: 60 * 10, // 10 minutes
-		sameSite: "lax",
-		secure: !dev,
-	})
-
-	const { verifier, challenge } = await generatePkcePair()
-
-	cookies.set("lapse_verifier", verifier, {
-		httpOnly: true,
-		maxAge: 60 * 10, // 10 minutes
-		sameSite: "lax",
-		secure: !dev,
-	})
-
-	redirect(302, getLapseAuthUrl(state, challenge), { external: true })
+	// Stores CSRF state + PKCE verifier cookies and redirects to Lapse
+	await startLapseAuth()
 })
 
 type LapseProfile = {
