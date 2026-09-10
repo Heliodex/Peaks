@@ -5,7 +5,7 @@ import TimelineNavigator from "./TimelineNavigator.svelte"
 
 type TimelineSelection = { id: string; start: number; end: number }
 type ViewWindow = { start: number; end: number }
-type CachedFrame = { time: number; url: string }
+type CachedFrame = { time: number; url: string; fresh: boolean }
 
 type DragState =
 	| {
@@ -112,6 +112,16 @@ function frameTime(index: number): number {
 	return view.start + (viewSpan * index) / (FRAME_COUNT - 1)
 }
 
+/**
+ * Spacing for the rendered thumbnail grid. Quantized to a power-of-two multiple of a base (one video frame when known), and independent of `view.start`, so the grid stays anchored to absolute time and doesn't reshuffle while panning.
+ */
+function frameStepFor(span: number): number {
+	const base = frameRate > 0 ? 1 / frameRate : 0.1
+	const ideal = span / (FRAME_COUNT - 1)
+	const ratio = Math.max(1, ideal / base)
+	return base * 2 ** Math.round(Math.log2(ratio))
+}
+
 function getCaptureVideo(src: string): Promise<HTMLVideoElement> {
 	if (captureElPromise) return captureElPromise
 	const el = document.createElement("video")
@@ -175,7 +185,7 @@ function isCached(time: number, tolerance: number): boolean {
 }
 
 function addFrame(time: number, url: string) {
-	let next = [...frameCache, { time, url }]
+	let next = [...frameCache, { time, url, fresh: true }]
 	if (next.length > FRAME_CACHE_LIMIT) {
 		// Keep the thumbnails nearest the visible window.
 		const center = (view.start + view.end) / 2
@@ -186,6 +196,14 @@ function addFrame(time: number, url: string) {
 			.slice(0, FRAME_CACHE_LIMIT)
 	}
 	frameCache = next
+	// Only freshly captured frames should fade in; clear the flag shortly after so frames merely re-sampled during zooming/panning don't flash.
+	setTimeout(() => {
+		frameCache = frameCache.map(frame =>
+			frame.time === time && frame.fresh
+				? { ...frame, fresh: false }
+				: frame
+		)
+	}, 200)
 }
 
 /** Sequentially capture any queued frames, adding each as soon as it's ready. */
@@ -215,15 +233,14 @@ function populateFrames(src: string, start: number, end: number) {
 	if (span <= 0) return
 
 	captureSrc = src
-	captureTolerance = span / (FRAME_COUNT - 1) / 2
+	const step = frameStepFor(span)
+	captureTolerance = step / 2
 
 	const queue: number[] = []
-	for (let i = 0; i < FRAME_COUNT; i++) {
-		const time = clamp(
-			snapToFrame(start + (span * i) / (FRAME_COUNT - 1)),
-			0,
-			duration
-		)
+	const first = Math.floor(start / step)
+	const last = Math.floor(end / step)
+	for (let k = first; k <= last; k++) {
+		const time = clamp(k * step, 0, duration)
 		if (!isCached(time, captureTolerance)) queue.push(time)
 	}
 	captureQueue = queue
@@ -287,13 +304,15 @@ const layoutFrames = $derived.by(() => {
 	const span = viewSpan
 	if (span <= 0) return []
 
-	// Sample the cache onto an even grid for the current view. This reuses the denser frames captured at a previous (higher) zoom level, but stops them from rendering as thin slivers when zoomed back out.
-	const step = span / (FRAME_COUNT - 1)
+	// Sample the cache onto an absolute, zoom-quantized grid. Because the grid is anchored to time (not to `view.start`), the chosen frame for each grid point stays the same while panning, so the strip slides instead of flickering.
+	const step = frameStepFor(span)
 	const tolerance = step / 2
 	const picks: CachedFrame[] = []
 
-	for (let i = 0; i < FRAME_COUNT; i++) {
-		const target = view.start + step * i
+	const first = Math.floor(view.start / step)
+	const last = Math.floor(view.end / step)
+	for (let k = first; k <= last; k++) {
+		const target = k * step
 		let best: CachedFrame | null = null
 		let bestDistance = Number.POSITIVE_INFINITY
 		for (const frame of frameCache) {
@@ -317,6 +336,7 @@ const layoutFrames = $derived.by(() => {
 		return {
 			time: frame.time,
 			url: frame.url,
+			fresh: frame.fresh,
 			left,
 			width: Math.max(0, right - left),
 		}
@@ -641,7 +661,8 @@ function deleteSelection(id: string, event: MouseEvent) {
 					<img
 						src={frame.url}
 						alt=""
-						class="frame-in absolute inset-y-0 h-full object-cover"
+						class="absolute inset-y-0 h-full object-cover"
+						class:frame-in={frame.fresh}
 						style:left="{frame.left}%"
 						style:width="{frame.width}%"
 						draggable="false"
