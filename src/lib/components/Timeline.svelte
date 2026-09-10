@@ -591,7 +591,7 @@ function onKeyDown(event: KeyboardEvent) {
 				{@const idleEnd = Math.min(range.end, view.end)}
 				{#if idleEnd > idleStart}
 					<div
-						class="pointer-events-none absolute inset-y-0 border-x border-amber-400/50 bg-amber-400/25"
+						class="pointer-events-none absolute bottom-0 h-3 border-x border-t border-amber-400/50 bg-amber-400/25"
 						style:left="{percentWithin(idleStart, view)}%"
 						style:width="{percentWithin(idleEnd, view) -
 							percentWithin(idleStart, view)}%"

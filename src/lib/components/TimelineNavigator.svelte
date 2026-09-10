@@ -184,7 +184,7 @@ function onPointerUp(event: PointerEvent) {
 	<div class="pointer-events-none absolute inset-0">
 		{#each idleRanges as range (range.start)}
 			<div
-				class="absolute inset-y-0 border-x border-amber-400/50 bg-amber-400/25"
+				class="absolute bottom-0 h-1.5 border-x border-t border-amber-400/50 bg-amber-400/25"
 				style:left="{percentOf(range.start, duration)}%"
 				style:width="{percentOf(range.end - range.start, duration)}%"
 			></div>
