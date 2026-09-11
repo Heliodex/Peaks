@@ -43,6 +43,9 @@ export function formatClock(seconds: number): string {
 	return `${m}:${ss}`
 }
 
+export const formatHours = (seconds: number): string =>
+	`${(seconds / 3600).toFixed(2).replace(/\.?0+$/, "")}h`
+
 /** Position of a time within a window, as a percentage of the window. */
 export function percentWithin(time: number, view: ViewWindow): number {
 	const span = view.end - view.start

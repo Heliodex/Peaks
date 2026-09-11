@@ -19,6 +19,7 @@ import { loadSelections, saveSelections } from "#lib/selection-storage.js"
 import { decodeShare, encodeShare, type ShareState } from "#lib/share.js"
 import {
 	formatClock,
+	formatHours,
 	PLAYBACK_TO_RECORDED,
 	type TimelineSelection,
 } from "#lib/timeline.js"
@@ -427,13 +428,18 @@ function fallbackDescription(entry: ProjectTimelapse): string {
 
 /**
  * The project's description: every timelapse's review text in order (without
- * their individual share links), followed by a share link for the whole
- * project.
+ * their individual share links), a summary of the project totals, and finally
+ * a share link for the whole project.
  */
 const projectDescription = $derived.by(() => {
 	if (projectEntries.length === 0) return ""
 	const parts = projectEntries.map(
 		entry => entry.description ?? fallbackDescription(entry)
+	)
+	parts.push(
+		`Total original time ${formatClock(projectTotals.recorded)}, ` +
+			`total time deducted ${formatClock(projectTotals.deducted)}, ` +
+			`final total ${formatClock(projectTotals.final)} (${formatHours(projectTotals.final)}).`
 	)
 	if (submittedId) parts.push(shareUrl)
 	return parts.join("\n\n")
