@@ -23,6 +23,8 @@ let {
 	currentTime = 0,
 	selections = [],
 	idleRanges = [],
+	idleProgress = 0,
+	idleAnalyzing = false,
 	view = { start: 0, end: 0 },
 	onviewchange = () => {},
 }: {
@@ -32,6 +34,8 @@ let {
 	currentTime?: number
 	selections?: TimelineSelection[]
 	idleRanges?: IdleRange[]
+	idleProgress?: number
+	idleAnalyzing?: boolean
 	view?: ViewWindow
 	onviewchange?: (view: ViewWindow) => void
 } = $props()
@@ -157,7 +161,7 @@ function onPointerUp(event: PointerEvent) {
 </script>
 
 <div
-	class="relative mt-2 h-10 w-full touch-none overflow-hidden rounded border bg-neutral-800 select-none"
+	class="relative mt-2 h-10 w-full touch-none overflow-hidden rounded border border-neutral-500 bg-neutral-800 select-none"
 	onpointerdown={onPointerDown}
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}
@@ -236,6 +240,14 @@ function onPointerUp(event: PointerEvent) {
 		<div
 			class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-emerald-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
 			style:left="{percentOf(currentTime, duration)}%"
+		></div>
+	{/if}
+
+	<!-- Idle-scan progress: how far frame checking has reached -->
+	{#if idleAnalyzing && idleProgress > 0}
+		<div
+			class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-amber-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
+			style:left="{idleProgress * 100}%"
 		></div>
 	{/if}
 </div>

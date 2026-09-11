@@ -32,9 +32,13 @@ export function createIdleAnalysis({
 		analyzing = true
 
 		let cancelled = false
-		const job = analyzeIdle(url, total, rate, (value, live) => {
-			progress = value
-			ranges = live
+		const job = analyzeIdle(url, total, rate, {
+			onProgress: value => {
+				progress = value
+			},
+			onRanges: live => {
+				ranges = live
+			},
 		})
 		void job.promise
 			.then(result => {

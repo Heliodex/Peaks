@@ -97,13 +97,16 @@ export function mergeIdleRanges(intervals: IdleRange[]): IdleRange[] {
 }
 
 /**
- * Sample the video and return the ranges where consecutive samples are visually identical. `onProgress` fires after each sample so callers can show partial results and a progress bar.
+ * Sample the video and return the ranges where consecutive samples are visually identical. `onProgress` fires after each sample with the fraction scanned; `onRanges` fires with partial results as new idle spans appear.
  */
 export function analyzeIdle(
 	src: string,
 	duration: number,
 	frameRate: number,
-	onProgress?: (progress: number, ranges: IdleRange[]) => void
+	callbacks: {
+		onProgress?: (progress: number) => void
+		onRanges?: (ranges: IdleRange[]) => void
+	} = {}
 ): IdleAnalysisJob {
 	const video = document.createElement("video")
 	video.muted = true
@@ -151,13 +154,15 @@ export function analyzeIdle(
 				intervals.push({ start: times[i - 1], end: times[i] })
 			}
 			previous = sample
+			callbacks.onProgress?.((i + 1) / times.length)
 
-			// Only push partial results when a new idle span appears, so the UI isn't re-rendered on every single sampled frame.
+			// Only push partial ranges when a new idle span appears, so the
+			// idle overlays aren't rebuilt on every single sampled frame.
 			const live = mergeIdleRanges(intervals)
 			const done = i === times.length - 1
 			if (done || live.length !== reportedCount) {
 				reportedCount = live.length
-				onProgress?.((i + 1) / times.length, live)
+				callbacks.onRanges?.(live)
 			}
 		}
 

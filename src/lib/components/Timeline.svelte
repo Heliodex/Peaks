@@ -98,9 +98,13 @@ const idle = createIdleAnalysis({
 	frameRate: () => frameRate,
 })
 
+// Fraction (0–1) of the idle scan completed, for the scanning progress line.
+let idleProgress = $state(0)
+
 $effect(() => {
 	idleRanges = idle.ranges
 	idleAnalyzing = idle.analyzing
+	idleProgress = idle.progress
 })
 
 function makeId(): string {
@@ -561,7 +565,7 @@ function onKeyDown(event: KeyboardEvent) {
 	{@const layoutFrames = frameStrip.layout}
 	<div class="pt-4 w-full max-w-5xl">
 		<div
-			class="relative h-20 w-full touch-none rounded border select-none {pan
+			class="relative h-20 w-full touch-none rounded border border-neutral-500 select-none {pan
 				? 'cursor-grabbing'
 				: ''}"
 			onpointerdown={onPointerDown}
@@ -684,6 +688,17 @@ function onKeyDown(event: KeyboardEvent) {
 				></div>
 			{/if}
 
+			<!-- Idle-scan progress: how far frame checking has reached -->
+			{#if idleAnalyzing && idleProgress > 0}
+				{@const scanTime = idleProgress * duration}
+				{#if scanTime >= view.start && scanTime <= view.end}
+					<div
+						class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-amber-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
+						style:left="{percentWithin(scanTime, view)}%"
+					></div>
+				{/if}
+			{/if}
+
 			{#if hoverTime !== null && hoveredSelectionId === null}
 				<div
 					class="pointer-events-none absolute top-1 rounded bg-black/80 px-1.5 py-0.5 text-xs text-white"
@@ -705,6 +720,8 @@ function onKeyDown(event: KeyboardEvent) {
 			{currentTime}
 			{selections}
 			{idleRanges}
+			{idleProgress}
+			{idleAnalyzing}
 			{view}
 			onviewchange={setView}
 			playbackUrl={timelapse.playbackUrl}
