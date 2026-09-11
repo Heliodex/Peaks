@@ -112,18 +112,21 @@ let urlToken = 0
 
 async function syncShareUrl(id: string, value: TimelineSelection[]) {
 	const token = ++urlToken
-	const encoded = await encodeShare(value)
+	// Nothing to store? Drop the parameter entirely rather than writing an
+	// encoded empty payload.
+	const encoded = value.length > 0 ? await encodeShare(value) : null
 	if (token !== urlToken) return
 	const url = new URL(window.location.href)
-	if (
-		url.pathname === `/${encodeURIComponent(id)}` &&
-		url.searchParams.get(SHARE_PARAM) === encoded
-	) {
-		return
+	if (encoded) {
+		url.searchParams.set(SHARE_PARAM, encoded)
+	} else {
+		url.searchParams.delete(SHARE_PARAM)
 	}
 	url.pathname = `/${encodeURIComponent(id)}`
-	url.searchParams.set(SHARE_PARAM, encoded)
-	await goto(`${url.pathname}${url.search}`, {
+	const target = `${url.pathname}${url.search}`
+	if (target === `${window.location.pathname}${window.location.search}`)
+		return
+	await goto(target, {
 		replace: true,
 		shallow: true,
 		reset: false,
