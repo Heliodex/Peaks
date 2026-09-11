@@ -207,11 +207,10 @@ export function describeTimelapse({
 		const deflated =
 			matches.reduce(
 				(sum, selection) =>
-					sum +
-					nonIdleDuration(selection, idleRanges) * reason.deflation,
+					sum + nonIdleDuration(selection, idleRanges),
 				0
 			) * PLAYBACK_TO_RECORDED
-		deflatedTotal += deflated
+		deflatedTotal += deflated * reason.deflation
 		parts.push(
 			`${formatClock(deflated)} ${reason.summaryLabel}: ${formatSpans(matches)} (${reason.deflationLabel}).`
 		)
