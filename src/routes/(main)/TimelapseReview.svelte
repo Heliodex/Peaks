@@ -8,6 +8,13 @@ import {
 import Timeline from "#lib/components/Timeline.svelte"
 import { loadIgnoreIdle, saveIgnoreIdle } from "#lib/idle-override.js"
 import type { IdleRange } from "#lib/idle-time.js"
+import {
+	loadCurrentProject,
+	loadProject,
+	type ProjectTimelapse,
+	saveCurrentProject,
+	saveProject,
+} from "#lib/project-storage.js"
 import { loadSelections, saveSelections } from "#lib/selection-storage.js"
 import { decodeShare, encodeShare } from "#lib/share.js"
 import {
@@ -210,6 +217,88 @@ $effect(() => {
 	if (!id || !loaded) return
 	saveIgnoreIdle(id, ignoreIdle)
 })
+
+// The sidebar shows one named project at a time. Its name and its list of
+// timelapses live in local storage, so the group survives reloads.
+let projectName = $state("Untitled project")
+let projectEntries = $state<ProjectTimelapse[]>([])
+let addedId = $state<string | null>(null)
+let addedTimer: ReturnType<typeof setTimeout> | undefined
+
+// Restore the last-used project name after mount; local storage isn't available
+// during SSR, so this must not run in the initial render.
+$effect(() => {
+	const saved = loadCurrentProject()
+	if (saved) projectName = saved
+})
+
+// Switching the project name swaps the visible list.
+$effect(() => {
+	const name = projectName.trim()
+	projectEntries = name ? loadProject(name) : []
+})
+
+/** Rename/switch the project and remember the choice. */
+function selectProject(name: string) {
+	projectName = name
+	saveCurrentProject(name.trim())
+}
+
+$effect(() => {
+	return () => clearTimeout(addedTimer)
+})
+
+/** Totals for the current project, in recorded seconds. */
+const projectTotals = $derived.by(() => {
+	let recorded = 0
+	let idle = 0
+	let annotations = 0
+	let final = 0
+	for (const entry of projectEntries) {
+		recorded += entry.duration
+		idle += entry.idleDuration
+		annotations += entry.annotationDeflation
+		final += Math.max(
+			0,
+			entry.duration - entry.idleDuration - entry.annotationDeflation
+		)
+	}
+	return {
+		recorded,
+		idle,
+		annotations,
+		deducted: idle + annotations,
+		final,
+	}
+})
+
+/** Whether the timelapse currently open is already in the project. */
+const inProject = $derived(
+	projectEntries.some(entry => entry.id === submittedId)
+)
+
+/** Add (or refresh) the open timelapse in the current project. */
+function addToProject(entry: ProjectTimelapse) {
+	const name = projectName.trim()
+	if (!name) return
+	projectEntries = [
+		...projectEntries.filter(item => item.id !== entry.id),
+		entry,
+	]
+	saveProject(name, $state.snapshot(projectEntries))
+	addedId = entry.id
+	clearTimeout(addedTimer)
+	addedTimer = setTimeout(() => {
+		addedId = null
+	}, 1500)
+}
+
+/** Remove a timelapse from the current project. */
+function removeFromProject(id: string) {
+	const name = projectName.trim()
+	projectEntries = projectEntries.filter(entry => entry.id !== id)
+	if (name) saveProject(name, $state.snapshot(projectEntries))
+}
 </script>
 
 <main class="flex min-h-screen flex-col">
@@ -280,8 +369,11 @@ $effect(() => {
 		</form>
 	</header>
 
-	<section class="flex flex-1 items-center justify-center p-4">
-		{#if submittedId}
+	<div
+		class="flex flex-1 flex-col items-start justify-center gap-4 p-4 lg:flex-row"
+	>
+		<section class="flex w-full flex-1 items-start justify-center">
+			{#if submittedId}
 			{#key submittedId}
 				<svelte:boundary>
 					{#snippet pending()}
@@ -465,6 +557,33 @@ $effect(() => {
 								</p>
 							{/if}
 
+							<div
+								class="flex items-center justify-end gap-2"
+							>
+								{#if addedId === timelapse.id}
+									<span class="text-xs text-green-500"
+										> Added to project </span
+									>
+								{/if}
+								<button
+									type="button"
+									disabled={!projectName.trim()}
+									onclick={() =>
+										addToProject({
+											id: timelapse.id,
+											name: timelapse.name,
+											duration: timelapse.duration,
+											idleDuration,
+											annotationDeflation,
+										})}
+									class="border border-neutral-500 px-3 py-1 text-sm hover:bg-neutral-800 disabled:opacity-50"
+								>
+									{inProject
+										? "Update in project"
+										: "Add to project"}
+								</button>
+							</div>
+
 							<dl
 								class="grid w-full grid-cols-2 gap-3 sm:grid-cols-4"
 							>
@@ -573,5 +692,100 @@ $effect(() => {
 				Enter a timelapse ID above to review it here.
 			</p>
 		{/if}
-	</section>
+		</section>
+
+		<aside
+			class="sticky top-4 flex w-full flex-col gap-3 border border-neutral-500 p-3 lg:w-72 lg:shrink-0"
+		>
+			<h2 class="font-medium">Project</h2>
+
+			<label class="flex flex-col gap-1 text-sm">
+				<span class="text-xs uppercase tracking-wide text-neutral-500">
+					Name
+				</span>
+				<input
+					type="text"
+					value={projectName}
+					onchange={e => selectProject(e.currentTarget.value)}
+					placeholder="Untitled project"
+					class="border border-neutral-500 px-2 py-1"
+				>
+			</label>
+
+			{#if projectEntries.length > 0}
+				<ul class="flex flex-col gap-1 text-sm">
+					{#each projectEntries as entry (entry.id)}
+						<li
+							class="flex items-start justify-between gap-2 border-b border-neutral-800 pb-1"
+						>
+							<div class="flex min-w-0 flex-col">
+								<span
+									class="truncate"
+									title={entry.name || entry.id}
+								>
+									{entry.name || entry.id}
+								</span>
+								<span class="text-xs text-neutral-500">
+									{formatDuration(
+										Math.max(
+											0,
+											entry.duration -
+												entry.idleDuration -
+												entry.annotationDeflation
+										)
+									)}
+								</span>
+							</div>
+							<button
+								type="button"
+								onclick={() => removeFromProject(entry.id)}
+								aria-label="Remove {entry.name ||
+									entry.id} from project"
+								class="text-xs text-neutral-500 hover:text-red-500"
+							>
+								✕
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<p class="text-sm text-neutral-500">
+					No timelapses yet. Open one and use “Add to project”.
+				</p>
+			{/if}
+
+			<dl class="flex flex-col gap-1 border-t border-neutral-700 pt-2 text-sm">
+				<div class="flex justify-between gap-2">
+					<dt class="text-neutral-500">Time spent working</dt>
+					<dd class="font-medium">
+						{formatDuration(projectTotals.recorded)}
+					</dd>
+				</div>
+				<div class="flex justify-between gap-2">
+					<dt class="text-neutral-500">Time deducted</dt>
+					<dd class="font-medium">
+						{formatDuration(projectTotals.deducted)}
+					</dd>
+				</div>
+				{#if projectTotals.idle > 0}
+					<div class="flex justify-between gap-2 pl-3 text-xs">
+						<dt class="text-neutral-500">Idle</dt>
+						<dd>{formatDuration(projectTotals.idle)}</dd>
+					</div>
+				{/if}
+				{#if projectTotals.annotations > 0}
+					<div class="flex justify-between gap-2 pl-3 text-xs">
+						<dt class="text-neutral-500">Annotations</dt>
+						<dd>{formatDuration(projectTotals.annotations)}</dd>
+					</div>
+				{/if}
+				<div class="flex justify-between gap-2 border-t border-neutral-800 pt-1">
+					<dt class="font-medium">Final time</dt>
+					<dd class="font-medium">
+						{formatDuration(projectTotals.final)}
+					</dd>
+				</div>
+			</dl>
+		</aside>
+	</div>
 </main>
