@@ -7,6 +7,7 @@ import {
 } from "#lib/annotations.js"
 import Timeline from "#lib/components/Timeline.svelte"
 import type { IdleRange } from "#lib/idle-time.js"
+import { loadSelections, saveSelections } from "#lib/selection-storage.js"
 import {
 	formatClock,
 	PLAYBACK_TO_RECORDED,
@@ -60,6 +61,14 @@ function setSelectionReason(id: string, reason: string) {
 		selection.id === id ? { ...selection, reason } : selection
 	)
 }
+
+// Persist selections (and their reasons) per timelapse so reopening the same
+// timelapse restores them.
+$effect(() => {
+	const id = submittedId
+	if (!id) return
+	saveSelections(id, $state.snapshot(selections))
+})
 </script>
 
 <main class="flex min-h-screen flex-col">
@@ -92,8 +101,9 @@ function setSelectionReason(id: string, reason: string) {
 				class="flex items-center gap-2"
 				onsubmit={e => {
 					e.preventDefault()
-					submittedId = timelapseId.trim()
-					selections = []
+					const id = timelapseId.trim()
+					submittedId = id
+					selections = loadSelections(id)
 					idleRanges = []
 					idleAnalyzing = false
 				}}
