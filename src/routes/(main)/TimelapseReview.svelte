@@ -6,6 +6,7 @@ import {
 	nonIdleDuration,
 } from "#lib/annotations.js"
 import Timeline from "#lib/components/Timeline.svelte"
+import { loadIgnoreIdle, saveIgnoreIdle } from "#lib/idle-override.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import { loadSelections, saveSelections } from "#lib/selection-storage.js"
 import { decodeShare, encodeShare } from "#lib/share.js"
@@ -30,6 +31,8 @@ let videoEl = $state<HTMLVideoElement>()
 let selections = $state<TimelineSelection[]>([])
 let idleRanges = $state<IdleRange[]>([])
 let idleAnalyzing = $state(false)
+// When set, idle detection is ignored entirely for the actual-time maths.
+let ignoreIdle = $state(false)
 
 function formatDuration(seconds: number): string {
 	if (!Number.isFinite(seconds) || seconds <= 0) return "—"
@@ -56,12 +59,18 @@ const sortedSelections = $derived(
 	[...selections].sort((a, b) => a.start - b.start)
 )
 
+/** Idle ranges that count towards the maths (none while overridden). */
+const effectiveIdleRanges = $derived(ignoreIdle ? [] : idleRanges)
+
 /** Time removed from the actual duration by the chosen annotation reasons, in recorded seconds. */
 const annotationDeflation = $derived(
 	selections.reduce((sum, selection) => {
 		const reason = findAnnotationReason(selection.reason)
 		if (!reason) return sum
-		return sum + nonIdleDuration(selection, idleRanges) * reason.deflation
+		return (
+			sum +
+			nonIdleDuration(selection, effectiveIdleRanges) * reason.deflation
+		)
 	}, 0) * PLAYBACK_TO_RECORDED
 )
 
@@ -84,6 +93,7 @@ $effect(() => {
 	idleAnalyzing = false
 	if (!id) {
 		selections = []
+		ignoreIdle = false
 		loaded = true
 		return
 	}
@@ -91,11 +101,13 @@ $effect(() => {
 	if (shared) {
 		void decodeShare(shared).then(decoded => {
 			if (token !== loadToken) return
-			selections = decoded ?? []
+			selections = decoded?.selections ?? loadSelections(id)
+			ignoreIdle = decoded?.ignoreIdle ?? loadIgnoreIdle(id)
 			loaded = true
 		})
 	} else {
 		selections = loadSelections(id)
+		ignoreIdle = loadIgnoreIdle(id)
 		loaded = true
 	}
 })
@@ -110,11 +122,18 @@ function loadTimelapse(event: SubmitEvent) {
 // Guards against an older async encode resolving after a newer one.
 let urlToken = 0
 
-async function syncShareUrl(id: string, value: TimelineSelection[]) {
+async function syncShareUrl(
+	id: string,
+	value: TimelineSelection[],
+	ignoreIdle: boolean
+) {
 	const token = ++urlToken
 	// Nothing to store? Drop the parameter entirely rather than writing an
 	// encoded empty payload.
-	const encoded = value.length > 0 ? await encodeShare(value) : null
+	const encoded =
+		value.length > 0 || ignoreIdle
+			? await encodeShare(value, ignoreIdle)
+			: null
 	if (token !== urlToken) return
 	const url = new URL(window.location.href)
 	if (encoded) {
@@ -133,17 +152,25 @@ async function syncShareUrl(id: string, value: TimelineSelection[]) {
 	})
 }
 
-// Persist selections (and their reasons) per timelapse, and mirror them into
-// the `?tl=` parameter so the review can be shared.
+// Persist selections (and their reasons) per timelapse, and mirror the review
+// state into the `?tl=` parameter so it can be shared.
 $effect(() => {
 	const id = submittedId
 	const value = $state.snapshot(selections)
+	const overridden = ignoreIdle
 	if (!id || !loaded) return
 	saveSelections(id, value)
 	const timer = setTimeout(() => {
-		void syncShareUrl(id, value)
+		void syncShareUrl(id, value, overridden)
 	}, 300)
 	return () => clearTimeout(timer)
+})
+
+// Persist the idle override for this timelapse.
+$effect(() => {
+	const id = submittedId
+	if (!id || !loaded) return
+	saveIgnoreIdle(id, ignoreIdle)
 })
 </script>
 
@@ -235,7 +262,7 @@ $effect(() => {
 					{const timelapse = await getTimelapse(submittedId)}
 					{#if timelapse}
 						{const idleDuration = $derived(
-							idleRanges.reduce(
+							effectiveIdleRanges.reduce(
 								(sum, range) => sum + (range.end - range.start),
 								0
 							) * PLAYBACK_TO_RECORDED
@@ -252,12 +279,12 @@ $effect(() => {
 							describeTimelapse({
 								id: timelapse.id,
 								duration: timelapse.duration,
-								idleRanges,
+								idleRanges: effectiveIdleRanges,
 								selections,
 							})
 						)}
 						<div
-							class="flex w-full max-w-5xl flex-col items-center gap-4"
+							class="flex w-full max-w-5xl flex-col items-left gap-4"
 						>
 							{#if timelapse.playbackUrl}
 								<video
@@ -275,6 +302,7 @@ $effect(() => {
 										bind:selections
 										bind:idleRanges
 										bind:idleAnalyzing
+										{ignoreIdle}
 										timelapse={{
 											playbackUrl: timelapse.playbackUrl,
 											thumbnailUrl: timelapse.thumbnailUrl,
@@ -301,9 +329,7 @@ $effect(() => {
 															>{formatClock(
 																sel.start
 															)}</span
-														>
-														–
-														<span
+														>-<span
 															class="font-medium"
 															>{formatClock(
 																sel.end
@@ -340,7 +366,7 @@ $effect(() => {
 															-{formatDuration(
 																nonIdleDuration(
 																	sel,
-																	idleRanges
+																	effectiveIdleRanges
 																) *
 																	reason.deflation *
 																	PLAYBACK_TO_RECORDED
@@ -358,16 +384,32 @@ $effect(() => {
 											an annotation.
 										</p>
 									{/if}
-									{#if idleRanges.length > 0}
-										<p
-											class="flex items-center gap-2 text-xs text-neutral-500"
+									{#if idleRanges.length > 0 || ignoreIdle}
+										<div
+											class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500"
 										>
-											<span
-												class="inline-block h-2 w-3 rounded-sm border border-neutral-500 border-amber-400/50 bg-amber-400/25"
-											></span>
-											Amber regions have no visual changes
-											(time spent away).
-										</p>
+											<label
+												class="flex items-center gap-1.5"
+											>
+												<input
+													type="checkbox"
+													bind:checked={ignoreIdle}
+													class="h-3.5 w-3.5 accent-blue-500"
+												>
+												Ignore idle time
+											</label>
+											{#if !ignoreIdle}
+												<p
+													class="flex items-center gap-2"
+												>
+													<span
+														class="inline-block h-2 w-3 rounded-sm border border-amber-400/50 bg-amber-400/25"
+													></span>
+													Amber regions have no visual
+													changes (time spent away).
+												</p>
+											{/if}
+										</div>
 									{/if}
 								{/if}
 							{:else}
@@ -403,7 +445,7 @@ $effect(() => {
 									<dd class="pt-1 font-medium">
 										{formatDuration(actualDuration)}
 									</dd>
-									{#if idleAnalyzing}
+									{#if idleAnalyzing && !ignoreIdle}
 										<p
 											class="pt-0.5 text-xs text-amber-600"
 										>

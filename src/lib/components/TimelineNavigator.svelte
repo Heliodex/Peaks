@@ -26,6 +26,7 @@ let {
 	idleRanges = [],
 	idleProgress = 0,
 	idleAnalyzing = false,
+	ignoreIdle = false,
 	view = { start: 0, end: 0 },
 	onviewchange = () => {},
 }: {
@@ -37,6 +38,7 @@ let {
 	idleRanges?: IdleRange[]
 	idleProgress?: number
 	idleAnalyzing?: boolean
+	ignoreIdle?: boolean
 	view?: ViewWindow
 	onviewchange?: (view: ViewWindow) => void
 } = $props()
@@ -45,6 +47,9 @@ let {
 const MIN_WINDOW_PX = 10
 // Number of thumbnails captured across the whole video for the overview strip
 const NAV_FRAME_COUNT = 24
+
+// Idle regions to draw: hidden while the reviewer overrides idle detection.
+const visibleIdleRanges = $derived(ignoreIdle ? [] : idleRanges)
 
 let drag = $state<NavDrag>(null)
 let navFrames = $state<string[]>([])
@@ -189,7 +194,7 @@ function onPointerUp(event: PointerEvent) {
 
 	<!-- Idle stretches where the picture never changes -->
 	<div class="pointer-events-none absolute inset-0">
-		{#each idleRanges as range (range.start)}
+		{#each visibleIdleRanges as range (range.start)}
 			<div
 				class="absolute bottom-0 h-1.5 border-x border-t border-amber-400/50 bg-amber-400/25"
 				style:left="{percentOf(range.start, duration)}%"
@@ -246,7 +251,7 @@ function onPointerUp(event: PointerEvent) {
 	{/if}
 
 	<!-- Idle-scan progress: how far frame checking has reached -->
-	{#if idleAnalyzing && idleProgress > 0}
+	{#if idleAnalyzing && !ignoreIdle && idleProgress > 0}
 		<div
 			class="pointer-events-none absolute inset-y-0 w-10 -translate-x-full bg-linear-to-r from-amber-500/0 to-amber-500/30 border-amber-500 border-r-2 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
 			style:left="{idleProgress * 100}%"

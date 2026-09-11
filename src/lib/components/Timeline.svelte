@@ -46,12 +46,14 @@ let {
 	selections = $bindable<TimelineSelection[]>([]),
 	idleRanges = $bindable<IdleRange[]>([]),
 	idleAnalyzing = $bindable(false),
+	ignoreIdle = false,
 }: {
 	timelapse: { playbackUrl: string; thumbnailUrl?: string | null }
 	video: HTMLVideoElement | undefined
 	selections?: TimelineSelection[]
 	idleRanges?: IdleRange[]
 	idleAnalyzing?: boolean
+	ignoreIdle?: boolean
 } = $props()
 
 const FRAME_COUNT = 12
@@ -77,6 +79,8 @@ let currentTime = $state(0)
 let hoverTime = $state<number | null>(null)
 let hoveredSelectionId = $state<string | null>(null)
 const duration = $derived(videoDuration)
+// Idle regions to draw: hidden while the reviewer overrides idle detection.
+const visibleIdleRanges = $derived(ignoreIdle ? [] : idleRanges)
 
 // The part of the timeline currently visible on the main track, in seconds.
 // Wheel-zoom animates through a spring so scroll-zoom glides instead of stepping; drags set it instantly so they stay locked to the pointer.
@@ -670,7 +674,7 @@ function onKeyDown(event: KeyboardEvent) {
 			</div>
 
 			<!-- Idle stretches where the picture never changes (time spent AFK) -->
-			{#each idleRanges as range (range.start)}
+			{#each visibleIdleRanges as range (range.start)}
 				{const idleStart = $derived(Math.max(range.start, view.start))}
 				{const idleEnd = $derived(Math.min(range.end, view.end))}
 				{#if idleEnd > idleStart}
@@ -755,7 +759,7 @@ function onKeyDown(event: KeyboardEvent) {
 			{/if}
 
 			<!-- Idle-scan progress: how far frame checking has reached -->
-			{#if idleAnalyzing && idleProgress > 0}
+			{#if idleAnalyzing && !ignoreIdle && idleProgress > 0}
 				{const scanTime = $derived(idleProgress * duration)}
 				{#if scanTime >= view.start && scanTime <= view.end}
 					<div
@@ -807,6 +811,7 @@ function onKeyDown(event: KeyboardEvent) {
 			{idleRanges}
 			{idleProgress}
 			{idleAnalyzing}
+			{ignoreIdle}
 			{view}
 			onviewchange={setView}
 			playbackUrl={timelapse.playbackUrl}
