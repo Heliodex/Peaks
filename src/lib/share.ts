@@ -15,6 +15,8 @@ export type ShareProjectEntry = {
 	duration: number
 	idleDuration: number
 	annotationDeflation: number
+	/** Plain-text review description, without the per-timelapse share link. */
+	description?: string
 }
 
 export type ShareState = {
@@ -30,7 +32,7 @@ export type ShareState = {
 
 // `i` is present (as 1) only when the idle override is on. `n`, `p` and `o`
 // carry the sidebar project (name, entries and open timelapse) when present.
-type ShareProjectTuple = [string, string, number, number, number]
+type ShareProjectTuple = [string, string, number, number, number, string?]
 type SharePayload = {
 	s: [number, number, number][]
 	i?: 1
@@ -104,6 +106,7 @@ export async function encodeShare(state: ShareState): Promise<string> {
 								entry.duration,
 								entry.idleDuration,
 								entry.annotationDeflation,
+								entry.description ?? "",
 							] as ShareProjectTuple
 					),
 				}
@@ -137,7 +140,8 @@ function parseSelection(
 
 function parseProjectEntry(value: unknown): ShareProjectEntry | null {
 	if (!Array.isArray(value)) return null
-	const [id, name, duration, idleDuration, annotationDeflation] = value
+	const [id, name, duration, idleDuration, annotationDeflation, description] =
+		value
 	if (
 		typeof id !== "string" ||
 		typeof duration !== "number" ||
@@ -152,6 +156,9 @@ function parseProjectEntry(value: unknown): ShareProjectEntry | null {
 		duration,
 		idleDuration,
 		annotationDeflation,
+		...(typeof description === "string" && description
+			? { description }
+			: {}),
 	}
 }
 

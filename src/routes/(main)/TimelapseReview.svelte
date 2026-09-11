@@ -121,9 +121,16 @@ function setSelectionReason(id: string, reason: string) {
 	)
 }
 
+function removeSelection(id: string) {
+	selections = selections.filter(selection => selection.id !== id)
+}
+
 // Copy-to-clipboard feedback for the description card.
 let copied = $state(false)
 let copyTimer: ReturnType<typeof setTimeout> | undefined
+// Separate feedback for the project description's copy button.
+let projectCopied = $state(false)
+let projectCopyTimer: ReturnType<typeof setTimeout> | undefined
 
 async function copyText(text: string) {
 	try {
@@ -138,8 +145,24 @@ async function copyText(text: string) {
 	}
 }
 
+async function copyProjectText(text: string) {
+	try {
+		await navigator.clipboard.writeText(text)
+		projectCopied = true
+		clearTimeout(projectCopyTimer)
+		projectCopyTimer = setTimeout(() => {
+			projectCopied = false
+		}, 1500)
+	} catch {
+		// Clipboard access may be denied; leave the button unchanged.
+	}
+}
+
 $effect(() => {
-	return () => clearTimeout(copyTimer)
+	return () => {
+		clearTimeout(copyTimer)
+		clearTimeout(projectCopyTimer)
+	}
 })
 
 // Load selections for the current path id: a `tl` parameter takes precedence,
@@ -360,19 +383,63 @@ const inProject = $derived(
 	projectEntries.some(entry => entry.id === submittedId)
 )
 
-// Keep the open timelapse's project entry in sync with its current idle time
-// and annotation deductions, so edits appear without a manual update.
+/** Approximate description for an entry that was shared without one. */
+function fallbackDescription(entry: ProjectTimelapse): string {
+	const final = Math.max(
+		0,
+		entry.duration - entry.idleDuration - entry.annotationDeflation
+	)
+	const parts = [`${entry.id} – Original time ${formatClock(entry.duration)}.`]
+	if (entry.idleDuration > 0) {
+		parts.push(`${formatClock(entry.idleDuration)} spent idle.`)
+	}
+	if (entry.annotationDeflation > 0) {
+		parts.push(
+			`${formatClock(entry.annotationDeflation)} removed by annotations.`
+		)
+	}
+	parts.push(`Final time after deflation ${formatClock(final)}.`)
+	return parts.join(" ")
+}
+
+/**
+ * The project's description: every timelapse's review text in order (without
+ * their individual share links), followed by a share link for the whole
+ * project.
+ */
+const projectDescription = $derived.by(() => {
+	if (projectEntries.length === 0) return ""
+	const parts = projectEntries.map(
+		entry => entry.description ?? fallbackDescription(entry)
+	)
+	if (submittedId) parts.push(shareUrl)
+	return parts.join("\n")
+})
+
+// Keep the open timelapse's project entry in sync with its current idle time,
+// annotation deductions and description, so edits appear without a manual save.
 $effect(() => {
 	const id = submittedId
 	const idle = idleDuration
 	const annotations = annotationDeflation
+	// Read the raw selection/idle state so reason-only edits still refresh the
+	// stored description, even when the totals don't change.
+	const ranges = $state.snapshot(effectiveIdleRanges)
+	const currentSelections = $state.snapshot(selections)
 	if (!id || !loaded) return
 	const index = projectEntries.findIndex(entry => entry.id === id)
 	if (index === -1) return
 	const entry = projectEntries[index]
+	const description = describeTimelapse({
+		id,
+		duration: entry.duration,
+		idleRanges: ranges,
+		selections: currentSelections,
+	})
 	if (
 		entry.idleDuration === idle &&
-		entry.annotationDeflation === annotations
+		entry.annotationDeflation === annotations &&
+		entry.description === description
 	) {
 		return
 	}
@@ -381,6 +448,7 @@ $effect(() => {
 		...entry,
 		idleDuration: idle,
 		annotationDeflation: annotations,
+		description,
 	}
 	projectEntries = updated
 	const name = projectName.trim()
@@ -401,6 +469,27 @@ function addToProject(entry: ProjectTimelapse) {
 	addedTimer = setTimeout(() => {
 		addedId = null
 	}, 1500)
+}
+
+/** Add the open timelapse, capturing its description without a share link. */
+function addCurrentToProject(timelapse: {
+	id: string
+	name?: string
+	duration: number
+}) {
+	addToProject({
+		id: timelapse.id,
+		name: timelapse.name,
+		duration: timelapse.duration,
+		idleDuration,
+		annotationDeflation,
+		description: describeTimelapse({
+			id: timelapse.id,
+			duration: timelapse.duration,
+			idleRanges: effectiveIdleRanges,
+			selections,
+		}),
+	})
 }
 
 /** Remove a timelapse from the current project. */
@@ -761,15 +850,13 @@ function moveEntryBy(id: string, delta: number) {
 										type="button"
 										disabled={!projectName.trim()}
 										onclick={() =>
-										inProject
-											? removeFromProject(timelapse.id)
-											: addToProject({
-													id: timelapse.id,
-													name: timelapse.name,
-													duration: timelapse.duration,
-													idleDuration,
-													annotationDeflation,
-												})}
+											inProject
+												? removeFromProject(
+														timelapse.id
+													)
+												: addCurrentToProject(
+														timelapse
+													)}
 										class="border border-neutral-500 px-3 py-1 text-sm hover:bg-neutral-800 disabled:opacity-50"
 									>
 										{inProject
@@ -1034,6 +1121,30 @@ function moveEntryBy(id: string, delta: number) {
 					</dd>
 				</div>
 			</dl>
+
+			{#if projectEntries.length > 0}
+				<section class="border-t border-neutral-700 pt-2">
+					<div class="flex items-center justify-between gap-2 pb-1">
+						<h3
+							class="text-xs uppercase tracking-wide text-neutral-500"
+						>
+							Project description
+						</h3>
+						<button
+							type="button"
+							onclick={() => copyProjectText(projectDescription)}
+							class="border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
+						>
+							{projectCopied ? "Copied!" : "Copy"}
+						</button>
+					</div>
+					<p
+						class="text-xs text-neutral-300 select-text whitespace-pre-wrap break-words"
+					>
+						{projectDescription}
+					</p>
+				</section>
+			{/if}
 		</aside>
 	</div>
 </main>

@@ -11,6 +11,8 @@ export type ProjectTimelapse = {
 	idleDuration: number
 	/** Recorded seconds removed by the chosen annotation reasons. */
 	annotationDeflation: number
+	/** Plain-text review description, without the per-timelapse share link. */
+	description?: string
 }
 
 const STORAGE_PREFIX = "peaks:project:v1:"
@@ -27,8 +29,14 @@ function isFiniteNonNegative(value: unknown): value is number {
 
 function parseEntry(value: unknown): ProjectTimelapse | null {
 	if (typeof value !== "object" || value === null) return null
-	const { id, name, duration, idleDuration, annotationDeflation } =
-		value as Record<string, unknown>
+	const {
+		id,
+		name,
+		duration,
+		idleDuration,
+		annotationDeflation,
+		description,
+	} = value as Record<string, unknown>
 	if (
 		typeof id !== "string" ||
 		!isFiniteNonNegative(duration) ||
@@ -43,6 +51,9 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		duration,
 		idleDuration,
 		annotationDeflation,
+		...(typeof description === "string" && description
+			? { description }
+			: {}),
 	}
 }
 
