@@ -246,7 +246,7 @@ function onPointerUp(event: PointerEvent) {
 	<!-- Idle-scan progress: how far frame checking has reached -->
 	{#if idleAnalyzing && idleProgress > 0}
 		<div
-			class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-amber-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
+			class="pointer-events-none absolute inset-y-0 w-10 -translate-x-full bg-linear-to-r from-amber-500/0 to-amber-500/30 border-amber-500 border-r-2 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
 			style:left="{idleProgress * 100}%"
 		></div>
 	{/if}
