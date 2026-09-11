@@ -98,13 +98,28 @@ const idle = createIdleAnalysis({
 	frameRate: () => frameRate,
 })
 
-// Fraction (0–1) of the idle scan completed, for the scanning progress line.
-let idleProgress = $state(0)
+// Fraction (0–1) of the idle scan completed, smoothed by a spring so the scanning progress line glides rather than jumping between samples.
+const idleProgressSpring = new Spring(0, {
+	stiffness: 0.15,
+	damping: 0.8,
+	precision: 0.0005,
+})
+const idleProgress = $derived(idleProgressSpring.current)
 
+let wasAnalyzing = false
 $effect(() => {
+	const analyzing = idle.analyzing
+	// Reset instantly when a new scan starts, then animate towards the frontier.
+	if (analyzing && !wasAnalyzing) {
+		void idleProgressSpring.set(0, { instant: true })
+	}
+	wasAnalyzing = analyzing
+
 	idleRanges = idle.ranges
-	idleAnalyzing = idle.analyzing
-	idleProgress = idle.progress
+	idleAnalyzing = analyzing
+	void idleProgressSpring.set(idle.progress, {
+		instant: prefersReducedMotion.current,
+	})
 })
 
 function makeId(): string {
