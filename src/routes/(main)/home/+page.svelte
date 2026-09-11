@@ -45,7 +45,7 @@ const sortedSelections = $derived(
 					<p>Loading profile…</p>
 				{/snippet}
 
-				{@const profile = await getLapseData()}
+				{const profile = $derived(await getLapseData())}
 				{#if profile}
 					<div class="flex items-center gap-3">
 						<img
@@ -128,16 +128,16 @@ const sortedSelections = $derived(
 						</div>
 					{/snippet}
 
-					{@const timelapse = await getTimelapse(submittedId)}
+					{const timelapse = await getTimelapse(submittedId)}
 					{#if timelapse}
-						{@const idleDuration = idleRanges.reduce(
+						{const idleDuration = $derived(idleRanges.reduce(
 							(sum, range) => sum + (range.end - range.start),
 							0
-						)}
-						{@const actualDuration = Math.max(
+						))}
+						{const actualDuration = $derived(Math.max(
 							0,
 							timelapse.duration - idleDuration
-						)}
+						))}
 						<div
 							class="flex w-full max-w-5xl flex-col items-center gap-4"
 						>

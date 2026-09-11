@@ -577,7 +577,7 @@ function onKeyDown(event: KeyboardEvent) {
 <svelte:window onkeydown={onKeyDown} />
 
 {#if duration > 0}
-	{@const layoutFrames = frameStrip.layout}
+	{const layoutFrames = $derived(frameStrip.layout)}
 	<div class="pt-4 w-full max-w-5xl">
 		<div
 			class="relative h-20 w-full touch-none rounded border border-neutral-500 select-none {pan
@@ -623,8 +623,8 @@ function onKeyDown(event: KeyboardEvent) {
 
 			<!-- Idle stretches where the picture never changes (time spent AFK) -->
 			{#each idleRanges as range (range.start)}
-				{@const idleStart = Math.max(range.start, view.start)}
-				{@const idleEnd = Math.min(range.end, view.end)}
+				{const idleStart = $derived(Math.max(range.start, view.start))}
+				{const idleEnd = $derived(Math.min(range.end, view.end))}
 				{#if idleEnd > idleStart}
 					<div
 						class="pointer-events-none absolute bottom-0 h-3 border-x border-t border-amber-400/50 bg-amber-400/25"
@@ -637,8 +637,8 @@ function onKeyDown(event: KeyboardEvent) {
 
 			<!-- Selections, clamped to the visible window -->
 			{#each selections as sel (sel.id)}
-				{@const visibleStart = Math.max(sel.start, view.start)}
-				{@const visibleEnd = Math.min(sel.end, view.end)}
+				{const visibleStart = $derived(Math.max(sel.start, view.start))}
+				{const visibleEnd = $derived(Math.min(sel.end, view.end))}
 				{#if visibleEnd > visibleStart}
 					<div
 						class="group absolute inset-y-0 cursor-grab active:cursor-grabbing"
@@ -705,7 +705,7 @@ function onKeyDown(event: KeyboardEvent) {
 
 			<!-- Idle-scan progress: how far frame checking has reached -->
 			{#if idleAnalyzing && idleProgress > 0}
-				{@const scanTime = idleProgress * duration}
+				{const scanTime = $derived(idleProgress * duration)}
 				{#if scanTime >= view.start && scanTime <= view.end}
 					<div
 						class="pointer-events-none absolute inset-y-0 w-10 -translate-x-full bg-linear-to-r from-amber-500/0 to-amber-500/30 border-amber-500 border-r-2 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
