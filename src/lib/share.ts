@@ -1,13 +1,14 @@
-// Encodes a timelapse id together with its selections into a compact, URL-safe
-// string so a review can be shared or bookmarked. Stores times as integer
-// milliseconds and reasons as catalog indexes, then deflates the JSON.
+// Encodes a timelapse's selections into a compact, URL-safe string so a review
+// can be shared or bookmarked. Stores times as integer milliseconds and reasons
+// as catalog indexes, then deflates the JSON. The timelapse id lives in the URL
+// path, so it isn't part of the payload.
 
 import { ANNOTATION_REASONS } from "./annotations.js"
 import type { TimelineSelection } from "./timeline.js"
 
 const REASON_IDS = ANNOTATION_REASONS.map(reason => reason.id)
 
-type SharePayload = { i: string; s: [number, number, number][] }
+type SharePayload = { s: [number, number, number][] }
 
 function toBase64Url(bytes: Uint8Array): string {
 	let binary = ""
@@ -56,11 +57,9 @@ async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
 }
 
 export async function encodeShare(
-	id: string,
 	selections: TimelineSelection[]
 ): Promise<string> {
 	const payload: SharePayload = {
-		i: id,
 		s: selections.map(selection => [
 			Math.round(selection.start * 1000),
 			Math.round(selection.end * 1000),
@@ -94,7 +93,7 @@ function parseSelection(
 
 export async function decodeShare(
 	value: string
-): Promise<{ id: string; selections: TimelineSelection[] } | null> {
+): Promise<TimelineSelection[] | null> {
 	if (!value) return null
 	const marker = value[0]
 	try {
@@ -102,14 +101,13 @@ export async function decodeShare(
 		const bytes = marker === "1" ? await inflate(raw) : raw
 		const payload: unknown = JSON.parse(new TextDecoder().decode(bytes))
 		if (typeof payload !== "object" || payload === null) return null
-		const { i, s } = payload as Record<string, unknown>
-		if (typeof i !== "string" || !Array.isArray(s)) return null
-		const selections = s
+		const { s } = payload as Record<string, unknown>
+		if (!Array.isArray(s)) return null
+		return s
 			.map(parseSelection)
 			.filter((selection): selection is TimelineSelection =>
 				Boolean(selection)
 			)
-		return { id: i, selections }
 	} catch {
 		return null
 	}
