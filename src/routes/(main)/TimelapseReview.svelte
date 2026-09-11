@@ -676,6 +676,18 @@ function moveEntryBy(id: string, delta: number) {
 																</option>
 															{/each}
 														</select>
+														<button
+															type="button"
+															onclick={() =>
+																removeSelection(
+																	sel.id
+																)}
+															aria-label="Delete selection {i +
+																1}"
+															class="border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
+														>
+															Delete
+														</button>
 														{#if reason && reason.deflation > 0}
 															<span
 																class="text-xs text-neutral-500"
@@ -761,8 +773,8 @@ function moveEntryBy(id: string, delta: number) {
 										class="border border-neutral-500 px-3 py-1 text-sm hover:bg-neutral-800 disabled:opacity-50"
 									>
 										{inProject
-										? "Remove from project"
-										: "Add to project"}
+											? "Remove from project"
+											: "Add to project"}
 									</button>
 								</div>
 
