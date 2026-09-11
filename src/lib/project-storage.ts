@@ -1,5 +1,5 @@
-// Persists user-defined "projects" — named groups of reviewed timelapses — in
-// the browser's local storage so their totals survive a page reload.
+// Persists the single workspace project — its name and the timelapses it
+// contains — in the browser's local storage so it survives a page reload.
 
 export type ProjectTimelapse = {
 	id: string
@@ -15,12 +15,19 @@ export type ProjectTimelapse = {
 	description?: string
 }
 
-const STORAGE_PREFIX = "peaks:project:v1:"
-const CURRENT_KEY = "peaks:project-current:v1"
-
-function storageKey(name: string): string {
-	return `${STORAGE_PREFIX}${name}`
+export type Project = {
+	name: string
+	timelapses: ProjectTimelapse[]
 }
+
+/** Name used for the project when the user hasn't chosen one. */
+export const DEFAULT_PROJECT_NAME = "Untitled project"
+
+const STORAGE_KEY = "peaks:project:v2"
+// Older versions stored the current project's name and each project under
+// separate keys; they're read once to migrate existing data.
+const LEGACY_CURRENT_KEY = "peaks:project-current:v1"
+const LEGACY_PREFIX = "peaks:project:v1:"
 
 /** A stored number is only trusted when finite and non-negative. */
 function isFiniteNonNegative(value: unknown): value is number {
@@ -57,55 +64,62 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 	}
 }
 
-/** Name of the project last opened in the sidebar (empty when none yet). */
-export function loadCurrentProject(): string {
-	if (typeof localStorage === "undefined") return ""
+function parseEntries(value: unknown): ProjectTimelapse[] {
+	if (!Array.isArray(value)) return []
+	return value
+		.map(parseEntry)
+		.filter((entry): entry is ProjectTimelapse => Boolean(entry))
+}
+
+/** Read a project stored by an older version of the app, if any. */
+function loadLegacyProject(): Project | null {
 	try {
-		return localStorage.getItem(CURRENT_KEY) ?? ""
+		const name = localStorage.getItem(LEGACY_CURRENT_KEY)
+		if (!name) return null
+		const raw = localStorage.getItem(`${LEGACY_PREFIX}${name}`)
+		const parsed: unknown = raw ? JSON.parse(raw) : []
+		return { name, timelapses: parseEntries(parsed) }
 	} catch {
-		return ""
+		return null
 	}
 }
 
-/** Remember which project the sidebar should show next time. */
-export function saveCurrentProject(name: string): void {
+/** Load the workspace project, falling back to defaults or legacy data. */
+export function loadProject(): Project {
+	if (typeof localStorage === "undefined") {
+		return { name: DEFAULT_PROJECT_NAME, timelapses: [] }
+	}
+	try {
+		const raw = localStorage.getItem(STORAGE_KEY)
+		if (raw) {
+			const parsed: unknown = JSON.parse(raw)
+			if (typeof parsed === "object" && parsed !== null) {
+				const { name, timelapses } = parsed as Record<string, unknown>
+				return {
+					name:
+						typeof name === "string" && name
+							? name
+							: DEFAULT_PROJECT_NAME,
+					timelapses: parseEntries(timelapses),
+				}
+			}
+		}
+	} catch {
+		// Fall through to legacy/default below.
+	}
+	return (
+		loadLegacyProject() ?? {
+			name: DEFAULT_PROJECT_NAME,
+			timelapses: [],
+		}
+	)
+}
+
+/** Save the workspace project, silently ignoring unavailable storage. */
+export function saveProject(project: Project): void {
 	if (typeof localStorage === "undefined") return
 	try {
-		if (name) {
-			localStorage.setItem(CURRENT_KEY, name)
-		} else {
-			localStorage.removeItem(CURRENT_KEY)
-		}
-	} catch {
-		// Storage may be disabled (private mode); persistence is optional.
-	}
-}
-
-/** Load a project's timelapses, ignoring malformed entries. */
-export function loadProject(name: string): ProjectTimelapse[] {
-	if (!name || typeof localStorage === "undefined") return []
-	try {
-		const raw = localStorage.getItem(storageKey(name))
-		if (!raw) return []
-		const parsed: unknown = JSON.parse(raw)
-		if (!Array.isArray(parsed)) return []
-		return parsed
-			.map(parseEntry)
-			.filter((entry): entry is ProjectTimelapse => Boolean(entry))
-	} catch {
-		return []
-	}
-}
-
-/** Save a project's timelapses, removing the key once it becomes empty. */
-export function saveProject(name: string, entries: ProjectTimelapse[]): void {
-	if (!name || typeof localStorage === "undefined") return
-	try {
-		if (entries.length === 0) {
-			localStorage.removeItem(storageKey(name))
-		} else {
-			localStorage.setItem(storageKey(name), JSON.stringify(entries))
-		}
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(project))
 	} catch {
 		// Storage may be full or disabled; persistence is optional.
 	}

@@ -5,27 +5,18 @@
 // JSON. The open timelapse id also lives in the URL path.
 
 import { ANNOTATION_REASONS } from "./annotations.js"
+import type { ProjectTimelapse } from "./project-storage.js"
 import type { TimelineSelection } from "./timeline.js"
 
 const REASON_IDS = ANNOTATION_REASONS.map(reason => reason.id)
 
-export type ShareProjectEntry = {
-	id: string
-	name?: string
-	duration: number
-	idleDuration: number
-	annotationDeflation: number
-	/** Plain-text review description, without the per-timelapse share link. */
-	description?: string
-}
-
 export type ShareState = {
 	selections: TimelineSelection[]
 	ignoreIdle: boolean
-	/** Name of the sidebar project, when one is loaded. */
+	/** Name of the project, when one is loaded. */
 	projectName?: string
 	/** Timelapses in the project, in order. */
-	project?: ShareProjectEntry[]
+	project?: ProjectTimelapse[]
 	/** Id of the timelapse currently open in the main area. */
 	openId?: string
 }
@@ -138,7 +129,7 @@ function parseSelection(
 	}
 }
 
-function parseProjectEntry(value: unknown): ShareProjectEntry | null {
+function parseProjectEntry(value: unknown): ProjectTimelapse | null {
 	if (!Array.isArray(value)) return null
 	const [id, name, duration, idleDuration, annotationDeflation, description] =
 		value
@@ -169,6 +160,7 @@ export async function decodeShare(value: string): Promise<ShareState | null> {
 		const raw = fromBase64Url(value.slice(1))
 		const bytes = marker === "1" ? await inflate(raw) : raw
 		const payload: unknown = JSON.parse(new TextDecoder().decode(bytes))
+		console.log(JSON.stringify(payload))
 		if (typeof payload !== "object" || payload === null) return null
 		const { s, i, n, p, o } = payload as Record<string, unknown>
 		if (!Array.isArray(s)) return null
@@ -180,7 +172,7 @@ export async function decodeShare(value: string): Promise<ShareState | null> {
 		const project = Array.isArray(p)
 			? p
 					.map(parseProjectEntry)
-					.filter((entry): entry is ShareProjectEntry =>
+					.filter((entry): entry is ProjectTimelapse =>
 						Boolean(entry)
 					)
 			: undefined

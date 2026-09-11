@@ -10,10 +10,10 @@ import Timeline from "#lib/components/Timeline.svelte"
 import { loadIgnoreIdle, saveIgnoreIdle } from "#lib/idle-override.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import {
-	loadCurrentProject,
+	DEFAULT_PROJECT_NAME,
 	loadProject,
+	type Project,
 	type ProjectTimelapse,
-	saveCurrentProject,
 	saveProject,
 } from "#lib/project-storage.js"
 import { loadSelections, saveSelections } from "#lib/selection-storage.js"
@@ -32,9 +32,6 @@ const SHARE_PARAM = "tl"
 
 /** Canonical origin used when a summary links back to the review. */
 const SITE_ORIGIN = "https://peaks.heliodex.cf"
-
-/** Name used for the sidebar project when the user hasn't chosen one. */
-const DEFAULT_PROJECT_NAME = "Untitled project"
 
 /** Timelapse id taken from the `/{id}` path (empty on the `/home` landing). */
 const submittedId = $derived(page.params.id ?? "")
@@ -59,12 +56,19 @@ const shareUrl = $derived(
 	}`
 )
 
-// The sidebar shows one named project at a time. Its name and its list of
-// timelapses live in local storage, so the group survives reloads.
+// The workspace holds a single project. Its name and timelapses are persisted
+// locally, so the project survives reloads.
 let projectName = $state(DEFAULT_PROJECT_NAME)
 let projectEntries = $state<ProjectTimelapse[]>([])
-let addedId = $state<string | null>(null)
-let addedTimer: ReturnType<typeof setTimeout> | undefined
+let projectLoaded = $state(false)
+// Metadata for the open timelapse, resolved from Lapse so it can be added to
+// the project automatically. The id is kept alongside it so a late-resolving
+// fetch can never be applied to a different timelapse.
+let currentMeta = $state<{
+	id: string
+	name?: string
+	duration: number
+} | null>(null)
 let draggingId = $state<string | null>(null)
 
 function formatDuration(seconds: number): string {
@@ -275,15 +279,24 @@ async function syncShareUrl(state: {
 	url.pathname = `/${encodeURIComponent(state.id)}`
 	const target = `${url.pathname}${url.search}`
 	// Debounce only the history write, so editing doesn't spam entries.
+	const id = state.id
 	clearTimeout(urlTimer)
 	urlTimer = setTimeout(() => {
-		void applyShareUrl(target)
+		void applyShareUrl(id, target)
 	}, 300)
 }
 
-async function applyShareUrl(target: string) {
-	if (target === `${window.location.pathname}${window.location.search}`)
-		return
+/**
+ * Mirror the `?tl=` payload into the address bar. Guards ensure a debounced
+ * update from a previously open timelapse can only rewrite the query string of
+ * the *current* route — it can never navigate back to (or re-apply the project
+ * snapshot of) a different timelapse.
+ */
+async function applyShareUrl(id: string, target: string) {
+	if (id !== submittedId) return
+	const targetUrl = new URL(target, window.location.origin)
+	if (targetUrl.pathname !== window.location.pathname) return
+	if (targetUrl.search === window.location.search) return
 	await goto(target, { replace: true, shallow: true, reset: false })
 }
 
@@ -315,44 +328,35 @@ $effect(() => {
 	saveIgnoreIdle(id, ignoreIdle)
 })
 
-// The sidebar shows one named project at a time. Its name and its list of
-// timelapses live in local storage, so the group survives reloads.
-// Restore the last-used project name after mount; local storage isn't available
-// during SSR, so this must not run in the initial render.
+// Load the single workspace project once on the client; local storage isn't
+// available during SSR, so this must not run in the initial render.
 $effect(() => {
-	const saved = loadCurrentProject()
-	if (saved) projectName = saved
+	const project = loadProject()
+	projectName = project.name
+	projectEntries = project.timelapses
+	projectLoaded = true
 })
 
-// Switching the project name swaps the visible list.
+// Persist the project whenever its name or timelapses change.
 $effect(() => {
-	const name = projectName.trim()
-	projectEntries = name ? loadProject(name) : []
-})
-
-/** Rename/switch the project and remember the choice. */
-function selectProject(name: string) {
-	projectName = name
-	saveCurrentProject(name.trim())
-}
-
-/**
- * Apply a project carried by a shared URL: store it under its name so the
- * sidebar's load effect sees it, then make it the current project.
- */
-function importSharedProject(shared: ShareState) {
-	const name =
-		shared.projectName?.trim() || projectName.trim() || DEFAULT_PROJECT_NAME
-	if (shared.project) {
-		saveProject(name, shared.project)
-		projectEntries = shared.project
+	const project: Project = {
+		name: projectName,
+		timelapses: $state.snapshot(projectEntries),
 	}
-	if (name !== projectName) projectName = name
+	if (!projectLoaded) return
+	saveProject(project)
+})
+
+/** Rename the project (this never changes which timelapses it contains). */
+function renameProject(name: string) {
+	projectName = name.trim() || DEFAULT_PROJECT_NAME
 }
 
-$effect(() => {
-	return () => clearTimeout(addedTimer)
-})
+/** Adopt a project carried by a shared URL. */
+function importSharedProject(shared: ShareState) {
+	if (shared.projectName?.trim()) projectName = shared.projectName.trim()
+	if (shared.project) projectEntries = shared.project
+}
 
 /** Totals for the current project, in recorded seconds. */
 const projectTotals = $derived.by(() => {
@@ -378,18 +382,15 @@ const projectTotals = $derived.by(() => {
 	}
 })
 
-/** Whether the timelapse currently open is already in the project. */
-const inProject = $derived(
-	projectEntries.some(entry => entry.id === submittedId)
-)
-
 /** Approximate description for an entry that was shared without one. */
 function fallbackDescription(entry: ProjectTimelapse): string {
 	const final = Math.max(
 		0,
 		entry.duration - entry.idleDuration - entry.annotationDeflation
 	)
-	const parts = [`${entry.id} – Original time ${formatClock(entry.duration)}.`]
+	const parts = [
+		`${entry.id} – Original time ${formatClock(entry.duration)}.`,
+	]
 	if (entry.idleDuration > 0) {
 		parts.push(`${formatClock(entry.idleDuration)} spent idle.`)
 	}
@@ -413,103 +414,82 @@ const projectDescription = $derived.by(() => {
 		entry => entry.description ?? fallbackDescription(entry)
 	)
 	if (submittedId) parts.push(shareUrl)
-	return parts.join("\n")
+	return parts.join("\n\n")
 })
 
-// Keep the open timelapse's project entry in sync with its current idle time,
-// annotation deductions and description, so edits appear without a manual save.
+// Resolve the open timelapse's metadata from Lapse so it can be represented in
+// the project. The query is cached, so this dedupes with the template's await.
 $effect(() => {
 	const id = submittedId
+	currentMeta = null
+	if (!id) return
+	void getTimelapse(id)
+		.then(timelapse => {
+			if (submittedId !== id) return
+			currentMeta = timelapse
+				? {
+						id,
+						name: timelapse.name,
+						duration: timelapse.duration,
+					}
+				: null
+		})
+		.catch(() => {
+			if (submittedId !== id) return
+			currentMeta = null
+		})
+})
+
+// The project is the single home for every timelapse: opening one adds it (or
+// refreshes its review data), and edits keep its entry in sync.
+$effect(() => {
+	const id = submittedId
+	const meta = currentMeta
 	const idle = idleDuration
 	const annotations = annotationDeflation
 	// Read the raw selection/idle state so reason-only edits still refresh the
 	// stored description, even when the totals don't change.
 	const ranges = $state.snapshot(effectiveIdleRanges)
 	const currentSelections = $state.snapshot(selections)
-	if (!id || !loaded) return
+	if (!id || !loaded || !meta || meta.id !== id) return
 	const index = projectEntries.findIndex(entry => entry.id === id)
-	if (index === -1) return
-	const entry = projectEntries[index]
+	const existing = index === -1 ? undefined : projectEntries[index]
+	const name = meta.name?.trim() || undefined
+	const { duration } = meta
 	const description = describeTimelapse({
 		id,
-		duration: entry.duration,
+		duration,
 		idleRanges: ranges,
 		selections: currentSelections,
 	})
 	if (
-		entry.idleDuration === idle &&
-		entry.annotationDeflation === annotations &&
-		entry.description === description
+		existing &&
+		existing.duration === duration &&
+		existing.name === name &&
+		existing.idleDuration === idle &&
+		existing.annotationDeflation === annotations &&
+		existing.description === description
 	) {
 		return
 	}
-	const updated = [...projectEntries]
-	updated[index] = {
-		...entry,
+	const entry: ProjectTimelapse = {
+		id,
+		...(name ? { name } : {}),
+		duration,
 		idleDuration: idle,
 		annotationDeflation: annotations,
 		description,
 	}
-	projectEntries = updated
-	const name = projectName.trim()
-	if (name) saveProject(name, $state.snapshot(updated))
+	projectEntries =
+		index === -1
+			? [...projectEntries, entry]
+			: projectEntries.map((item, i) => (i === index ? entry : item))
 })
 
-/** Add the open timelapse to the current project. */
-function addToProject(entry: ProjectTimelapse) {
-	const name = projectName.trim()
-	if (!name) return
-	projectEntries = [
-		...projectEntries.filter(item => item.id !== entry.id),
-		entry,
-	]
-	saveProject(name, $state.snapshot(projectEntries))
-	addedId = entry.id
-	clearTimeout(addedTimer)
-	addedTimer = setTimeout(() => {
-		addedId = null
-	}, 1500)
-}
-
-/** Add the open timelapse, capturing its description without a share link. */
-function addCurrentToProject(timelapse: {
-	id: string
-	name?: string
-	duration: number
-}) {
-	addToProject({
-		id: timelapse.id,
-		name: timelapse.name,
-		duration: timelapse.duration,
-		idleDuration,
-		annotationDeflation,
-		description: describeTimelapse({
-			id: timelapse.id,
-			duration: timelapse.duration,
-			idleRanges: effectiveIdleRanges,
-			selections,
-		}),
-	})
-}
-
-/** Remove a timelapse from the current project. */
-function removeFromProject(id: string) {
-	const name = projectName.trim()
-	projectEntries = projectEntries.filter(entry => entry.id !== id)
-	if (name) saveProject(name, $state.snapshot(projectEntries))
-	if (addedId === id) addedId = null
-}
-
-/** Persist the current project order. */
-function persistOrder() {
-	const name = projectName.trim()
-	if (name) saveProject(name, $state.snapshot(projectEntries))
-}
-
 /**
- * Move `sourceId` so it lands at `targetIndex` in the list. Only updates
- * state (the caller persists once the drag ends), so drag-over can call it
- * repeatedly while `animate:flip` animates each shift.
+ * Move `sourceId` so it lands at `targetIndex` in the list. Only updates state
+ * (the project's persistence effect saves the new order) so drag-over can call
+ * it repeatedly while `animate:flip` animates each shift.
  */
 function moveToIndex(sourceId: string, targetIndex: number): boolean {
 	const from = projectEntries.findIndex(entry => entry.id === sourceId)
@@ -561,7 +541,6 @@ function handleDrop(event: DragEvent) {
 	event.preventDefault()
 	reorderFromPointer(event, true)
 	draggingId = null
-	persistOrder()
 }
 
 /** Nudge an entry by one slot, for keyboard reordering. */
@@ -574,7 +553,6 @@ function moveEntryBy(id: string, delta: number) {
 	const [moved] = updated.splice(from, 1)
 	updated.splice(to, 0, moved)
 	projectEntries = updated
-	persistOrder()
 }
 </script>
 
@@ -686,7 +664,6 @@ function moveEntryBy(id: string, delta: number) {
 									duration: timelapse.duration,
 									idleRanges: effectiveIdleRanges,
 									selections,
-									shareUrl,
 								})
 							)}
 							<div
@@ -838,33 +815,6 @@ function moveEntryBy(id: string, delta: number) {
 									</p>
 								{/if}
 
-								<div
-									class="flex items-center justify-end gap-2"
-								>
-									{#if addedId === timelapse.id}
-										<span class="text-xs text-green-500">
-											Added to project
-										</span>
-									{/if}
-									<button
-										type="button"
-										disabled={!projectName.trim()}
-										onclick={() =>
-											inProject
-												? removeFromProject(
-														timelapse.id
-													)
-												: addCurrentToProject(
-														timelapse
-													)}
-										class="border border-neutral-500 px-3 py-1 text-sm hover:bg-neutral-800 disabled:opacity-50"
-									>
-										{inProject
-											? "Remove from project"
-											: "Add to project"}
-									</button>
-								</div>
-
 								<dl
 									class="grid w-full grid-cols-2 gap-3 sm:grid-cols-4"
 								>
@@ -981,7 +931,7 @@ function moveEntryBy(id: string, delta: number) {
 				<input
 					type="text"
 					value={projectName}
-					onchange={e => selectProject(e.currentTarget.value)}
+					onchange={e => renameProject(e.currentTarget.value)}
 					placeholder={DEFAULT_PROJECT_NAME}
 					class="border border-neutral-500 px-2 py-1"
 				>
@@ -1038,7 +988,6 @@ function moveEntryBy(id: string, delta: number) {
 								}}
 								ondragend={() => {
 									draggingId = null
-									persistOrder()
 								}}
 								class="cursor-grab select-none text-neutral-500 hover:text-neutral-300 active:cursor-grabbing"
 							>
@@ -1067,21 +1016,12 @@ function moveEntryBy(id: string, delta: number) {
 									)}
 								</span>
 							</div>
-							<button
-								type="button"
-								onclick={() => removeFromProject(entry.id)}
-								aria-label="Remove {entry.name ||
-									entry.id} from project"
-								class="text-xs text-neutral-500 hover:text-red-500"
-							>
-								✕
-							</button>
 						</li>
 					{/each}
 				</ul>
 			{:else}
 				<p class="text-sm text-neutral-500">
-					No timelapses yet. Open one and use “Add to project”.
+					No timelapses yet. Open one to add it to the project.
 				</p>
 			{/if}
 
@@ -1139,7 +1079,7 @@ function moveEntryBy(id: string, delta: number) {
 						</button>
 					</div>
 					<p
-						class="text-xs text-neutral-300 select-text whitespace-pre-wrap break-words"
+						class="text-xs text-neutral-300 select-text whitespace-pre-wrap wrap-break-word"
 					>
 						{projectDescription}
 					</p>
