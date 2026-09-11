@@ -1,4 +1,5 @@
 <script lang="ts">
+import { selectionColors } from "#lib/annotations.js"
 import { captureFramesAt } from "#lib/frame-capture.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import {
@@ -227,8 +228,9 @@ function onPointerUp(event: PointerEvent) {
 	<!-- Read-only markers for the timeline's selections -->
 	<div class="pointer-events-none absolute inset-x-0 bottom-0 h-1">
 		{#each selections as sel (sel.id)}
+			{const color = $derived(selectionColors(sel.reason))}
 			<div
-				class="absolute inset-y-0 min-w-0.5 rounded-full bg-red-500"
+				class="absolute inset-y-0 min-w-0.5 rounded-full {color.marker}"
 				style:left="{percentOf(sel.start, duration)}%"
 				style:width="{percentOf(sel.end - sel.start, duration)}%"
 			></div>

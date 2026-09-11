@@ -1,5 +1,6 @@
 <script lang="ts">
 import { prefersReducedMotion, Spring } from "svelte/motion"
+import { selectionColors } from "#lib/annotations.js"
 import { detectFrameRate } from "#lib/frame-rate.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import { createIdleAnalysis } from "#lib/idle-time.svelte.js"
@@ -678,6 +679,7 @@ function onKeyDown(event: KeyboardEvent) {
 			{#each selections as sel (sel.id)}
 				{const visibleStart = $derived(Math.max(sel.start, view.start))}
 				{const visibleEnd = $derived(Math.min(sel.end, view.end))}
+				{const color = $derived(selectionColors(sel.reason))}
 				{#if visibleEnd > visibleStart}
 					<div
 						class="group absolute inset-y-0 cursor-grab active:cursor-grabbing"
@@ -687,7 +689,7 @@ function onKeyDown(event: KeyboardEvent) {
 							percentWithin(visibleStart, view)}%"
 					>
 						<div
-							class="pointer-events-none absolute inset-0 border-x-2 border-red-500 bg-red-500/40"
+							class="pointer-events-none absolute inset-0 border-x-2 {color.border} {color.fill}"
 						></div>
 
 						{#if sel.start >= view.start}
@@ -700,7 +702,7 @@ function onKeyDown(event: KeyboardEvent) {
 								role="presentation"
 							>
 								<span
-									class="h-6 w-1 rounded-full bg-red-600 shadow"
+									class="h-6 w-1 rounded-full {color.handle} shadow"
 								></span>
 							</div>
 						{/if}
@@ -715,7 +717,7 @@ function onKeyDown(event: KeyboardEvent) {
 								role="presentation"
 							>
 								<span
-									class="h-6 w-1 rounded-full bg-red-600 shadow"
+									class="h-6 w-1 rounded-full {color.handle} shadow"
 								></span>
 							</div>
 						{/if}
@@ -725,7 +727,7 @@ function onKeyDown(event: KeyboardEvent) {
 							data-delete={sel.id}
 							aria-label="Delete selection"
 							onclick={e => deleteSelection(sel.id, e)}
-							class="absolute -top-3 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-red-500 bg-white text-xs leading-none text-red-600 shadow transition-opacity {controlsClass(
+							class="absolute -top-3 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border bg-white text-xs leading-none shadow transition-opacity {color.button} {controlsClass(
 								sel.id
 							)}"
 						>
