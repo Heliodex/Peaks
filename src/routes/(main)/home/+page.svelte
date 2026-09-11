@@ -1,8 +1,13 @@
 <script lang="ts">
+import { ANNOTATION_REASONS, findAnnotationReason } from "#lib/annotations.js"
 import Timeline from "#lib/components/Timeline.svelte"
 import type { IdleRange } from "#lib/idle-time.js"
 import { formatClock, type TimelineSelection } from "#lib/timeline.js"
 import { getLapseData, getTimelapse, logout } from "../api.remote.js"
+
+// Lapse timelapses play back 60× faster than real time, so a duration measured
+// on the timeline (playback seconds) maps to 60 seconds of recorded time.
+const PLAYBACK_TO_RECORDED = 60
 
 let timelapseId = $state("")
 let submittedId = $state("")
@@ -35,6 +40,21 @@ function formatCreatedAt(timestamp: number): string {
 const sortedSelections = $derived(
 	[...selections].sort((a, b) => a.start - b.start)
 )
+
+/** Time removed from the actual duration by the chosen annotation reasons, in recorded seconds. */
+const annotationDeflation = $derived(
+	selections.reduce((sum, selection) => {
+		const reason = findAnnotationReason(selection.reason)
+		if (!reason) return sum
+		return sum + (selection.end - selection.start) * reason.deflation
+	}, 0) * PLAYBACK_TO_RECORDED
+)
+
+function setSelectionReason(id: string, reason: string) {
+	selections = selections.map(selection =>
+		selection.id === id ? { ...selection, reason } : selection
+	)
+}
 </script>
 
 <main class="flex min-h-screen flex-col">
@@ -137,10 +157,15 @@ const sortedSelections = $derived(
 							idleRanges.reduce(
 								(sum, range) => sum + (range.end - range.start),
 								0
-							) * 60
+							) * PLAYBACK_TO_RECORDED
 						)}
 						{const actualDuration = $derived(
-							Math.max(0, timelapse.duration - idleDuration)
+							Math.max(
+								0,
+								timelapse.duration -
+									idleDuration -
+									annotationDeflation
+							)
 						)}
 						<div
 							class="flex w-full max-w-5xl flex-col items-center gap-4"
@@ -172,19 +197,65 @@ const sortedSelections = $derived(
 											class="flex flex-col gap-1 pt-2 text-sm"
 										>
 											{#each sortedSelections as sel, i (sel.id)}
-												<li>
-													Selection {i + 1}:
-													<span class="font-medium"
-														>{formatClock(
-															sel.start
-														)}</span
+												{const reason = $derived(
+													findAnnotationReason(
+														sel.reason
+													)
+												)}
+												<li
+													class="flex flex-wrap items-center gap-2"
+												>
+													<span>
+														Selection {i + 1}:
+														<span
+															class="font-medium"
+															>{formatClock(
+																sel.start
+															)}</span
+														>
+														–
+														<span
+															class="font-medium"
+															>{formatClock(
+																sel.end
+															)}</span
+														>
+													</span>
+													<select
+														aria-label="Annotation reason for selection {i +
+															1}"
+														value={sel.reason ?? ""}
+														onchange={e =>
+															setSelectionReason(
+																sel.id,
+																e.currentTarget
+																	.value
+															)}
+														class="rounded border border-neutral-500 bg-neutral-800 px-1 py-0.5 text-sm"
 													>
-													–
-													<span class="font-medium"
-														>{formatClock(
-															sel.end
-														)}</span
-													>
+														<option value="">
+															Select a reason…
+														</option>
+														{#each ANNOTATION_REASONS as annotation (annotation.id)}
+															<option
+																value={annotation.id}
+															>
+																{annotation.label}
+															</option>
+														{/each}
+													</select>
+													{#if reason && reason.deflation > 0}
+														<span
+															class="text-xs text-neutral-500"
+														>
+															-{formatDuration(
+																(sel.end -
+																	sel.start) *
+																	reason.deflation *
+																	PLAYBACK_TO_RECORDED
+															)}
+														</span>
+													{/if}
 												</li>
 											{/each}
 										</ul>
@@ -247,13 +318,25 @@ const sortedSelections = $derived(
 										>
 											Analyzing idle frames…
 										</p>
-									{:else if idleDuration > 0}
-										<p
-											class="pt-0.5 text-xs text-neutral-500"
-										>
-											-{formatDuration(idleDuration)}
-											idle
-										</p>
+									{:else}
+										{#if idleDuration > 0}
+											<p
+												class="pt-0.5 text-xs text-neutral-500"
+											>
+												-{formatDuration(idleDuration)}
+												idle
+											</p>
+										{/if}
+										{#if annotationDeflation > 0}
+											<p
+												class="pt-0.5 text-xs text-neutral-500"
+											>
+												-{formatDuration(
+													annotationDeflation
+												)}
+												annotations
+											</p>
+										{/if}
 									{/if}
 								</div>
 								<div

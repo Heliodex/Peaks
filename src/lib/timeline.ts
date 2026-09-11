@@ -1,6 +1,12 @@
 // Shared types, constants and pure helpers for the video timeline components.
 
-export type TimelineSelection = { id: string; start: number; end: number }
+export type TimelineSelection = {
+	id: string
+	start: number
+	end: number
+	/** Optional id of the annotation reason chosen for this selection. */
+	reason?: string
+}
 export type ViewWindow = { start: number; end: number }
 
 /**
