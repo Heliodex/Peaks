@@ -67,6 +67,8 @@ const FALLBACK_FRAME_RATE = 30
 const MIN_TICK_SPACING_PX = 6
 // Hard cap on rendered frame ticks as a safety net.
 const MAX_FRAME_TICKS = 240
+// Past this position (percent across the track) the hover time label flips to the left of the cursor so it doesn't overflow the right edge.
+const HOVER_TOOLTIP_FLIP_PERCENT = 95
 
 let videoDuration = $state(0)
 let frameRate = $state(0)
@@ -102,6 +104,13 @@ const frameTicks = $derived.by(() => {
 	for (let k = first; k <= last; k++) ticks.push(k / frameRate)
 	return ticks
 })
+
+// Position of the hover time label within the visible window, and whether it
+// should flip to the left of the cursor to stay on screen.
+const hoverPercent = $derived(
+	hoverTime === null ? 0 : percentWithin(hoverTime, view)
+)
+const hoverTooltipFlip = $derived(hoverPercent > HOVER_TOOLTIP_FLIP_PERCENT)
 
 // Thumbnails captured at absolute times, reused across zooming and panning so the strip can slide/scale smoothly instead of blanking on every view change.
 const frameStrip = createFrameStrip({
@@ -747,7 +756,11 @@ function onKeyDown(event: KeyboardEvent) {
 			{#if hoverTime !== null && hoveredSelectionId === null}
 				<div
 					class="pointer-events-none absolute top-1 rounded bg-black/80 px-1.5 py-0.5 text-xs text-white"
-					style:left="{percentWithin(hoverTime, view)}%"
+					class:mr-1={hoverTooltipFlip}
+					style:left={hoverTooltipFlip ? undefined : `${hoverPercent}%`}
+					style:right={hoverTooltipFlip
+						? `${100 - hoverPercent}%`
+						: undefined}
 				>
 					{formatClock(hoverTime)}
 				</div>
@@ -755,7 +768,9 @@ function onKeyDown(event: KeyboardEvent) {
 		</div>
 
 		<div class="pt-1 w-full">
-			<div class="relative flex justify-between text-xs text-neutral-500 z-1">
+			<div
+				class="relative flex justify-between text-xs text-neutral-500 z-1"
+			>
 				<span class="bg-black pr-2">{formatClock(view.start)}</span>
 				<span class="bg-black pl-2">{formatClock(view.end)}</span>
 			</div>
