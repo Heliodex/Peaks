@@ -14,7 +14,7 @@ const SAMPLE_WIDTH = 32
 const SAMPLE_HEIGHT = 18
 
 // Mean absolute channel difference (0–255) at or below which two samples count as the same frame.
-const SAME_FRAME_THRESHOLD = 0.05
+const SAME_FRAME_THRESHOLD = 0.01   
 
 // Upper bound on sampled frames, so analysis stays quick on long videos.
 const MAX_SAMPLES = 300
