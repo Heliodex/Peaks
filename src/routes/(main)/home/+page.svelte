@@ -1,4 +1,5 @@
 <script lang="ts">
+import { onMount } from "svelte"
 import {
 	ANNOTATION_REASONS,
 	describeTimelapse,
@@ -8,12 +9,18 @@ import {
 import Timeline from "#lib/components/Timeline.svelte"
 import type { IdleRange } from "#lib/idle-time.js"
 import { loadSelections, saveSelections } from "#lib/selection-storage.js"
+import { decodeShare, encodeShare } from "#lib/share.js"
 import {
 	formatClock,
 	PLAYBACK_TO_RECORDED,
 	type TimelineSelection,
 } from "#lib/timeline.js"
+import { goto } from "$app/navigation"
+import { page } from "$app/state"
 import { getLapseData, getTimelapse, logout } from "../api.remote.js"
+
+/** Query parameter holding the compressed timelapse id + selections. */
+const SHARE_PARAM = "tl"
 
 let timelapseId = $state("")
 let submittedId = $state("")
@@ -62,12 +69,46 @@ function setSelectionReason(id: string, reason: string) {
 	)
 }
 
-// Persist selections (and their reasons) per timelapse so reopening the same
-// timelapse restores them.
+// Restore a shared review from the compressed `tl` query parameter on load.
+onMount(() => {
+	const shared = page.url.searchParams.get(SHARE_PARAM)
+	if (!shared) return
+	void decodeShare(shared).then(state => {
+		if (!state) return
+		timelapseId = state.id
+		submittedId = state.id
+		selections = state.selections
+	})
+})
+
+// Guards against an older async encode resolving after a newer one.
+let urlToken = 0
+
+async function syncShareUrl(id: string, value: TimelineSelection[]) {
+	const token = ++urlToken
+	const encoded = await encodeShare(id, value)
+	if (token !== urlToken) return
+	const url = new URL(window.location.href)
+	if (url.searchParams.get(SHARE_PARAM) === encoded) return
+	url.searchParams.set(SHARE_PARAM, encoded)
+	await goto(`${url.pathname}${url.search}`, {
+		replace: true,
+		shallow: true,
+		reset: false,
+	})
+}
+
+// Persist selections (and their reasons) per timelapse, and mirror the current
+// timelapse + selections into the URL so the review can be shared.
 $effect(() => {
 	const id = submittedId
+	const value = $state.snapshot(selections)
 	if (!id) return
-	saveSelections(id, $state.snapshot(selections))
+	saveSelections(id, value)
+	const timer = setTimeout(() => {
+		void syncShareUrl(id, value)
+	}, 300)
+	return () => clearTimeout(timer)
 })
 </script>
 
