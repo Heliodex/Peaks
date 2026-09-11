@@ -1,4 +1,5 @@
 <script lang="ts">
+import { flip } from "svelte/animate"
 import {
 	ANNOTATION_REASONS,
 	describeTimelapse,
@@ -24,7 +25,6 @@ import {
 } from "#lib/timeline.js"
 import { goto } from "$app/navigation"
 import { page } from "$app/state"
-import { flip } from "svelte/animate"
 import { getLapseData, getTimelapse, logout } from "./api.remote.js"
 
 /** Query parameter holding the compressed selections. */
@@ -475,10 +475,7 @@ function moveEntryBy(id: string, delta: number) {
 		</div>
 
 		<form {...logout}>
-			<button
-				type="submit"
-				class="border border-neutral-500 px-2 py-1"
-			>
+			<button type="submit" class="border border-neutral-500 px-2 py-1">
 				Log out
 			</button>
 		</form>
@@ -489,128 +486,128 @@ function moveEntryBy(id: string, delta: number) {
 	>
 		<section class="flex w-full flex-1 items-start justify-center">
 			{#if submittedId}
-			{#key submittedId}
-				<svelte:boundary>
-					{#snippet pending()}
-						<p>Loading timelapse…</p>
-					{/snippet}
+				{#key submittedId}
+					<svelte:boundary>
+						{#snippet pending()}
+							<p>Loading timelapse…</p>
+						{/snippet}
 
-					{#snippet failed(error: unknown, reset: () => void)}
-						<div class="flex flex-col items-center gap-2">
-							<p>
-								Couldn't load timelapse:
-								{(error as Error)?.message ?? error}
-							</p>
-							<button
-								type="button"
-								onclick={reset}
-								class="border border-neutral-500 px-2 py-1"
-							>
-								Retry
-							</button>
-						</div>
-					{/snippet}
-
-					{const timelapse = await getTimelapse(submittedId)}
-					{#if timelapse}
-						{const actualDuration = $derived(
-							Math.max(
-								0,
-								timelapse.duration -
-									idleDuration -
-									annotationDeflation
-							)
-						)}
-						{const description = $derived(
-							describeTimelapse({
-								id: timelapse.id,
-								duration: timelapse.duration,
-								idleRanges: effectiveIdleRanges,
-								selections,
-								shareUrl: `${SITE_ORIGIN}${page.url.pathname}${page.url.search}`,
-							})
-						)}
-						<div
-							class="flex w-full max-w-5xl flex-col items-left gap-4"
-						>
-							{#if timelapse.playbackUrl}
-								<video
-									src={timelapse.playbackUrl}
-									poster={timelapse.thumbnailUrl ?? undefined}
-									controls
-									preload="metadata"
-									bind:this={videoEl}
-									class="max-h-[70vh] w-full"
+						{#snippet failed(error: unknown, reset: () => void)}
+							<div class="flex flex-col items-center gap-2">
+								<p>
+									Couldn't load timelapse:
+									{(error as Error)?.message ?? error}
+								</p>
+								<button
+									type="button"
+									onclick={reset}
+									class="border border-neutral-500 px-2 py-1"
 								>
-									<track kind="captions">
-								</video>
-								{#if videoEl}
-									<Timeline
-										bind:selections
-										bind:idleRanges
-										bind:idleAnalyzing
-										{ignoreIdle}
-										timelapse={{
+									Retry
+								</button>
+							</div>
+						{/snippet}
+
+						{const timelapse = await getTimelapse(submittedId)}
+						{#if timelapse}
+							{const actualDuration = $derived(
+								Math.max(
+									0,
+									timelapse.duration -
+										idleDuration -
+										annotationDeflation
+								)
+							)}
+							{const description = $derived(
+								describeTimelapse({
+									id: timelapse.id,
+									duration: timelapse.duration,
+									idleRanges: effectiveIdleRanges,
+									selections,
+									shareUrl: `${SITE_ORIGIN}${page.url.pathname}${page.url.search}`,
+								})
+							)}
+							<div
+								class="flex w-full max-w-5xl flex-col items-left gap-4"
+							>
+								{#if timelapse.playbackUrl}
+									<video
+										src={timelapse.playbackUrl}
+										poster={timelapse.thumbnailUrl ?? undefined}
+										controls
+										preload="metadata"
+										bind:this={videoEl}
+										class="max-h-[70vh] w-full"
+									>
+										<track kind="captions">
+									</video>
+									{#if videoEl}
+										<Timeline
+											bind:selections
+											bind:idleRanges
+											bind:idleAnalyzing
+											{ignoreIdle}
+											timelapse={{
 											playbackUrl: timelapse.playbackUrl,
 											thumbnailUrl: timelapse.thumbnailUrl,
 										}}
-										video={videoEl}
-									/>
-									{#if sortedSelections.length > 0}
-										<ul
-											class="flex flex-col gap-1 pt-2 text-sm"
-										>
-											{#each sortedSelections as sel, i (sel.id)}
-												{const reason = $derived(
-													findAnnotationReason(
-														sel.reason
-													)
-												)}
-												<li
-													class="flex flex-wrap items-center gap-2"
-												>
-													<span>
-														Selection {i + 1}:
-														<span
-															class="font-medium"
-															>{formatClock(
+											video={videoEl}
+										/>
+										{#if sortedSelections.length > 0}
+											<ul
+												class="flex flex-col gap-1 pt-2 text-sm"
+											>
+												{#each sortedSelections as sel, i (sel.id)}
+													{const reason = $derived(
+														findAnnotationReason(
+															sel.reason
+														)
+													)}
+													<li
+														class="flex flex-wrap items-center gap-2"
+													>
+														<span>
+															Selection {i + 1}:
+															<span
+																class="font-medium"
+																>{formatClock(
 																sel.start
 															)}</span
-														>-<span
-															class="font-medium"
-															>{formatClock(
+															>-<span
+																class="font-medium"
+																>{formatClock(
 																sel.end
 															)}</span
-														>
-													</span>
-													<select
-														aria-label="Annotation reason for selection {i +
+															>
+														</span>
+														<select
+															aria-label="Annotation reason for selection {i +
 															1}"
-														value={sel.reason ?? ""}
-														onchange={e =>
+															value={sel.reason ?? ""}
+															onchange={e =>
 															setSelectionReason(
 																sel.id,
 																e.currentTarget
 																	.value
 															)}
-														class="border border-neutral-500 bg-neutral-800 px-1 py-0.5 text-sm"
-													>
-														<option value="">
-															Select a reason…
-														</option>
-														{#each ANNOTATION_REASONS as annotation (annotation.id)}
-															<option
-																value={annotation.id}
-															>
-																{annotation.label}
-															</option>
-														{/each}
-													</select>
-													{#if reason && reason.deflation > 0}
-														<span
-															class="text-xs text-neutral-500"
+															class="border border-neutral-500 bg-neutral-800 px-1 py-0.5 text-sm"
 														>
-															-{formatDuration(
+															<option value="">
+																Select a reason…
+															</option>
+															{#each ANNOTATION_REASONS as annotation (annotation.id)}
+																<option
+																	value={annotation.id}
+																>
+																	{annotation.label}
+																</option>
+															{/each}
+														</select>
+														{#if reason && reason.deflation > 0}
+															<span
+																class="text-xs text-neutral-500"
+															>
+																-{formatDuration(
 																nonIdleDuration(
 																	sel,
 																	effectiveIdleRanges
@@ -618,66 +615,67 @@ function moveEntryBy(id: string, delta: number) {
 																	reason.deflation *
 																	PLAYBACK_TO_RECORDED
 															)}
-														</span>
-													{/if}
-												</li>
-											{/each}
-										</ul>
-									{:else}
-										<p
-											class="pt-2 text-sm text-neutral-500"
-										>
-											Drag across the timeline to select
-											an annotation.
-										</p>
-									{/if}
-									{#if idleRanges.length > 0 || ignoreIdle}
-										<div
-											class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500"
-										>
-											<label
-												class="flex items-center gap-1.5"
+															</span>
+														{/if}
+													</li>
+												{/each}
+											</ul>
+										{:else}
+											<p
+												class="pt-2 text-sm text-neutral-500"
 											>
-												<input
-													type="checkbox"
-													bind:checked={ignoreIdle}
-													class="h-3.5 w-3.5 accent-blue-500"
+												Drag across the timeline to
+												select an annotation.
+											</p>
+										{/if}
+										{#if idleRanges.length > 0 || ignoreIdle}
+											<div
+												class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500"
+											>
+												<label
+													class="flex items-center gap-1.5"
 												>
-												Ignore idle time
-											</label>
-											{#if !ignoreIdle}
-												<p
-													class="flex items-center gap-2"
-												>
-													<span
-														class="inline-block h-2 w-3 border border-amber-400/50 bg-amber-400/25"
-													></span>
-													Amber regions have no visual
-													changes (time spent away).
-												</p>
-											{/if}
-										</div>
+													<input
+														type="checkbox"
+														bind:checked={ignoreIdle}
+														class="h-3.5 w-3.5 accent-blue-500"
+													>
+													Ignore idle time
+												</label>
+												{#if !ignoreIdle}
+													<p
+														class="flex items-center gap-2"
+													>
+														<span
+															class="inline-block h-2 w-3 border border-amber-400/50 bg-amber-400/25"
+														></span>
+														Amber regions have no
+														visual changes (time
+														spent away).
+													</p>
+												{/if}
+											</div>
+										{/if}
 									{/if}
+								{:else}
+									<p>
+										This timelapse is still being processed
+										and has no video yet.
+									</p>
 								{/if}
-							{:else}
-								<p>
-									This timelapse is still being processed and
-									has no video yet.
-								</p>
-							{/if}
 
-							<div
-								class="flex items-center justify-end gap-2"
-							>
-								{#if addedId === timelapse.id}
-									<span class="text-xs text-green-500"
-										> Added to project </span
-									>
-								{/if}
-								<button
-									type="button"
-									disabled={!projectName.trim()}
-									onclick={() =>
+								<div
+									class="flex items-center justify-end gap-2"
+								>
+									{#if addedId === timelapse.id}
+										<span class="text-xs text-green-500">
+											Added to project
+										</span>
+									{/if}
+									<button
+										type="button"
+										disabled={!projectName.trim()}
+										onclick={() =>
 										inProject
 											? removeFromProject(timelapse.id)
 											: addToProject({
@@ -687,122 +685,116 @@ function moveEntryBy(id: string, delta: number) {
 													idleDuration,
 													annotationDeflation,
 												})}
-									class="border border-neutral-500 px-3 py-1 text-sm hover:bg-neutral-800 disabled:opacity-50"
-								>
-									{inProject
+										class="border border-neutral-500 px-3 py-1 text-sm hover:bg-neutral-800 disabled:opacity-50"
+									>
+										{inProject
 										? "Remove from project"
 										: "Add to project"}
-								</button>
-							</div>
-
-							<dl
-								class="grid w-full grid-cols-2 gap-3 sm:grid-cols-4"
-							>
-								<div
-									class="border border-neutral-500 p-3"
-								>
-									<dt
-										class="text-xs uppercase tracking-wide text-neutral-500"
-									>
-										Recorded
-									</dt>
-									<dd class="pt-1 font-medium">
-										{formatDuration(timelapse.duration)}
-									</dd>
-								</div>
-								<div
-									class="border border-neutral-500 p-3"
-								>
-									<dt
-										class="text-xs uppercase tracking-wide text-neutral-500"
-									>
-										Actual time
-									</dt>
-									<dd class="pt-1 font-medium">
-										{formatDuration(actualDuration)}
-									</dd>
-									{#if idleAnalyzing && !ignoreIdle}
-										<p
-											class="pt-0.5 text-xs text-amber-600"
-										>
-											Analyzing idle frames…
-										</p>
-									{:else}
-										{#if idleDuration > 0}
-											<p
-												class="pt-0.5 text-xs text-neutral-500"
-											>
-												-{formatDuration(idleDuration)}
-												idle
-											</p>
-										{/if}
-										{#if annotationDeflation > 0}
-											<p
-												class="pt-0.5 text-xs text-neutral-500"
-											>
-												-{formatDuration(
-													annotationDeflation
-												)}
-												annotations
-											</p>
-										{/if}
-									{/if}
-								</div>
-								<div
-									class="border border-neutral-500 p-3"
-								>
-									<dt
-										class="text-xs uppercase tracking-wide text-neutral-500"
-									>
-										Created
-									</dt>
-									<dd class="pt-1 font-medium">
-										{formatCreatedAt(timelapse.createdAt)}
-									</dd>
-								</div>
-								<div
-									class="border border-neutral-500 p-3"
-								>
-									<dt
-										class="text-xs uppercase tracking-wide text-neutral-500"
-									>
-										Visibility
-									</dt>
-									<dd class="pt-1 font-medium">
-										{timelapse.visibility}
-									</dd>
-								</div>
-							</dl>
-							<section
-								class="w-full border border-neutral-500 p-3"
-							>
-								<div
-									class="flex items-center justify-between gap-2 pb-1"
-								>
-									<h2 class="font-medium">Description</h2>
-									<button
-										type="button"
-										onclick={() => copyText(description)}
-										class="border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
-									>
-										{copied ? "Copied!" : "Copy"}
 									</button>
 								</div>
-								<p class="text-sm text-neutral-300 select-text">
-									{description}
-								</p>
-							</section>
-						</div>
-					{:else}
-						<p>No timelapse found for ID “{submittedId}”.</p>
-					{/if}
-				</svelte:boundary>
-			{/key}
-		{:else}
-			<p class="text-center">
-				Enter a timelapse ID above to review it here.
-			</p>
-		{/if}
+
+								<dl
+									class="grid w-full grid-cols-2 gap-3 sm:grid-cols-4"
+								>
+									<div class="border border-neutral-500 p-3">
+										<dt
+											class="text-xs uppercase tracking-wide text-neutral-500"
+										>
+											Recorded
+										</dt>
+										<dd class="pt-1 font-medium">
+											{formatDuration(timelapse.duration)}
+										</dd>
+									</div>
+									<div class="border border-neutral-500 p-3">
+										<dt
+											class="text-xs uppercase tracking-wide text-neutral-500"
+										>
+											Actual time
+										</dt>
+										<dd class="pt-1 font-medium">
+											{formatDuration(actualDuration)}
+										</dd>
+										{#if idleAnalyzing && !ignoreIdle}
+											<p
+												class="pt-0.5 text-xs text-amber-600"
+											>
+												Analyzing idle frames…
+											</p>
+										{:else}
+											{#if idleDuration > 0}
+												<p
+													class="pt-0.5 text-xs text-neutral-500"
+												>
+													-{formatDuration(idleDuration)}
+													idle
+												</p>
+											{/if}
+											{#if annotationDeflation > 0}
+												<p
+													class="pt-0.5 text-xs text-neutral-500"
+												>
+													-{formatDuration(
+													annotationDeflation
+												)}
+													annotations
+												</p>
+											{/if}
+										{/if}
+									</div>
+									<div class="border border-neutral-500 p-3">
+										<dt
+											class="text-xs uppercase tracking-wide text-neutral-500"
+										>
+											Created
+										</dt>
+										<dd class="pt-1 font-medium">
+											{formatCreatedAt(timelapse.createdAt)}
+										</dd>
+									</div>
+									<div class="border border-neutral-500 p-3">
+										<dt
+											class="text-xs uppercase tracking-wide text-neutral-500"
+										>
+											Visibility
+										</dt>
+										<dd class="pt-1 font-medium">
+											{timelapse.visibility}
+										</dd>
+									</div>
+								</dl>
+								<section
+									class="w-full border border-neutral-500 p-3"
+								>
+									<div
+										class="flex items-center justify-between gap-2 pb-1"
+									>
+										<h2 class="font-medium">Description</h2>
+										<button
+											type="button"
+											onclick={() => copyText(description)}
+											class="border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
+										>
+											{copied ? "Copied!" : "Copy"}
+										</button>
+									</div>
+									<p
+										class="text-sm text-neutral-300 select-text"
+									>
+										{description}
+									</p>
+								</section>
+							</div>
+						{:else}
+							<p>No timelapse found for ID “{submittedId}”.</p>
+						{/if}
+					</svelte:boundary>
+				{/key}
+			{:else}
+				<p class="text-center">
+					Enter a timelapse ID above to review it here.
+				</p>
+			{/if}
 		</section>
 
 		<aside
@@ -921,7 +913,9 @@ function moveEntryBy(id: string, delta: number) {
 				</p>
 			{/if}
 
-			<dl class="flex flex-col gap-1 border-t border-neutral-700 pt-2 text-sm">
+			<dl
+				class="flex flex-col gap-1 border-t border-neutral-700 pt-2 text-sm"
+			>
 				<div class="flex justify-between gap-2">
 					<dt class="text-neutral-500">Time spent working</dt>
 					<dd class="font-medium">
@@ -946,7 +940,9 @@ function moveEntryBy(id: string, delta: number) {
 						<dd>{formatDuration(projectTotals.annotations)}</dd>
 					</div>
 				{/if}
-				<div class="flex justify-between gap-2 border-t border-neutral-800 pt-1">
+				<div
+					class="flex justify-between gap-2 border-t border-neutral-800 pt-1"
+				>
 					<dt class="font-medium">Final time</dt>
 					<dd class="font-medium">
 						{formatDuration(projectTotals.final)}
