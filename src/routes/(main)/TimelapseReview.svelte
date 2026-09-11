@@ -44,6 +44,17 @@ let idleRanges = $state<IdleRange[]>([])
 let idleAnalyzing = $state(false)
 // When set, idle detection is ignored entirely for the actual-time maths.
 let ignoreIdle = $state(false)
+// Encoded `tl` payload currently represented by the review. Kept as its own
+// state (rather than read back from `page.url`) so the description always
+// reflects what we encoded, even before the address bar catches up.
+let shareParam = $state<string | null>(page.url.searchParams.get(SHARE_PARAM))
+
+/** Shareable link for the current review, including the `?tl=` payload. */
+const shareUrl = $derived(
+	`${SITE_ORIGIN}/${encodeURIComponent(submittedId)}${
+		shareParam ? `?${SHARE_PARAM}=${shareParam}` : ""
+	}`
+)
 
 function formatDuration(seconds: number): string {
 	if (!Number.isFinite(seconds) || seconds <= 0) return "—"
@@ -134,10 +145,13 @@ $effect(() => {
 	if (!id) {
 		selections = []
 		ignoreIdle = false
+		shareParam = null
 		loaded = true
 		return
 	}
 	const shared = new URL(window.location.href).searchParams.get(SHARE_PARAM)
+	// Reflect the incoming payload immediately; the encode below will refresh it.
+	shareParam = shared
 	if (shared) {
 		void decodeShare(shared).then(decoded => {
 			if (token !== loadToken) return
@@ -175,7 +189,12 @@ async function pasteAndLoad() {
 
 // Guards against an older async encode resolving after a newer one.
 let urlToken = 0
+let urlTimer: ReturnType<typeof setTimeout> | undefined
 
+/**
+ * Encode the review state, publish it to the description immediately, and
+ * (debounced) mirror it into the address bar so the review can be shared.
+ */
 async function syncShareUrl(
 	id: string,
 	value: TimelineSelection[],
@@ -188,7 +207,10 @@ async function syncShareUrl(
 		value.length > 0 || ignoreIdle
 			? await encodeShare(value, ignoreIdle)
 			: null
-	if (token !== urlToken) return
+	// Bail if a newer encode started, or the open timelapse changed underneath
+	// us (otherwise a stale payload could land on the wrong review).
+	if (token !== urlToken || id !== submittedId) return
+	shareParam = encoded
 	const url = new URL(window.location.href)
 	if (encoded) {
 		url.searchParams.set(SHARE_PARAM, encoded)
@@ -197,13 +219,17 @@ async function syncShareUrl(
 	}
 	url.pathname = `/${encodeURIComponent(id)}`
 	const target = `${url.pathname}${url.search}`
+	// Debounce only the history write, so editing doesn't spam entries.
+	clearTimeout(urlTimer)
+	urlTimer = setTimeout(() => {
+		void applyShareUrl(target)
+	}, 300)
+}
+
+async function applyShareUrl(target: string) {
 	if (target === `${window.location.pathname}${window.location.search}`)
 		return
-	await goto(target, {
-		replace: true,
-		shallow: true,
-		reset: false,
-	})
+	await goto(target, { replace: true, shallow: true, reset: false })
 }
 
 // Persist selections (and their reasons) per timelapse, and mirror the review
@@ -214,10 +240,8 @@ $effect(() => {
 	const overridden = ignoreIdle
 	if (!id || !loaded) return
 	saveSelections(id, value)
-	const timer = setTimeout(() => {
-		void syncShareUrl(id, value, overridden)
-	}, 300)
-	return () => clearTimeout(timer)
+	void syncShareUrl(id, value, overridden)
+	return () => clearTimeout(urlTimer)
 })
 
 // Persist the idle override for this timelapse.
@@ -524,7 +548,7 @@ function moveEntryBy(id: string, delta: number) {
 									duration: timelapse.duration,
 									idleRanges: effectiveIdleRanges,
 									selections,
-									shareUrl: `${SITE_ORIGIN}${page.url.pathname}${page.url.search}`,
+									shareUrl,
 								})
 							)}
 							<div
