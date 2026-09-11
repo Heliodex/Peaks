@@ -84,6 +84,14 @@ const annotationDeflation = $derived(
 	}, 0) * PLAYBACK_TO_RECORDED
 )
 
+/** Time removed from the actual duration as idle, in recorded seconds. */
+const idleDuration = $derived(
+	effectiveIdleRanges.reduce(
+		(sum, range) => sum + (range.end - range.start),
+		0
+	) * PLAYBACK_TO_RECORDED
+)
+
 function setSelectionReason(id: string, reason: string) {
 	selections = selections.map(selection =>
 		selection.id === id ? { ...selection, reason } : selection
@@ -277,7 +285,34 @@ const inProject = $derived(
 	projectEntries.some(entry => entry.id === submittedId)
 )
 
-/** Add (or refresh) the open timelapse in the current project. */
+// Keep the open timelapse's project entry in sync with its current idle time
+// and annotation deductions, so edits appear without a manual update.
+$effect(() => {
+	const id = submittedId
+	const idle = idleDuration
+	const annotations = annotationDeflation
+	if (!id || !loaded) return
+	const index = projectEntries.findIndex(entry => entry.id === id)
+	if (index === -1) return
+	const entry = projectEntries[index]
+	if (
+		entry.idleDuration === idle &&
+		entry.annotationDeflation === annotations
+	) {
+		return
+	}
+	const updated = [...projectEntries]
+	updated[index] = {
+		...entry,
+		idleDuration: idle,
+		annotationDeflation: annotations,
+	}
+	projectEntries = updated
+	const name = projectName.trim()
+	if (name) saveProject(name, $state.snapshot(updated))
+})
+
+/** Add the open timelapse to the current project. */
 function addToProject(entry: ProjectTimelapse) {
 	const name = projectName.trim()
 	if (!name) return
@@ -298,6 +333,7 @@ function removeFromProject(id: string) {
 	const name = projectName.trim()
 	projectEntries = projectEntries.filter(entry => entry.id !== id)
 	if (name) saveProject(name, $state.snapshot(projectEntries))
+	if (addedId === id) addedId = null
 }
 </script>
 
@@ -398,12 +434,6 @@ function removeFromProject(id: string) {
 
 					{const timelapse = await getTimelapse(submittedId)}
 					{#if timelapse}
-						{const idleDuration = $derived(
-							effectiveIdleRanges.reduce(
-								(sum, range) => sum + (range.end - range.start),
-								0
-							) * PLAYBACK_TO_RECORDED
-						)}
 						{const actualDuration = $derived(
 							Math.max(
 								0,
@@ -569,17 +599,19 @@ function removeFromProject(id: string) {
 									type="button"
 									disabled={!projectName.trim()}
 									onclick={() =>
-										addToProject({
-											id: timelapse.id,
-											name: timelapse.name,
-											duration: timelapse.duration,
-											idleDuration,
-											annotationDeflation,
-										})}
+										inProject
+											? removeFromProject(timelapse.id)
+											: addToProject({
+													id: timelapse.id,
+													name: timelapse.name,
+													duration: timelapse.duration,
+													idleDuration,
+													annotationDeflation,
+												})}
 									class="border border-neutral-500 px-3 py-1 text-sm hover:bg-neutral-800 disabled:opacity-50"
 								>
 									{inProject
-										? "Update in project"
+										? "Remove from project"
 										: "Add to project"}
 								</button>
 							</div>
