@@ -6,10 +6,15 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
+		"prod": "bun i -p && vite build",
 		"preview": "vite preview",
+		"buildview": "vite build && vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"serve": "bunx pm2 start",
+		"list": "bunx pm2 list",
+		"logs": "bunx pm2 logs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.5.12",
