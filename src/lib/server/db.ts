@@ -1,6 +1,7 @@
 import { createNodeEngines } from "@surrealdb/node"
 import { Surreal, RecordId as SurrealRecordId, Table } from "surrealdb"
 import initQuery from "#lib/server/init.surql?raw"
+import { building } from "$app/env"
 
 type GlobalSurrealState = {
 	instance?: Surreal
@@ -13,7 +14,7 @@ const globalState = globalThis as unknown as {
 }
 globalState.__surreal ??= {}
 
-if (!globalState.__surreal.instance) {
+if (!building && !globalState.__surreal.instance) {
 	const instance = new Surreal({
 		codecOptions: { useNativeDates: true },
 		engines: { ...createNodeEngines() },
