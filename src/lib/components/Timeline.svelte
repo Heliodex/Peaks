@@ -359,6 +359,11 @@ function controlsClass(id: string): string {
 	return drag?.id === id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
 }
 
+/** Whether this selection is the one currently being drawn from scratch. */
+function isCreating(id: string): boolean {
+	return drag?.kind === "create" && drag.id === id
+}
+
 function onPointerDown(event: PointerEvent) {
 	const track = event.currentTarget as HTMLElement
 
@@ -620,9 +625,12 @@ function onKeyDown(event: KeyboardEvent) {
 	{const layoutFrames = $derived(frameStrip.layout)}
 	<div class="pt-4 w-full max-w-5xl">
 		<div
-			class="relative h-20 w-full touch-none rounded border border-neutral-500 select-none {pan
-				? 'cursor-grabbing'
-				: ''}"
+			class="relative h-20 w-full touch-none rounded border border-neutral-500 select-none {drag?.kind ===
+			'create'
+				? 'cursor-text'
+				: pan
+					? 'cursor-grabbing'
+					: ''}"
 			onpointerdown={onPointerDown}
 			onpointermove={onPointerMove}
 			onpointerup={onPointerUp}
@@ -682,7 +690,9 @@ function onKeyDown(event: KeyboardEvent) {
 				{const color = $derived(selectionColors(sel.reason))}
 				{#if visibleEnd > visibleStart}
 					<div
-						class="group absolute inset-y-0 cursor-grab active:cursor-grabbing"
+						class="group absolute inset-y-0 {isCreating(sel.id)
+							? 'cursor-text'
+							: 'cursor-grab active:cursor-grabbing'}"
 						data-selection-id={sel.id}
 						style:left="{percentWithin(visibleStart, view)}%"
 						style:width="{percentWithin(visibleEnd, view) -
