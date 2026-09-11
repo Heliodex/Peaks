@@ -220,7 +220,7 @@ const sortedSelections = $derived(
 									>
 										Recorded
 									</dt>
-									<dd class="mt-1 font-medium">
+									<dd class="pt-1 font-medium">
 										{formatDuration(timelapse.duration)}
 									</dd>
 								</div>
@@ -230,20 +230,20 @@ const sortedSelections = $derived(
 									>
 										Actual time
 									</dt>
-									<dd class="mt-1 font-medium">
+									<dd class="pt-1 font-medium">
 										{formatDuration(actualDuration)}
 									</dd>
 									{#if idleAnalyzing}
 										<p
-											class="mt-0.5 text-xs text-amber-600"
+											class="pt-0.5 text-xs text-amber-600"
 										>
 											Analyzing idle frames…
 										</p>
 									{:else if idleDuration > 0}
 										<p
-											class="mt-0.5 text-xs text-neutral-500"
+											class="pt-0.5 text-xs text-neutral-500"
 										>
-											−{formatDuration(idleDuration)}
+											-{formatDuration(idleDuration)}
 											idle
 										</p>
 									{/if}
@@ -254,7 +254,7 @@ const sortedSelections = $derived(
 									>
 										Created
 									</dt>
-									<dd class="mt-1 font-medium">
+									<dd class="pt-1 font-medium">
 										{formatCreatedAt(timelapse.createdAt)}
 									</dd>
 								</div>
@@ -264,7 +264,7 @@ const sortedSelections = $derived(
 									>
 										Visibility
 									</dt>
-									<dd class="mt-1 font-medium">
+									<dd class="pt-1 font-medium">
 										{timelapse.visibility}
 									</dd>
 								</div>
