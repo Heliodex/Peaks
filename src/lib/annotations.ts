@@ -178,7 +178,7 @@ export function describeTimelapse({
 	idleRanges: IdleRange[]
 	selections: TimelineSelection[]
 }): string {
-	const parts = [`${id}: Original time ${formatClock(duration)}.`]
+	const parts = [`${id} – Original time ${formatClock(duration)}.`]
 
 	const idleTotal =
 		idleRanges.reduce((sum, range) => sum + (range.end - range.start), 0) *
