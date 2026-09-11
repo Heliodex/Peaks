@@ -98,7 +98,10 @@ const sortedSelections = $derived(
 		</div>
 
 		<form {...logout}>
-			<button type="submit" class="rounded border border-neutral-500 px-2 py-1">
+			<button
+				type="submit"
+				class="rounded border border-neutral-500 px-2 py-1"
+			>
 				Log out
 			</button>
 		</form>
@@ -130,14 +133,15 @@ const sortedSelections = $derived(
 
 					{const timelapse = await getTimelapse(submittedId)}
 					{#if timelapse}
-						{const idleDuration = $derived(idleRanges.reduce(
-							(sum, range) => sum + (range.end - range.start),
-							0
-						))}
-						{const actualDuration = $derived(Math.max(
-							0,
-							timelapse.duration - idleDuration
-						))}
+						{const idleDuration = $derived(
+							idleRanges.reduce(
+								(sum, range) => sum + (range.end - range.start),
+								0
+							) * 60
+						)}
+						{const actualDuration = $derived(
+							Math.max(0, timelapse.duration - idleDuration)
+						)}
 						<div
 							class="flex w-full max-w-5xl flex-col items-center gap-4"
 						>
@@ -214,7 +218,9 @@ const sortedSelections = $derived(
 							<dl
 								class="grid w-full grid-cols-2 gap-3 sm:grid-cols-4"
 							>
-								<div class="rounded border border-neutral-500 p-3">
+								<div
+									class="rounded border border-neutral-500 p-3"
+								>
 									<dt
 										class="text-xs uppercase tracking-wide text-neutral-500"
 									>
@@ -224,7 +230,9 @@ const sortedSelections = $derived(
 										{formatDuration(timelapse.duration)}
 									</dd>
 								</div>
-								<div class="rounded border border-neutral-500 p-3">
+								<div
+									class="rounded border border-neutral-500 p-3"
+								>
 									<dt
 										class="text-xs uppercase tracking-wide text-neutral-500"
 									>
@@ -248,7 +256,9 @@ const sortedSelections = $derived(
 										</p>
 									{/if}
 								</div>
-								<div class="rounded border border-neutral-500 p-3">
+								<div
+									class="rounded border border-neutral-500 p-3"
+								>
 									<dt
 										class="text-xs uppercase tracking-wide text-neutral-500"
 									>
@@ -258,7 +268,9 @@ const sortedSelections = $derived(
 										{formatCreatedAt(timelapse.createdAt)}
 									</dd>
 								</div>
-								<div class="rounded border border-neutral-500 p-3">
+								<div
+									class="rounded border border-neutral-500 p-3"
+								>
 									<dt
 										class="text-xs uppercase tracking-wide text-neutral-500"
 									>
