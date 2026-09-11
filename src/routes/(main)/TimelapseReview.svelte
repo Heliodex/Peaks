@@ -138,9 +138,23 @@ $effect(() => {
 
 function loadTimelapse(event: SubmitEvent) {
 	event.preventDefault()
-	const id = timelapseId.trim()
+	loadId(timelapseId)
+}
+
+function loadId(value: string) {
+	const id = value.trim()
 	if (!id || id === submittedId) return
 	void goto(`/${encodeURIComponent(id)}`)
+}
+
+async function pasteAndLoad() {
+	let text = ""
+	try {
+		text = await navigator.clipboard.readText()
+	} catch {
+		return
+	}
+	loadId(text)
 }
 
 // Guards against an older async encode resolving after a newer one.
@@ -241,6 +255,13 @@ $effect(() => {
 					class="border border-neutral-500 px-2 py-1 disabled:opacity-50"
 				>
 					Load
+				</button>
+				<button
+					type="button"
+					onclick={pasteAndLoad}
+					class="border border-neutral-500 px-2 py-1"
+				>
+					Paste
 				</button>
 			</form>
 
