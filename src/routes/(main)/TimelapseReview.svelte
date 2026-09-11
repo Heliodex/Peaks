@@ -24,6 +24,7 @@ import {
 } from "#lib/timeline.js"
 import { goto } from "$app/navigation"
 import { page } from "$app/state"
+import { flip } from "svelte/animate"
 import { getLapseData, getTimelapse, logout } from "./api.remote.js"
 
 /** Query parameter holding the compressed selections. */
@@ -232,6 +233,7 @@ let projectName = $state("Untitled project")
 let projectEntries = $state<ProjectTimelapse[]>([])
 let addedId = $state<string | null>(null)
 let addedTimer: ReturnType<typeof setTimeout> | undefined
+let draggingId = $state<string | null>(null)
 
 // Restore the last-used project name after mount; local storage isn't available
 // during SSR, so this must not run in the initial render.
@@ -334,6 +336,83 @@ function removeFromProject(id: string) {
 	projectEntries = projectEntries.filter(entry => entry.id !== id)
 	if (name) saveProject(name, $state.snapshot(projectEntries))
 	if (addedId === id) addedId = null
+}
+
+/** Persist the current project order. */
+function persistOrder() {
+	const name = projectName.trim()
+	if (name) saveProject(name, $state.snapshot(projectEntries))
+}
+
+/**
+ * Move `sourceId` so it lands at `targetIndex` in the list. Only updates
+ * state (the caller persists once the drag ends), so drag-over can call it
+ * repeatedly while `animate:flip` animates each shift.
+ */
+function moveToIndex(sourceId: string, targetIndex: number): boolean {
+	const from = projectEntries.findIndex(entry => entry.id === sourceId)
+	if (from === -1) return false
+	let insert = targetIndex
+	if (from < insert) insert -= 1
+	if (insert === from) return false
+	const updated = [...projectEntries]
+	const [moved] = updated.splice(from, 1)
+	updated.splice(insert, 0, moved)
+	projectEntries = updated
+	return true
+}
+
+// Reordering on every dragover would thrash the FLIP animations, so wait for
+// the current shift to settle before allowing the next one.
+const REORDER_COOLDOWN = 160
+let lastReorder = 0
+
+/** Reorder the dragged entry from the pointer's vertical position. */
+function reorderFromPointer(event: DragEvent, force: boolean) {
+	if (!draggingId) return
+	if (!force && performance.now() - lastReorder < REORDER_COOLDOWN) return
+	const list = event.currentTarget as HTMLElement
+	const items = Array.from(list.children) as HTMLElement[]
+	let targetIndex = items.length
+	for (let i = 0; i < items.length; i++) {
+		const rect = items[i].getBoundingClientRect()
+		if (event.clientY < rect.top + rect.height / 2) {
+			targetIndex = i
+			break
+		}
+	}
+	if (moveToIndex(draggingId, targetIndex)) {
+		lastReorder = performance.now()
+	}
+}
+
+/** Live-reorder while the pointer moves over the list. */
+function handleDragOver(event: DragEvent) {
+	if (!draggingId) return
+	event.preventDefault()
+	if (event.dataTransfer) event.dataTransfer.dropEffect = "move"
+	reorderFromPointer(event, false)
+}
+
+/** Finish a drag, keeping whatever order the pointer reached. */
+function handleDrop(event: DragEvent) {
+	event.preventDefault()
+	reorderFromPointer(event, true)
+	draggingId = null
+	persistOrder()
+}
+
+/** Nudge an entry by one slot, for keyboard reordering. */
+function moveEntryBy(id: string, delta: number) {
+	const from = projectEntries.findIndex(entry => entry.id === id)
+	if (from === -1) return
+	const to = from + delta
+	if (to < 0 || to >= projectEntries.length) return
+	const updated = [...projectEntries]
+	const [moved] = updated.splice(from, 1)
+	updated.splice(to, 0, moved)
+	projectEntries = updated
+	persistOrder()
 }
 </script>
 
@@ -745,12 +824,63 @@ function removeFromProject(id: string) {
 			</label>
 
 			{#if projectEntries.length > 0}
-				<ul class="flex flex-col gap-1 text-sm">
+				<ul
+					class="flex flex-col gap-1 text-sm"
+					ondragover={handleDragOver}
+					ondrop={handleDrop}
+				>
 					{#each projectEntries as entry (entry.id)}
 						<li
-							class="flex items-start justify-between gap-2 border-b border-neutral-800 pb-1"
+							animate:flip={{ duration: 180 }}
+							class="flex items-start gap-2 border-b border-neutral-800 pb-1 {draggingId ===
+							entry.id
+								? 'opacity-50'
+								: ''}"
 						>
-							<div class="flex min-w-0 flex-col">
+							<button
+								type="button"
+								draggable="true"
+								title="Drag to reorder"
+								aria-label="Reorder {entry.name || entry.id}"
+								onkeydown={e => {
+									if (e.key === "ArrowUp") {
+										e.preventDefault()
+										moveEntryBy(entry.id, -1)
+									} else if (e.key === "ArrowDown") {
+										e.preventDefault()
+										moveEntryBy(entry.id, 1)
+									}
+								}}
+								ondragstart={e => {
+									draggingId = entry.id
+									if (e.dataTransfer) {
+										const row =
+											e.currentTarget.closest("li")
+										e.dataTransfer.effectAllowed = "move"
+										e.dataTransfer.setData(
+											"text/plain",
+											entry.id
+										)
+										if (row) {
+											const rect =
+												row.getBoundingClientRect()
+											e.dataTransfer.setDragImage(
+												row,
+												e.clientX - rect.left,
+												e.clientY - rect.top
+											)
+										}
+									}
+								}}
+								ondragend={() => {
+									draggingId = null
+									persistOrder()
+								}}
+								class="cursor-grab select-none text-neutral-500 hover:text-neutral-300 active:cursor-grabbing"
+							>
+								⠿
+							</button>
+							<div class="flex min-w-0 flex-1 flex-col">
 								<button
 									type="button"
 									onclick={() => loadId(entry.id)}
