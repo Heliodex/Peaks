@@ -159,6 +159,7 @@ export function nonIdleDuration(
 /** Format a run of idle ranges as `0:07-0:08, 0:09-0:12`. */
 function formatSpans(spans: { start: number; end: number }[]): string {
 	return spans
+		.toSorted((a, b) => a.start - b.start)
 		.map(span => {
 			const start = formatClock(span.start)
 			const end = formatClock(span.end)
