@@ -62,6 +62,11 @@ const MIN_SELECTION_PX = 4
 const ARROW_SEEK_SECONDS = 5
 // Assumed frame rate for single-frame stepping if detection hasn't finished
 const FALLBACK_FRAME_RATE = 30
+// Minimum on-screen gap (px) between frame ticks before they become too dense
+// to read; below this the tick ruler is hidden.
+const MIN_TICK_SPACING_PX = 6
+// Hard cap on rendered frame ticks as a safety net.
+const MAX_FRAME_TICKS = 240
 
 let videoDuration = $state(0)
 let frameRate = $state(0)
@@ -78,6 +83,25 @@ const viewSpring = new Spring<ViewWindow>(
 )
 const view = $derived(viewSpring.current)
 const viewSpan = $derived(Math.max(0, view.end - view.start))
+
+// Width (px) of the tick ruler, measured so ticks can hide when too dense.
+let tickTrackWidth = $state(0)
+const frameTickSpacing = $derived(
+	frameRate > 0 && viewSpan > 0 && tickTrackWidth > 0
+		? tickTrackWidth / (frameRate * viewSpan)
+		: 0
+)
+const showFrameTicks = $derived(frameTickSpacing >= MIN_TICK_SPACING_PX)
+const frameTicks = $derived.by(() => {
+	if (!showFrameTicks) return []
+	const first = Math.ceil(view.start * frameRate)
+	const last = Math.floor(view.end * frameRate)
+	const count = last - first + 1
+	if (count <= 0 || count > MAX_FRAME_TICKS) return []
+	const ticks: number[] = []
+	for (let k = first; k <= last; k++) ticks.push(k / frameRate)
+	return ticks
+})
 
 // Thumbnails captured at absolute times, reused across zooming and panning so the strip can slide/scale smoothly instead of blanking on every view change.
 const frameStrip = createFrameStrip({
@@ -123,7 +147,13 @@ $effect(() => {
 })
 
 function makeId(): string {
-	return `selection-${++nextId}`
+	// `selections` lives in the parent and can outlive this component instance,
+	// while `nextId` resets on remount — so skip any ids already in use.
+	let id = `selection-${++nextId}`
+	while (selections.some(selection => selection.id === id)) {
+		id = `selection-${++nextId}`
+	}
+	return id
 }
 
 /** The absolute time represented by a frame slot in the current window. */
@@ -724,9 +754,22 @@ function onKeyDown(event: KeyboardEvent) {
 			{/if}
 		</div>
 
-		<div class="pt-2 flex justify-between text-xs text-neutral-500">
-			<span>{formatClock(view.start)}</span>
-			<span>{formatClock(view.end)}</span>
+		<div class="pt-1 w-full">
+			<div class="relative flex justify-between text-xs text-neutral-500 z-1">
+				<span class="bg-black pr-2">{formatClock(view.start)}</span>
+				<span class="bg-black pl-2">{formatClock(view.end)}</span>
+			</div>
+			<div
+				class="relative h-3 w-full overflow-hidden -top-3"
+				bind:clientWidth={tickTrackWidth}
+			>
+				{#each frameTicks as tick (tick)}
+					<div
+						class="absolute top-0 h-2 w-px -translate-x-1/2 bg-neutral-500"
+						style:left="{percentWithin(tick, view)}%"
+					></div>
+				{/each}
+			</div>
 		</div>
 
 		<TimelineNavigator
