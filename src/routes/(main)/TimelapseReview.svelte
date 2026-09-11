@@ -83,6 +83,27 @@ function setSelectionReason(id: string, reason: string) {
 	)
 }
 
+// Copy-to-clipboard feedback for the description card.
+let copied = $state(false)
+let copyTimer: ReturnType<typeof setTimeout> | undefined
+
+async function copyText(text: string) {
+	try {
+		await navigator.clipboard.writeText(text)
+		copied = true
+		clearTimeout(copyTimer)
+		copyTimer = setTimeout(() => {
+			copied = false
+		}, 1500)
+	} catch {
+		// Clipboard access may be denied; leave the button unchanged.
+	}
+}
+
+$effect(() => {
+	return () => clearTimeout(copyTimer)
+})
+
 // Load selections for the current path id: a `tl` parameter takes precedence,
 // otherwise fall back to anything saved locally. Resets idle analysis because
 // the underlying video changes.
@@ -504,7 +525,18 @@ $effect(() => {
 							<section
 								class="w-full rounded border border-neutral-500 p-3"
 							>
-								<h2 class="pb-1 font-medium">Description</h2>
+								<div
+									class="flex items-center justify-between gap-2 pb-1"
+								>
+									<h2 class="font-medium">Description</h2>
+									<button
+										type="button"
+										onclick={() => copyText(description)}
+										class="rounded border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
+									>
+										{copied ? "Copied!" : "Copy"}
+									</button>
+								</div>
 								<p class="text-sm text-neutral-300 select-text">
 									{description}
 								</p>
