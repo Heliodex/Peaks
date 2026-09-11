@@ -1,20 +1,43 @@
-// Encodes a timelapse's selections and idle override into a compact, URL-safe
-// string so a review can be shared or bookmarked. Stores times as integer
-// milliseconds and reasons as catalog indexes, then deflates the JSON. The
-// timelapse id lives in the URL path, so it isn't part of the payload.
+// Encodes a review session — the open timelapse's selections and idle
+// override, plus the sidebar project (name, timelapses and the open id) — into
+// a compact, URL-safe string so it can be shared or bookmarked. Stores times
+// as integer milliseconds and reasons as catalog indexes, then deflates the
+// JSON. The open timelapse id also lives in the URL path.
 
 import { ANNOTATION_REASONS } from "./annotations.js"
 import type { TimelineSelection } from "./timeline.js"
 
 const REASON_IDS = ANNOTATION_REASONS.map(reason => reason.id)
 
+export type ShareProjectEntry = {
+	id: string
+	name?: string
+	duration: number
+	idleDuration: number
+	annotationDeflation: number
+}
+
 export type ShareState = {
 	selections: TimelineSelection[]
 	ignoreIdle: boolean
+	/** Name of the sidebar project, when one is loaded. */
+	projectName?: string
+	/** Timelapses in the project, in order. */
+	project?: ShareProjectEntry[]
+	/** Id of the timelapse currently open in the main area. */
+	openId?: string
 }
 
-// `i` is present (as 1) only when the idle override is on.
-type SharePayload = { s: [number, number, number][]; i?: 1 }
+// `i` is present (as 1) only when the idle override is on. `n`, `p` and `o`
+// carry the sidebar project (name, entries and open timelapse) when present.
+type ShareProjectTuple = [string, string, number, number, number]
+type SharePayload = {
+	s: [number, number, number][]
+	i?: 1
+	n?: string
+	p?: ShareProjectTuple[]
+	o?: string
+}
 
 function toBase64Url(bytes: Uint8Array): string {
 	let binary = ""
@@ -62,17 +85,30 @@ async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
 	return new Uint8Array(await new Response(stream).arrayBuffer())
 }
 
-export async function encodeShare(
-	selections: TimelineSelection[],
-	ignoreIdle: boolean
-): Promise<string> {
+export async function encodeShare(state: ShareState): Promise<string> {
 	const payload: SharePayload = {
-		s: selections.map(selection => [
+		s: state.selections.map(selection => [
 			Math.round(selection.start * 1000),
 			Math.round(selection.end * 1000),
 			selection.reason ? REASON_IDS.indexOf(selection.reason) : -1,
 		]),
-		...(ignoreIdle ? { i: 1 } : {}),
+		...(state.ignoreIdle ? { i: 1 } : {}),
+		...(state.projectName ? { n: state.projectName } : {}),
+		...(state.project && state.project.length > 0
+			? {
+					p: state.project.map(
+						entry =>
+							[
+								entry.id,
+								entry.name ?? "",
+								entry.duration,
+								entry.idleDuration,
+								entry.annotationDeflation,
+							] as ShareProjectTuple
+					),
+				}
+			: {}),
+		...(state.openId ? { o: state.openId } : {}),
 	}
 	const bytes = new TextEncoder().encode(JSON.stringify(payload))
 	const compressed = await deflate(bytes)
@@ -99,6 +135,26 @@ function parseSelection(
 	}
 }
 
+function parseProjectEntry(value: unknown): ShareProjectEntry | null {
+	if (!Array.isArray(value)) return null
+	const [id, name, duration, idleDuration, annotationDeflation] = value
+	if (
+		typeof id !== "string" ||
+		typeof duration !== "number" ||
+		typeof idleDuration !== "number" ||
+		typeof annotationDeflation !== "number"
+	) {
+		return null
+	}
+	return {
+		id,
+		...(typeof name === "string" && name ? { name } : {}),
+		duration,
+		idleDuration,
+		annotationDeflation,
+	}
+}
+
 export async function decodeShare(value: string): Promise<ShareState | null> {
 	if (!value) return null
 	const marker = value[0]
@@ -107,14 +163,27 @@ export async function decodeShare(value: string): Promise<ShareState | null> {
 		const bytes = marker === "1" ? await inflate(raw) : raw
 		const payload: unknown = JSON.parse(new TextDecoder().decode(bytes))
 		if (typeof payload !== "object" || payload === null) return null
-		const { s, i } = payload as Record<string, unknown>
+		const { s, i, n, p, o } = payload as Record<string, unknown>
 		if (!Array.isArray(s)) return null
 		const selections = s
 			.map(parseSelection)
 			.filter((selection): selection is TimelineSelection =>
 				Boolean(selection)
 			)
-		return { selections, ignoreIdle: i === 1 }
+		const project = Array.isArray(p)
+			? p
+					.map(parseProjectEntry)
+					.filter((entry): entry is ShareProjectEntry =>
+						Boolean(entry)
+					)
+			: undefined
+		return {
+			selections,
+			ignoreIdle: i === 1,
+			...(typeof n === "string" && n ? { projectName: n } : {}),
+			...(project && project.length > 0 ? { project } : {}),
+			...(typeof o === "string" && o ? { openId: o } : {}),
+		}
 	} catch {
 		return null
 	}

@@ -17,7 +17,7 @@ import {
 	saveProject,
 } from "#lib/project-storage.js"
 import { loadSelections, saveSelections } from "#lib/selection-storage.js"
-import { decodeShare, encodeShare } from "#lib/share.js"
+import { decodeShare, encodeShare, type ShareState } from "#lib/share.js"
 import {
 	formatClock,
 	PLAYBACK_TO_RECORDED,
@@ -32,6 +32,9 @@ const SHARE_PARAM = "tl"
 
 /** Canonical origin used when a summary links back to the review. */
 const SITE_ORIGIN = "https://peaks.heliodex.cf"
+
+/** Name used for the sidebar project when the user hasn't chosen one. */
+const DEFAULT_PROJECT_NAME = "Untitled project"
 
 /** Timelapse id taken from the `/{id}` path (empty on the `/home` landing). */
 const submittedId = $derived(page.params.id ?? "")
@@ -55,6 +58,14 @@ const shareUrl = $derived(
 		shareParam ? `?${SHARE_PARAM}=${shareParam}` : ""
 	}`
 )
+
+// The sidebar shows one named project at a time. Its name and its list of
+// timelapses live in local storage, so the group survives reloads.
+let projectName = $state(DEFAULT_PROJECT_NAME)
+let projectEntries = $state<ProjectTimelapse[]>([])
+let addedId = $state<string | null>(null)
+let addedTimer: ReturnType<typeof setTimeout> | undefined
+let draggingId = $state<string | null>(null)
 
 function formatDuration(seconds: number): string {
 	if (!Number.isFinite(seconds) || seconds <= 0) return "—"
@@ -155,8 +166,16 @@ $effect(() => {
 	if (shared) {
 		void decodeShare(shared).then(decoded => {
 			if (token !== loadToken) return
+			// The payload may name a different open timelapse than the path.
+			if (decoded?.openId && decoded.openId !== id) {
+				const url = new URL(window.location.href)
+				url.pathname = `/${encodeURIComponent(decoded.openId)}`
+				void goto(`${url.pathname}${url.search}`)
+				return
+			}
 			selections = decoded?.selections ?? loadSelections(id)
 			ignoreIdle = decoded?.ignoreIdle ?? loadIgnoreIdle(id)
+			if (decoded) importSharedProject(decoded)
 			loaded = true
 		})
 	} else {
@@ -192,24 +211,37 @@ let urlToken = 0
 let urlTimer: ReturnType<typeof setTimeout> | undefined
 
 /**
- * Encode the review state, publish it to the description immediately, and
- * (debounced) mirror it into the address bar so the review can be shared.
+ * Encode the review and project state, publish it to the description
+ * immediately, and (debounced) mirror it into the address bar so the whole
+ * session can be shared.
  */
-async function syncShareUrl(
-	id: string,
-	value: TimelineSelection[],
+async function syncShareUrl(state: {
+	id: string
+	selections: TimelineSelection[]
 	ignoreIdle: boolean
-) {
+	projectName: string
+	project: ProjectTimelapse[]
+}) {
 	const token = ++urlToken
-	// Nothing to store? Drop the parameter entirely rather than writing an
-	// encoded empty payload.
-	const encoded =
-		value.length > 0 || ignoreIdle
-			? await encodeShare(value, ignoreIdle)
-			: null
+	const name = state.projectName.trim()
+	// Only write the (sizeable) payload when there's something to restore.
+	const hasContent =
+		state.selections.length > 0 ||
+		state.ignoreIdle ||
+		state.project.length > 0 ||
+		(name !== "" && name !== DEFAULT_PROJECT_NAME)
+	const encoded = hasContent
+		? await encodeShare({
+				selections: state.selections,
+				ignoreIdle: state.ignoreIdle,
+				projectName: name || undefined,
+				project: state.project,
+				openId: state.id,
+			})
+		: null
 	// Bail if a newer encode started, or the open timelapse changed underneath
 	// us (otherwise a stale payload could land on the wrong review).
-	if (token !== urlToken || id !== submittedId) return
+	if (token !== urlToken || state.id !== submittedId) return
 	shareParam = encoded
 	const url = new URL(window.location.href)
 	if (encoded) {
@@ -217,7 +249,7 @@ async function syncShareUrl(
 	} else {
 		url.searchParams.delete(SHARE_PARAM)
 	}
-	url.pathname = `/${encodeURIComponent(id)}`
+	url.pathname = `/${encodeURIComponent(state.id)}`
 	const target = `${url.pathname}${url.search}`
 	// Debounce only the history write, so editing doesn't spam entries.
 	clearTimeout(urlTimer)
@@ -233,14 +265,23 @@ async function applyShareUrl(target: string) {
 }
 
 // Persist selections (and their reasons) per timelapse, and mirror the review
-// state into the `?tl=` parameter so it can be shared.
+// and project state into the `?tl=` parameter so the whole session can be
+// shared.
 $effect(() => {
 	const id = submittedId
 	const value = $state.snapshot(selections)
 	const overridden = ignoreIdle
+	const name = projectName
+	const entries = $state.snapshot(projectEntries)
 	if (!id || !loaded) return
 	saveSelections(id, value)
-	void syncShareUrl(id, value, overridden)
+	void syncShareUrl({
+		id,
+		selections: value,
+		ignoreIdle: overridden,
+		projectName: name,
+		project: entries,
+	})
 	return () => clearTimeout(urlTimer)
 })
 
@@ -253,12 +294,6 @@ $effect(() => {
 
 // The sidebar shows one named project at a time. Its name and its list of
 // timelapses live in local storage, so the group survives reloads.
-let projectName = $state("Untitled project")
-let projectEntries = $state<ProjectTimelapse[]>([])
-let addedId = $state<string | null>(null)
-let addedTimer: ReturnType<typeof setTimeout> | undefined
-let draggingId = $state<string | null>(null)
-
 // Restore the last-used project name after mount; local storage isn't available
 // during SSR, so this must not run in the initial render.
 $effect(() => {
@@ -276,6 +311,20 @@ $effect(() => {
 function selectProject(name: string) {
 	projectName = name
 	saveCurrentProject(name.trim())
+}
+
+/**
+ * Apply a project carried by a shared URL: store it under its name so the
+ * sidebar's load effect sees it, then make it the current project.
+ */
+function importSharedProject(shared: ShareState) {
+	const name =
+		shared.projectName?.trim() || projectName.trim() || DEFAULT_PROJECT_NAME
+	if (shared.project) {
+		saveProject(name, shared.project)
+		projectEntries = shared.project
+	}
+	if (name !== projectName) projectName = name
 }
 
 $effect(() => {
@@ -834,7 +883,7 @@ function moveEntryBy(id: string, delta: number) {
 					type="text"
 					value={projectName}
 					onchange={e => selectProject(e.currentTarget.value)}
-					placeholder="Untitled project"
+					placeholder={DEFAULT_PROJECT_NAME}
 					class="border border-neutral-500 px-2 py-1"
 				>
 			</label>
