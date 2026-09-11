@@ -10,6 +10,12 @@ export type TimelineSelection = {
 export type ViewWindow = { start: number; end: number }
 
 /**
+ * Lapse timelapses play back 60× faster than real time, so a duration measured
+ * on the timeline (playback seconds) maps to 60 seconds of recorded time.
+ */
+export const PLAYBACK_TO_RECORDED = 60
+
+/**
  * Maximum zoom-in, expressed as the fewest number of frames that may fill the
  * visible view. Zooming in further provides no meaningful precision benefit, so
  * this caps both the navigator window and scroll-to-zoom on the main timeline.
@@ -26,12 +32,15 @@ export function snapToFrame(time: number, frameRate: number): number {
 	return Math.round(time * frameRate) / frameRate
 }
 
-/** Format seconds as `m:ss`. */
+/** Format seconds as `m:ss`, or `h:mm:ss` once the duration reaches an hour. */
 export function formatClock(seconds: number): string {
-	const s = Math.max(0, Math.floor(seconds))
-	const m = Math.floor(s / 60)
-	const r = s % 60
-	return `${m}:${String(r).padStart(2, "0")}`
+	const total = Math.max(0, Math.floor(seconds))
+	const h = Math.floor(total / 3600)
+	const m = Math.floor((total % 3600) / 60)
+	const s = total % 60
+	const ss = String(s).padStart(2, "0")
+	if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${ss}`
+	return `${m}:${ss}`
 }
 
 /** Position of a time within a window, as a percentage of the window. */

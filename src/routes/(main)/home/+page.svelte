@@ -1,17 +1,18 @@
 <script lang="ts">
 import {
 	ANNOTATION_REASONS,
+	describeTimelapse,
 	findAnnotationReason,
 	nonIdleDuration,
 } from "#lib/annotations.js"
 import Timeline from "#lib/components/Timeline.svelte"
 import type { IdleRange } from "#lib/idle-time.js"
-import { formatClock, type TimelineSelection } from "#lib/timeline.js"
+import {
+	formatClock,
+	PLAYBACK_TO_RECORDED,
+	type TimelineSelection,
+} from "#lib/timeline.js"
 import { getLapseData, getTimelapse, logout } from "../api.remote.js"
-
-// Lapse timelapses play back 60× faster than real time, so a duration measured
-// on the timeline (playback seconds) maps to 60 seconds of recorded time.
-const PLAYBACK_TO_RECORDED = 60
 
 let timelapseId = $state("")
 let submittedId = $state("")
@@ -170,6 +171,14 @@ function setSelectionReason(id: string, reason: string) {
 									idleDuration -
 									annotationDeflation
 							)
+						)}
+						{const description = $derived(
+							describeTimelapse({
+								id: timelapse.id,
+								duration: timelapse.duration,
+								idleRanges,
+								selections,
+							})
 						)}
 						<div
 							class="flex w-full max-w-5xl flex-col items-center gap-4"
@@ -370,6 +379,14 @@ function setSelectionReason(id: string, reason: string) {
 									</dd>
 								</div>
 							</dl>
+							<section
+								class="w-full rounded border border-neutral-500 p-3"
+							>
+								<h2 class="pb-1 font-medium">Description</h2>
+								<p class="text-sm text-neutral-300 select-text">
+									{description}
+								</p>
+							</section>
 						</div>
 					{:else}
 						<p>No timelapse found for ID “{submittedId}”.</p>

@@ -3,7 +3,11 @@
 // and the colour used to draw it on the timelines.
 
 import type { IdleRange } from "./idle-time.js"
-import type { TimelineSelection } from "./timeline.js"
+import {
+	formatClock,
+	PLAYBACK_TO_RECORDED,
+	type TimelineSelection,
+} from "./timeline.js"
 
 /**
  * Tailwind classes for a selection overlay. Written out in full (rather than
@@ -61,38 +65,57 @@ export type AnnotationColor = Exclude<keyof typeof SELECTION_COLORS, "neutral">
 export type AnnotationReason = {
 	id: string
 	label: string
+	/** Short phrase used in the written description, e.g. "spent researching". */
+	summaryLabel: string
 	/**
 	 * Fraction (0–1) of a selection's duration removed from the actual time:
 	 * `1` removes the whole stretch, `0` leaves it untouched.
 	 */
 	deflation: number
+	/** Parenthetical note for the description, e.g. "2/3 deflated". */
+	deflationLabel: string
 	color: AnnotationColor
 }
 
 export const ANNOTATION_REASONS: AnnotationReason[] = [
-	{ id: "invalid-time", label: "Invalid time", deflation: 1, color: "red" },
+	{
+		id: "invalid-time",
+		label: "Invalid time",
+		summaryLabel: "invalid",
+		deflation: 1,
+		deflationLabel: "removed",
+		color: "red",
+	},
 	{
 		id: "researching",
 		label: "Time spent researching",
+		summaryLabel: "spent researching",
 		deflation: 1 / 2,
+		deflationLabel: "1/2 deflated",
 		color: "blue",
 	},
 	{
 		id: "instructing-ai",
 		label: "Time spent instructing AI",
+		summaryLabel: "spent instructing AI",
 		deflation: 2 / 3,
+		deflationLabel: "2/3 deflated",
 		color: "violet",
 	},
 	{
 		id: "requesting-ai-help",
 		label: "Time spent requesting AI help",
+		summaryLabel: "spent requesting AI help",
 		deflation: 0,
+		deflationLabel: "no deflation",
 		color: "fuchsia",
 	},
 	{
 		id: "copying-tutorial",
 		label: "Time spent copying from tutorial",
+		summaryLabel: "spent copying from tutorial",
 		deflation: 1,
+		deflationLabel: "removed",
 		color: "lime",
 	},
 ]
@@ -131,4 +154,68 @@ export function nonIdleDuration(
 		if (overlap > 0) idle += overlap
 	}
 	return Math.max(0, length - idle)
+}
+
+/** Format a run of idle ranges as `0:07-0:08, 0:09-0:12`. */
+function formatSpans(spans: { start: number; end: number }[]): string {
+	return spans
+		.map(span => `${formatClock(span.start)}-${formatClock(span.end)}`)
+		.join(", ")
+}
+
+/**
+ * Build a plain-text summary of a timelapse: its original length, the idle
+ * stretches, and each annotated reason with the time it deflates.
+ */
+export function describeTimelapse({
+	id,
+	duration,
+	idleRanges,
+	selections,
+}: {
+	id: string
+	duration: number
+	idleRanges: IdleRange[]
+	selections: TimelineSelection[]
+}): string {
+	const parts = [`${id}: Original time ${formatClock(duration)}.`]
+
+	const idleTotal =
+		idleRanges.reduce((sum, range) => sum + (range.end - range.start), 0) *
+		PLAYBACK_TO_RECORDED
+
+	if (idleRanges.length > 0) {
+		parts.push(
+			`${formatClock(idleTotal)} spent idle: ${formatSpans(idleRanges)}.`
+		)
+	}
+
+	let deflatedTotal = 0
+	for (const reason of ANNOTATION_REASONS) {
+		const matches = selections.filter(
+			selection => selection.reason === reason.id
+		)
+		if (matches.length === 0) continue
+
+		const deflated =
+			matches.reduce(
+				(sum, selection) =>
+					sum +
+					nonIdleDuration(selection, idleRanges) * reason.deflation,
+				0
+			) * PLAYBACK_TO_RECORDED
+		deflatedTotal += deflated
+		parts.push(
+			`${formatClock(deflated)} ${reason.summaryLabel}: ${formatSpans(matches)} (${reason.deflationLabel}).`
+		)
+	}
+
+	if (idleTotal + deflatedTotal > 0) {
+		const finalDuration = Math.max(0, duration - idleTotal - deflatedTotal)
+		parts.push(`Final time after deflation ${formatClock(finalDuration)}.`)
+	} else {
+		parts.push("No deflation was applied.")
+	}
+
+	return parts.join(" ")
 }
