@@ -7,7 +7,6 @@ import {
 	nonIdleDuration,
 } from "#lib/annotations.js"
 import Timeline from "#lib/components/Timeline.svelte"
-import { loadIgnoreIdle, saveIgnoreIdle } from "#lib/idle-override.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import {
 	DEFAULT_PROJECT_NAME,
@@ -42,8 +41,6 @@ let videoEl = $state<HTMLVideoElement>()
 let selections = $state<TimelineSelection[]>([])
 let idleRanges = $state<IdleRange[]>([])
 let idleAnalyzing = $state(false)
-// When set, idle detection is ignored entirely for the actual-time maths.
-let ignoreIdle = $state(false)
 // Encoded `tl` payload currently represented by the review. Kept as its own
 // state (rather than read back from `page.url`) so the description always
 // reflects what we encoded, even before the address bar catches up.
@@ -61,6 +58,14 @@ const shareUrl = $derived(
 let projectName = $state(DEFAULT_PROJECT_NAME)
 let projectEntries = $state<ProjectTimelapse[]>([])
 let projectLoaded = $state(false)
+
+/**
+ * Whether idle time is ignored for the open timelapse. It lives on the project
+ * entry (the single source of truth for timelapse state), defaulting to off.
+ */
+const ignoreIdle = $derived(
+	projectEntries.find(entry => entry.id === submittedId)?.ignoreIdle ?? false
+)
 // Metadata for the open timelapse, resolved from Lapse so it can be added to
 // the project automatically. The id is kept alongside it so a late-resolving
 // fetch can never be applied to a different timelapse.
@@ -182,7 +187,6 @@ $effect(() => {
 	idleAnalyzing = false
 	if (!id) {
 		selections = []
-		ignoreIdle = false
 		shareParam = null
 		loaded = true
 		return
@@ -201,13 +205,11 @@ $effect(() => {
 				return
 			}
 			selections = decoded?.selections ?? loadSelections(id)
-			ignoreIdle = decoded?.ignoreIdle ?? loadIgnoreIdle(id)
 			if (decoded) importSharedProject(decoded)
 			loaded = true
 		})
 	} else {
 		selections = loadSelections(id)
-		ignoreIdle = loadIgnoreIdle(id)
 		loaded = true
 	}
 })
@@ -321,13 +323,6 @@ $effect(() => {
 	return () => clearTimeout(urlTimer)
 })
 
-// Persist the idle override for this timelapse.
-$effect(() => {
-	const id = submittedId
-	if (!id || !loaded) return
-	saveIgnoreIdle(id, ignoreIdle)
-})
-
 // Load the single workspace project once on the client; local storage isn't
 // available during SSR, so this must not run in the initial render.
 $effect(() => {
@@ -352,10 +347,37 @@ function renameProject(name: string) {
 	projectName = name.trim() || DEFAULT_PROJECT_NAME
 }
 
-/** Adopt a project carried by a shared URL. */
+/**
+ * Adopt a project carried by a shared URL. Older payloads stored the open
+ * timelapse's idle override at the top level rather than on its entry, so
+ * backfill it here.
+ */
 function importSharedProject(shared: ShareState) {
 	if (shared.projectName?.trim()) projectName = shared.projectName.trim()
-	if (shared.project) projectEntries = shared.project
+	if (!shared.project) return
+	projectEntries = shared.project.map(entry =>
+		entry.id === submittedId &&
+		entry.ignoreIdle === undefined &&
+		shared.ignoreIdle
+			? { ...entry, ignoreIdle: true }
+			: entry
+	)
+}
+
+/** Toggle whether idle time is ignored for the open timelapse. */
+function setIgnoreIdle(value: boolean) {
+	const index = projectEntries.findIndex(entry => entry.id === submittedId)
+	if (index === -1) return
+	projectEntries = projectEntries.map((entry, i) => {
+		if (i !== index) return entry
+		const updated = { ...entry }
+		if (value) {
+			updated.ignoreIdle = true
+		} else {
+			delete updated.ignoreIdle
+		}
+		return updated
+	})
 }
 
 /** Totals for the current project, in recorded seconds. */
@@ -454,6 +476,7 @@ $effect(() => {
 	if (!id || !loaded || !meta || meta.id !== id) return
 	const index = projectEntries.findIndex(entry => entry.id === id)
 	const existing = index === -1 ? undefined : projectEntries[index]
+	const ignored = existing?.ignoreIdle === true
 	const name = meta.name?.trim() || undefined
 	const { duration } = meta
 	const description = describeTimelapse({
@@ -468,6 +491,7 @@ $effect(() => {
 		existing.name === name &&
 		existing.idleDuration === idle &&
 		existing.annotationDeflation === annotations &&
+		existing.ignoreIdle === (ignored ? true : undefined) &&
 		existing.description === description
 	) {
 		return
@@ -478,6 +502,7 @@ $effect(() => {
 		duration,
 		idleDuration: idle,
 		annotationDeflation: annotations,
+		...(ignored ? { ignoreIdle: true } : {}),
 		description,
 	}
 	projectEntries =
@@ -788,7 +813,12 @@ function moveEntryBy(id: string, delta: number) {
 												>
 													<input
 														type="checkbox"
-														bind:checked={ignoreIdle}
+														checked={ignoreIdle}
+														onchange={e =>
+															setIgnoreIdle(
+																e.currentTarget
+																	.checked
+															)}
 														class="h-3.5 w-3.5 accent-blue-500"
 													>
 													Ignore idle time

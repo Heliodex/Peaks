@@ -23,7 +23,7 @@ export type ShareState = {
 
 // `i` is present (as 1) only when the idle override is on. `n`, `p` and `o`
 // carry the sidebar project (name, entries and open timelapse) when present.
-type ShareProjectTuple = [string, string, number, number, number, string?]
+type ShareProjectTuple = [string, string, number, number, number, string, 0 | 1]
 type SharePayload = {
 	s: [number, number, number][]
 	i?: 1
@@ -98,6 +98,7 @@ export async function encodeShare(state: ShareState): Promise<string> {
 								entry.idleDuration,
 								entry.annotationDeflation,
 								entry.description ?? "",
+								entry.ignoreIdle ? 1 : 0,
 							] as ShareProjectTuple
 					),
 				}
@@ -131,8 +132,15 @@ function parseSelection(
 
 function parseProjectEntry(value: unknown): ProjectTimelapse | null {
 	if (!Array.isArray(value)) return null
-	const [id, name, duration, idleDuration, annotationDeflation, description] =
-		value
+	const [
+		id,
+		name,
+		duration,
+		idleDuration,
+		annotationDeflation,
+		description,
+		ignoreIdle,
+	] = value
 	if (
 		typeof id !== "string" ||
 		typeof duration !== "number" ||
@@ -149,6 +157,9 @@ function parseProjectEntry(value: unknown): ProjectTimelapse | null {
 		annotationDeflation,
 		...(typeof description === "string" && description
 			? { description }
+			: {}),
+		...(ignoreIdle === 1 || ignoreIdle === true
+			? { ignoreIdle: true }
 			: {}),
 	}
 }

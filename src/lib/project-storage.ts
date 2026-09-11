@@ -11,6 +11,8 @@ export type ProjectTimelapse = {
 	idleDuration: number
 	/** Recorded seconds removed by the chosen annotation reasons. */
 	annotationDeflation: number
+	/** When set, automatic idle removal is ignored for this timelapse. */
+	ignoreIdle?: boolean
 	/** Plain-text review description, without the per-timelapse share link. */
 	description?: string
 }
@@ -42,6 +44,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		duration,
 		idleDuration,
 		annotationDeflation,
+		ignoreIdle,
 		description,
 	} = value as Record<string, unknown>
 	if (
@@ -58,6 +61,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		duration,
 		idleDuration,
 		annotationDeflation,
+		...(ignoreIdle === true ? { ignoreIdle: true } : {}),
 		...(typeof description === "string" && description
 			? { description }
 			: {}),
