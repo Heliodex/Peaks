@@ -232,13 +232,13 @@ $effect(() => {
 						name="timelapseId"
 						placeholder="Enter timelapse ID"
 						bind:value={timelapseId}
-						class="rounded border border-neutral-500 px-2 py-1"
+						class="border border-neutral-500 px-2 py-1"
 					>
 				</label>
 				<button
 					type="submit"
 					disabled={!timelapseId.trim()}
-					class="rounded border border-neutral-500 px-2 py-1 disabled:opacity-50"
+					class="border border-neutral-500 px-2 py-1 disabled:opacity-50"
 				>
 					Load
 				</button>
@@ -252,7 +252,7 @@ $effect(() => {
 		<form {...logout}>
 			<button
 				type="submit"
-				class="rounded border border-neutral-500 px-2 py-1"
+				class="border border-neutral-500 px-2 py-1"
 			>
 				Log out
 			</button>
@@ -276,7 +276,7 @@ $effect(() => {
 							<button
 								type="button"
 								onclick={reset}
-								class="rounded border border-neutral-500 px-2 py-1"
+								class="border border-neutral-500 px-2 py-1"
 							>
 								Retry
 							</button>
@@ -318,7 +318,7 @@ $effect(() => {
 									controls
 									preload="metadata"
 									bind:this={videoEl}
-									class="max-h-[70vh] w-full rounded"
+									class="max-h-[70vh] w-full"
 								>
 									<track kind="captions">
 								</video>
@@ -371,7 +371,7 @@ $effect(() => {
 																e.currentTarget
 																	.value
 															)}
-														class="rounded border border-neutral-500 bg-neutral-800 px-1 py-0.5 text-sm"
+														class="border border-neutral-500 bg-neutral-800 px-1 py-0.5 text-sm"
 													>
 														<option value="">
 															Select a reason…
@@ -428,7 +428,7 @@ $effect(() => {
 													class="flex items-center gap-2"
 												>
 													<span
-														class="inline-block h-2 w-3 rounded-sm border border-amber-400/50 bg-amber-400/25"
+														class="inline-block h-2 w-3 border border-amber-400/50 bg-amber-400/25"
 													></span>
 													Amber regions have no visual
 													changes (time spent away).
@@ -448,7 +448,7 @@ $effect(() => {
 								class="grid w-full grid-cols-2 gap-3 sm:grid-cols-4"
 							>
 								<div
-									class="rounded border border-neutral-500 p-3"
+									class="border border-neutral-500 p-3"
 								>
 									<dt
 										class="text-xs uppercase tracking-wide text-neutral-500"
@@ -460,7 +460,7 @@ $effect(() => {
 									</dd>
 								</div>
 								<div
-									class="rounded border border-neutral-500 p-3"
+									class="border border-neutral-500 p-3"
 								>
 									<dt
 										class="text-xs uppercase tracking-wide text-neutral-500"
@@ -498,7 +498,7 @@ $effect(() => {
 									{/if}
 								</div>
 								<div
-									class="rounded border border-neutral-500 p-3"
+									class="border border-neutral-500 p-3"
 								>
 									<dt
 										class="text-xs uppercase tracking-wide text-neutral-500"
@@ -510,7 +510,7 @@ $effect(() => {
 									</dd>
 								</div>
 								<div
-									class="rounded border border-neutral-500 p-3"
+									class="border border-neutral-500 p-3"
 								>
 									<dt
 										class="text-xs uppercase tracking-wide text-neutral-500"
@@ -523,7 +523,7 @@ $effect(() => {
 								</div>
 							</dl>
 							<section
-								class="w-full rounded border border-neutral-500 p-3"
+								class="w-full border border-neutral-500 p-3"
 							>
 								<div
 									class="flex items-center justify-between gap-2 pb-1"
@@ -532,7 +532,7 @@ $effect(() => {
 									<button
 										type="button"
 										onclick={() => copyText(description)}
-										class="rounded border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
+										class="border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
 									>
 										{copied ? "Copied!" : "Copy"}
 									</button>

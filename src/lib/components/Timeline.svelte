@@ -629,7 +629,7 @@ function onKeyDown(event: KeyboardEvent) {
 	{const layoutFrames = $derived(frameStrip.layout)}
 	<div class="pt-4 w-full max-w-5xl">
 		<div
-			class="relative h-20 w-full touch-none rounded border border-neutral-500 select-none {drag?.kind ===
+			class="relative h-20 w-full touch-none border border-neutral-500 select-none {drag?.kind ===
 			'create'
 				? 'cursor-text'
 				: pan
@@ -646,7 +646,7 @@ function onKeyDown(event: KeyboardEvent) {
 			<!-- Frame previews: cached thumbnails positioned by absolute time so
 			     they slide and scale with the view -->
 			<div
-				class="pointer-events-none absolute inset-0 overflow-hidden rounded bg-neutral-800"
+				class="pointer-events-none absolute inset-0 overflow-hidden bg-neutral-800"
 			>
 				{#each layoutFrames as frame (frame.time)}
 					<img
@@ -716,7 +716,7 @@ function onKeyDown(event: KeyboardEvent) {
 								role="presentation"
 							>
 								<span
-									class="h-6 w-1 rounded-full {color.handle} shadow"
+									class="h-6 w-1 {color.handle} shadow"
 								></span>
 							</div>
 						{/if}
@@ -731,7 +731,7 @@ function onKeyDown(event: KeyboardEvent) {
 								role="presentation"
 							>
 								<span
-									class="h-6 w-1 rounded-full {color.handle} shadow"
+									class="h-6 w-1 {color.handle} shadow"
 								></span>
 							</div>
 						{/if}
@@ -753,7 +753,7 @@ function onKeyDown(event: KeyboardEvent) {
 
 			{#if currentTime >= view.start && currentTime <= view.end}
 				<div
-					class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-emerald-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
+					class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-emerald-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
 					style:left="{percentWithin(currentTime, view)}%"
 				></div>
 			{/if}
@@ -771,7 +771,7 @@ function onKeyDown(event: KeyboardEvent) {
 
 			{#if hoverTime !== null && hoveredSelectionId === null}
 				<div
-					class="pointer-events-none absolute top-1 rounded bg-black/80 px-1.5 py-0.5 text-xs text-white"
+					class="pointer-events-none absolute top-1 bg-black/80 px-1.5 py-0.5 text-xs text-white"
 					class:mr-1={hoverTooltipFlip}
 					style:left={hoverTooltipFlip ? undefined : `${hoverPercent}%`}
 					style:right={hoverTooltipFlip
