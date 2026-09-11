@@ -291,7 +291,7 @@ $effect(() => {
 					{#snippet failed(error: unknown, reset: () => void)}
 						<div class="flex flex-col items-center gap-2">
 							<p>
-								Couldn’t load timelapse:
+								Couldn't load timelapse:
 								{(error as Error)?.message ?? error}
 							</p>
 							<button
