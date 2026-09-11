@@ -176,11 +176,14 @@ export function describeTimelapse({
 	duration,
 	idleRanges,
 	selections,
+	shareUrl,
 }: {
 	id: string
 	duration: number
 	idleRanges: IdleRange[]
 	selections: TimelineSelection[]
+	/** When provided, appended so the summary carries a link to this review. */
+	shareUrl?: string
 }): string {
 	const parts = [`${id} – Original time ${formatClock(duration)}.`]
 
@@ -220,6 +223,8 @@ export function describeTimelapse({
 	} else {
 		parts.push("No deflation was applied.")
 	}
+
+	if (shareUrl) parts.push(shareUrl)
 
 	return parts.join(" ")
 }

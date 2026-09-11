@@ -22,6 +22,9 @@ import { getLapseData, getTimelapse, logout } from "./api.remote.js"
 /** Query parameter holding the compressed selections. */
 const SHARE_PARAM = "tl"
 
+/** Canonical origin used when a summary links back to the review. */
+const SITE_ORIGIN = "https://peaks.heliodex.cf"
+
 /** Timelapse id taken from the `/{id}` path (empty on the `/home` landing). */
 const submittedId = $derived(page.params.id ?? "")
 
@@ -281,6 +284,7 @@ $effect(() => {
 								duration: timelapse.duration,
 								idleRanges: effectiveIdleRanges,
 								selections,
+								shareUrl: `${SITE_ORIGIN}${page.url.pathname}${page.url.search}`,
 							})
 						)}
 						<div
