@@ -719,12 +719,17 @@ function removeFromProject(id: string) {
 							class="flex items-start justify-between gap-2 border-b border-neutral-800 pb-1"
 						>
 							<div class="flex min-w-0 flex-col">
-								<span
-									class="truncate"
+								<button
+									type="button"
+									onclick={() => loadId(entry.id)}
 									title={entry.name || entry.id}
+									class="w-full cursor-pointer truncate text-left hover:underline {entry.id ===
+									submittedId
+										? 'font-medium text-blue-400'
+										: ''}"
 								>
 									{entry.name || entry.id}
-								</span>
+								</button>
 								<span class="text-xs text-neutral-500">
 									{formatDuration(
 										Math.max(
