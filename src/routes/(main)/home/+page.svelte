@@ -1,5 +1,9 @@
 <script lang="ts">
-import { ANNOTATION_REASONS, findAnnotationReason } from "#lib/annotations.js"
+import {
+	ANNOTATION_REASONS,
+	findAnnotationReason,
+	nonIdleDuration,
+} from "#lib/annotations.js"
 import Timeline from "#lib/components/Timeline.svelte"
 import type { IdleRange } from "#lib/idle-time.js"
 import { formatClock, type TimelineSelection } from "#lib/timeline.js"
@@ -46,7 +50,7 @@ const annotationDeflation = $derived(
 	selections.reduce((sum, selection) => {
 		const reason = findAnnotationReason(selection.reason)
 		if (!reason) return sum
-		return sum + (selection.end - selection.start) * reason.deflation
+		return sum + nonIdleDuration(selection, idleRanges) * reason.deflation
 	}, 0) * PLAYBACK_TO_RECORDED
 )
 
@@ -249,8 +253,10 @@ function setSelectionReason(id: string, reason: string) {
 															class="text-xs text-neutral-500"
 														>
 															-{formatDuration(
-																(sel.end -
-																	sel.start) *
+																nonIdleDuration(
+																	sel,
+																	idleRanges
+																) *
 																	reason.deflation *
 																	PLAYBACK_TO_RECORDED
 															)}

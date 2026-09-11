@@ -1,6 +1,9 @@
 // Annotation reasons for timelapse selections. Each reason records how much of
 // the selected stretch should be discounted from the timelapse's actual time.
 
+import type { IdleRange } from "./idle-time.js"
+import type { TimelineSelection } from "./timeline.js"
+
 export type AnnotationReason = {
 	id: string
 	label: string
@@ -37,4 +40,24 @@ export function findAnnotationReason(
 ): AnnotationReason | undefined {
 	if (!id) return undefined
 	return ANNOTATION_REASONS.find(reason => reason.id === id)
+}
+
+/**
+ * Length of a selection that isn't already covered by an idle range. Idle time
+ * is removed from the actual duration separately, so annotation deflation must
+ * not count it a second time.
+ */
+export function nonIdleDuration(
+	selection: TimelineSelection,
+	idleRanges: IdleRange[]
+): number {
+	const length = Math.max(0, selection.end - selection.start)
+	let idle = 0
+	for (const range of idleRanges) {
+		const overlap =
+			Math.min(selection.end, range.end) -
+			Math.max(selection.start, range.start)
+		if (overlap > 0) idle += overlap
+	}
+	return Math.max(0, length - idle)
 }
