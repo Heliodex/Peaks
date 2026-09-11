@@ -45,11 +45,14 @@ export const db = globalState.__surreal.instance as Surreal
 await (globalState.__surreal.ready as Promise<void>)
 
 type RecordIdTypes = {
+	hasSession: string
 	user: string
 	session: string
 }
 
+export const HasSession = new Table("hasSession")
 export const User = new Table("user")
+export const Session = new Table("session")
 
 // Ensure type safety when creating record ids
 export type RecordId<
