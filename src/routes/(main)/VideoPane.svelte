@@ -11,7 +11,7 @@ let {
 </script>
 
 <section
-	class="area-video flex min-h-0 items-center justify-center overflow-hidden p-4"
+	class="area-video flex min-h-0 items-center justify-center overflow-hidden"
 >
 	{#if timelapse.playbackUrl}
 		<video
