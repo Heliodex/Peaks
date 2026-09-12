@@ -4,7 +4,7 @@
 // and annotation reasons as catalog indexes, then the JSON is deflated. The
 // open timelapse id also lives in the URL path.
 
-import { ANNOTATION_REASONS } from "./annotations.js"
+import { ANNOTATION_REASONS, type AnnotationDeflation } from "./annotations.js"
 import type { ProjectTimelapse } from "./project-storage.js"
 import type { TimelineSelection } from "./timeline.js"
 
@@ -17,7 +17,16 @@ export type ShareState = {
 	openId: string
 }
 
-type ShareProjectTuple = [string, string, number, number, number, string, 0 | 1]
+type ShareAnnotationTuple = [string, number]
+type ShareProjectTuple = [
+	string,
+	string,
+	number,
+	number,
+	ShareAnnotationTuple[],
+	string,
+	0 | 1,
+]
 type SharePayload = {
 	s: [number, number, number][]
 	n: string
@@ -84,7 +93,10 @@ export async function encodeShare(state: ShareState): Promise<string> {
 			entry.name,
 			entry.duration,
 			entry.idleDuration,
-			entry.annotationDeflation,
+			entry.annotations.map(annotation => [
+				annotation.reason,
+				annotation.duration,
+			]),
 			entry.description,
 			entry.ignoreIdle ? 1 : 0,
 		]),
@@ -115,6 +127,13 @@ function parseSelection(
 	}
 }
 
+function parseAnnotation(value: unknown): AnnotationDeflation | null {
+	if (!Array.isArray(value)) return null
+	const [reason, duration] = value
+	if (typeof reason !== "string" || typeof duration !== "number") return null
+	return { reason, duration }
+}
+
 function parseProjectEntry(value: unknown): ProjectTimelapse | null {
 	if (!Array.isArray(value)) return null
 	const [
@@ -122,7 +141,7 @@ function parseProjectEntry(value: unknown): ProjectTimelapse | null {
 		name,
 		duration,
 		idleDuration,
-		annotationDeflation,
+		annotations,
 		description,
 		ignoreIdle,
 	] = value
@@ -131,8 +150,7 @@ function parseProjectEntry(value: unknown): ProjectTimelapse | null {
 		typeof name !== "string" ||
 		typeof description !== "string" ||
 		typeof duration !== "number" ||
-		typeof idleDuration !== "number" ||
-		typeof annotationDeflation !== "number"
+		typeof idleDuration !== "number"
 	) {
 		return null
 	}
@@ -141,7 +159,13 @@ function parseProjectEntry(value: unknown): ProjectTimelapse | null {
 		name,
 		duration,
 		idleDuration,
-		annotationDeflation,
+		annotations: Array.isArray(annotations)
+			? annotations
+					.map(parseAnnotation)
+					.filter((annotation): annotation is AnnotationDeflation =>
+						Boolean(annotation)
+					)
+			: [],
 		description,
 		ignoreIdle: ignoreIdle === 1,
 	}

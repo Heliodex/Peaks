@@ -156,6 +156,37 @@ export function nonIdleDuration(
 	return Math.max(0, length - idle)
 }
 
+/** Recorded time removed by a single annotation reason. */
+export type AnnotationDeflation = {
+	/** Annotation reason id. */
+	reason: string
+	/** Recorded seconds removed by this reason. */
+	duration: number
+}
+
+/**
+ * Recorded seconds removed by each annotation reason across `selections`, in
+ * catalog order. Reasons that removed nothing are omitted.
+ */
+export function deflationByReason(
+	selections: TimelineSelection[],
+	idleRanges: IdleRange[]
+): AnnotationDeflation[] {
+	return ANNOTATION_REASONS.map(reason => ({
+		reason: reason.id,
+		duration:
+			selections
+				.filter(selection => selection.reason === reason.id)
+				.reduce(
+					(sum, selection) =>
+						sum + nonIdleDuration(selection, idleRanges),
+					0
+				) *
+			reason.deflation *
+			PLAYBACK_TO_RECORDED,
+	})).filter(entry => entry.duration > 0)
+}
+
 /** Format a run of idle ranges as `0:07-0:08, 0:09-0:12`. */
 function formatSpans(spans: { start: number; end: number }[]): string {
 	return spans

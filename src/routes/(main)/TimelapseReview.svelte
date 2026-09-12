@@ -2,6 +2,8 @@
 import { flip } from "svelte/animate"
 import {
 	ANNOTATION_REASONS,
+	type AnnotationDeflation,
+	deflationByReason,
 	describeTimelapse,
 	findAnnotationReason,
 	nonIdleDuration,
@@ -96,6 +98,29 @@ function formatCreatedAt(timestamp: number): string {
 		dateStyle: "medium",
 		timeStyle: "short",
 	})
+}
+
+/** Whether two annotation breakdowns carry the same reasons and durations. */
+function sameAnnotations(
+	a: AnnotationDeflation[],
+	b: AnnotationDeflation[]
+): boolean {
+	return (
+		a.length === b.length &&
+		a.every(
+			(annotation, i) =>
+				annotation.reason === b[i].reason &&
+				annotation.duration === b[i].duration
+		)
+	)
+}
+
+/** Total recorded seconds removed by a set of annotation reasons. */
+function annotationTotal(annotations: AnnotationDeflation[]): number {
+	return annotations.reduce(
+		(sum, annotation) => sum + annotation.duration,
+		0
+	)
 }
 
 const sortedSelections = $derived(
@@ -350,22 +375,41 @@ function setIgnoreIdle(value: boolean) {
 const projectTotals = $derived.by(() => {
 	let recorded = 0
 	let idle = 0
-	let annotations = 0
 	let final = 0
 	for (const entry of projectEntries) {
 		recorded += entry.duration
 		idle += entry.idleDuration
-		annotations += entry.annotationDeflation
 		final += Math.max(
 			0,
-			entry.duration - entry.idleDuration - entry.annotationDeflation
+			entry.duration -
+				entry.idleDuration -
+				annotationTotal(entry.annotations)
 		)
 	}
+	// Keep catalog order so the breakdown stays stable as entries change.
+	const annotations = ANNOTATION_REASONS.map(reason => ({
+		reason,
+		duration: projectEntries.reduce(
+			(sum, entry) =>
+				sum +
+				entry.annotations
+					.filter(annotation => annotation.reason === reason.id)
+					.reduce(
+						(sum, annotation) => sum + annotation.duration,
+						0
+					),
+			0
+		),
+	})).filter(entry => entry.duration > 0)
+	const annotationDeflation = annotations.reduce(
+		(sum, annotation) => sum + annotation.duration,
+		0
+	)
 	return {
 		recorded,
 		idle,
 		annotations,
-		deducted: idle + annotations,
+		deducted: idle + annotationDeflation,
 		final,
 	}
 })
@@ -416,11 +460,11 @@ $effect(() => {
 	const id = submittedId
 	const meta = currentMeta
 	const idle = idleDuration
-	const annotations = annotationDeflation
 	// Read the raw selection/idle state so reason-only edits still refresh the
-	// stored description, even when the totals don't change.
+	// stored description and breakdown, even when the totals don't change.
 	const ranges = $state.snapshot(effectiveIdleRanges)
 	const currentSelections = $state.snapshot(selections)
+	const annotations = deflationByReason(currentSelections, ranges)
 	if (!id || !loaded || !meta || meta.id !== id) return
 	const index = projectEntries.findIndex(entry => entry.id === id)
 	const existing = index === -1 ? undefined : projectEntries[index]
@@ -437,7 +481,7 @@ $effect(() => {
 		existing.duration === duration &&
 		existing.name === name &&
 		existing.idleDuration === idle &&
-		existing.annotationDeflation === annotations &&
+		sameAnnotations(existing.annotations, annotations) &&
 		existing.ignoreIdle === ignoreIdle &&
 		existing.description === description
 	) {
@@ -448,7 +492,7 @@ $effect(() => {
 		name,
 		duration,
 		idleDuration: idle,
-		annotationDeflation: annotations,
+		annotations,
 		ignoreIdle,
 		description,
 	}
@@ -988,7 +1032,9 @@ function moveEntryBy(id: string, delta: number) {
 											0,
 											entry.duration -
 												entry.idleDuration -
-												entry.annotationDeflation
+												annotationTotal(
+													entry.annotations
+												)
 										)
 									)}
 								</span>
@@ -1023,12 +1069,16 @@ function moveEntryBy(id: string, delta: number) {
 						<dd>{formatDuration(projectTotals.idle)}</dd>
 					</div>
 				{/if}
-				{#if projectTotals.annotations > 0}
+				{#each projectTotals.annotations as annotation (annotation.reason.id)}
 					<div class="flex justify-between gap-2 pl-3 text-xs">
-						<dt class="text-neutral-500">Annotations</dt>
-						<dd>{formatDuration(projectTotals.annotations)}</dd>
+						<dt class="text-neutral-500">
+							{annotation.reason.label}
+						</dt>
+						<dd class="shrink-0">
+							{formatDuration(annotation.duration)}
+						</dd>
 					</div>
-				{/if}
+				{/each}
 				<div
 					class="flex justify-between gap-2 border-t border-neutral-800 pt-1"
 				>

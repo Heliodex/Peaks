@@ -1,6 +1,8 @@
 // Persists the workspace project — its name and the timelapses it contains —
 // in the browser's local storage.
 
+import type { AnnotationDeflation } from "./annotations.js"
+
 export type ProjectTimelapse = {
 	id: string
 	/** Display name from Lapse; may be empty, in which case the id is shown. */
@@ -9,8 +11,8 @@ export type ProjectTimelapse = {
 	duration: number
 	/** Recorded seconds removed because the user was idle. */
 	idleDuration: number
-	/** Recorded seconds removed by the chosen annotation reasons. */
-	annotationDeflation: number
+	/** Recorded seconds removed by each annotation reason. */
+	annotations: AnnotationDeflation[]
 	/** Whether automatic idle removal is ignored for this timelapse. */
 	ignoreIdle: boolean
 	/** Plain-text review description, without the per-timelapse share link. */
@@ -31,6 +33,22 @@ function isFiniteNonNegative(value: unknown): value is number {
 	return typeof value === "number" && Number.isFinite(value) && value >= 0
 }
 
+function parseAnnotation(value: unknown): AnnotationDeflation | null {
+	if (!Array.isArray(value)) return null
+	const [reason, duration] = value
+	if (typeof reason !== "string" || !isFiniteNonNegative(duration)) {
+		return null
+	}
+	return { reason, duration }
+}
+
+function parseAnnotations(value: unknown): AnnotationDeflation[] {
+	if (!Array.isArray(value)) return []
+	return value
+		.map(parseAnnotation)
+		.filter((entry): entry is AnnotationDeflation => Boolean(entry))
+}
+
 function parseEntry(value: unknown): ProjectTimelapse | null {
 	if (typeof value !== "object" || value === null) return null
 	const {
@@ -38,7 +56,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		name,
 		duration,
 		idleDuration,
-		annotationDeflation,
+		annotations,
 		ignoreIdle,
 		description,
 	} = value as Record<string, unknown>
@@ -47,8 +65,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		typeof name !== "string" ||
 		typeof description !== "string" ||
 		!isFiniteNonNegative(duration) ||
-		!isFiniteNonNegative(idleDuration) ||
-		!isFiniteNonNegative(annotationDeflation)
+		!isFiniteNonNegative(idleDuration)
 	) {
 		return null
 	}
@@ -57,7 +74,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		name,
 		duration,
 		idleDuration,
-		annotationDeflation,
+		annotations: parseAnnotations(annotations),
 		ignoreIdle: ignoreIdle === true,
 		description,
 	}
