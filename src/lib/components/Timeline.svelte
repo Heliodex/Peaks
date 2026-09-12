@@ -627,7 +627,7 @@ function onKeyDown(event: KeyboardEvent) {
 
 {#if duration > 0}
 	{const layoutFrames = $derived(frameStrip.layout)}
-	<div class="pt-4 w-full max-w-5xl">
+	<div class="w-full pt-3">
 		<div
 			class="relative h-20 w-full touch-none border border-neutral-500 select-none {drag?.kind ===
 			'create'

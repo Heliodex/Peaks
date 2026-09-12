@@ -117,10 +117,7 @@ function sameAnnotations(
 
 /** Total recorded seconds removed by a set of annotation reasons. */
 function annotationTotal(annotations: AnnotationDeflation[]): number {
-	return annotations.reduce(
-		(sum, annotation) => sum + annotation.duration,
-		0
-	)
+	return annotations.reduce((sum, annotation) => sum + annotation.duration, 0)
 }
 
 const sortedSelections = $derived(
@@ -394,10 +391,7 @@ const projectTotals = $derived.by(() => {
 				sum +
 				entry.annotations
 					.filter(annotation => annotation.reason === reason.id)
-					.reduce(
-						(sum, annotation) => sum + annotation.duration,
-						0
-					),
+					.reduce((sum, annotation) => sum + annotation.duration, 0),
 			0
 		),
 	})).filter(entry => entry.duration > 0)
@@ -572,63 +566,224 @@ function moveEntryBy(id: string, delta: number) {
 }
 </script>
 
-<main class="flex min-h-screen flex-col">
-	<header class="flex items-start justify-between gap-4 p-4">
-		<div class="flex flex-col gap-3">
-			<svelte:boundary>
-				{#snippet pending()}
-					<p>Loading profile…</p>
-				{/snippet}
+<main class="dashboard">
+	<aside
+		class="area-project flex min-h-0 flex-col gap-3 overflow-y-auto border-neutral-500 p-3 lg:border-l"
+	>
+		<h2 class="font-medium">Project</h2>
 
-				{const profile = $derived(await getLapseData())}
-				{#if profile}
-					<div class="flex items-center gap-3">
-						<img
-							src={profile.profilePictureUrl}
-							alt={profile.displayName}
-							class="h-12 w-12 rounded-full object-cover"
-						>
-						<div class="flex flex-col">
-							<span class="font-medium"
-								>{profile.displayName}</span
-							>
-							<span class="text-sm">@{profile.handle}</span>
-						</div>
-					</div>
-				{/if}
-			</svelte:boundary>
+		<label class="flex flex-col gap-1 text-sm">
+			<span class="text-xs uppercase tracking-wide text-neutral-500">
+				Name
+			</span>
+			<input
+				type="text"
+				value={projectName}
+				onchange={e => renameProject(e.currentTarget.value)}
+				placeholder={DEFAULT_PROJECT_NAME}
+				class="border border-neutral-500 px-2 py-1"
+			>
+		</label>
 
-			<form class="flex items-center gap-2" onsubmit={loadTimelapse}>
-				<label class="flex items-center gap-2">
-					<span class="text-sm">Timelapse ID</span>
-					<input
-						type="text"
-						name="timelapseId"
-						placeholder="Enter timelapse ID"
-						bind:value={timelapseId}
-						class="border border-neutral-500 px-2 py-1"
+		{#if projectEntries.length > 0}
+			<ul
+				class="flex flex-col gap-1 text-sm"
+				ondragover={handleDragOver}
+				ondrop={handleDrop}
+			>
+				{#each projectEntries as entry (entry.id)}
+					<li
+						animate:flip={{ duration: 180 }}
+						class="flex items-start gap-2 border-b border-neutral-800 pb-1 {draggingId ===
+						entry.id
+							? 'opacity-50'
+							: ''}"
 					>
-				</label>
-				<button
-					type="submit"
-					disabled={!timelapseId.trim()}
-					class="border border-neutral-500 px-2 py-1 disabled:opacity-50"
+						<button
+							type="button"
+							draggable="true"
+							title="Drag to reorder"
+							aria-label="Reorder {entry.name || entry.id}"
+							onkeydown={e => {
+								if (e.key === "ArrowUp") {
+									e.preventDefault()
+									moveEntryBy(entry.id, -1)
+								} else if (e.key === "ArrowDown") {
+									e.preventDefault()
+									moveEntryBy(entry.id, 1)
+								}
+							}}
+							ondragstart={e => {
+								draggingId = entry.id
+								if (e.dataTransfer) {
+									const row = e.currentTarget.closest("li")
+									e.dataTransfer.effectAllowed = "move"
+									e.dataTransfer.setData("text/plain", entry.id)
+									if (row) {
+										const rect = row.getBoundingClientRect()
+										e.dataTransfer.setDragImage(
+											row,
+											e.clientX - rect.left,
+											e.clientY - rect.top
+										)
+									}
+								}
+							}}
+							ondragend={() => {
+								draggingId = null
+							}}
+							class="cursor-grab select-none text-neutral-500 hover:text-neutral-300 active:cursor-grabbing"
+						>
+							⠿
+						</button>
+						<div class="flex min-w-0 flex-1 flex-col">
+							<button
+								type="button"
+								onclick={() => loadId(entry.id)}
+								title={entry.name || entry.id}
+								class="w-full cursor-pointer truncate text-left hover:underline {entry.id ===
+								submittedId
+									? 'font-medium text-blue-400'
+									: ''}"
+							>
+								{entry.name || entry.id}
+							</button>
+							<span class="text-xs text-neutral-500">
+								{formatDuration(
+									Math.max(
+										0,
+										entry.duration -
+											entry.idleDuration -
+											annotationTotal(entry.annotations)
+									)
+								)}
+							</span>
+						</div>
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			<p class="text-sm text-neutral-500">
+				No timelapses yet. Open one to add it to the project.
+			</p>
+		{/if}
+
+		<dl
+			class="flex flex-col gap-1 border-t border-neutral-700 pt-2 text-sm"
+		>
+			<div class="flex justify-between gap-2">
+				<dt class="text-neutral-500">Time spent working</dt>
+				<dd class="font-medium">
+					{formatDuration(projectTotals.recorded)}
+				</dd>
+			</div>
+			<div class="flex justify-between gap-2">
+				<dt class="text-neutral-500">Time deducted</dt>
+				<dd class="font-medium">
+					{formatDuration(projectTotals.deducted)}
+				</dd>
+			</div>
+			{#if projectTotals.idle > 0}
+				<div class="flex justify-between gap-2 pl-3 text-xs">
+					<dt class="text-neutral-500">Idle</dt>
+					<dd>{formatDuration(projectTotals.idle)}</dd>
+				</div>
+			{/if}
+			{#each projectTotals.annotations as annotation (annotation.reason.id)}
+				<div class="flex justify-between gap-2 pl-3 text-xs">
+					<dt class="text-neutral-500">
+						{annotation.reason.label}
+					</dt>
+					<dd class="shrink-0">
+						{formatDuration(annotation.duration)}
+					</dd>
+				</div>
+			{/each}
+			<div
+				class="flex justify-between gap-2 border-t border-neutral-800 pt-1"
+			>
+				<dt class="font-medium">Final time</dt>
+				<dd class="font-medium">
+					{formatDuration(projectTotals.final)}
+				</dd>
+			</div>
+		</dl>
+
+		{#if projectEntries.length > 0}
+			<section class="border-t border-neutral-700 pt-2">
+				<div class="flex items-center justify-between gap-2 pb-1">
+					<h3
+						class="text-xs uppercase tracking-wide text-neutral-500"
+					>
+						Project description
+					</h3>
+					<button
+						type="button"
+						onclick={() => copyProjectText(projectDescription)}
+						class="border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
+					>
+						{projectCopied ? "Copied!" : "Copy"}
+					</button>
+				</div>
+				<p
+					class="text-xs text-neutral-300 select-text whitespace-pre-wrap wrap-break-word"
 				>
-					Load
-				</button>
-				<button
-					type="button"
-					onclick={pasteAndLoad}
+					{projectDescription}
+				</p>
+			</section>
+		{/if}
+	</aside>
+
+	<header
+		class="area-header flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-neutral-500 px-4 py-3 lg:border-b"
+	>
+		<svelte:boundary>
+			{#snippet pending()}
+				<p>Loading profile…</p>
+			{/snippet}
+
+			{const profile = $derived(await getLapseData())}
+			{#if profile}
+				<div class="flex items-center gap-3">
+					<img
+						src={profile.profilePictureUrl}
+						alt={profile.displayName}
+						class="h-10 w-10 rounded-full object-cover"
+					>
+					<div class="flex flex-col">
+						<span class="font-medium">{profile.displayName}</span>
+						<span class="text-sm">@{profile.handle}</span>
+					</div>
+				</div>
+			{/if}
+		</svelte:boundary>
+
+		<form class="flex items-center gap-2" onsubmit={loadTimelapse}>
+			<label class="flex items-center gap-2">
+				<span class="text-sm">Timelapse ID</span>
+				<input
+					type="text"
+					name="timelapseId"
+					placeholder="Enter timelapse ID"
+					bind:value={timelapseId}
 					class="border border-neutral-500 px-2 py-1"
 				>
-					Paste
-				</button>
-			</form>
-
-			{#if submittedId}
-				<p class="text-sm">Viewing: {submittedId}</p>
-			{/if}
-		</div>
+			</label>
+			<button
+				type="submit"
+				disabled={!timelapseId.trim()}
+				class="border border-neutral-500 px-2 py-1 disabled:opacity-50"
+			>
+				Load
+			</button>
+			<button
+				type="button"
+				onclick={pasteAndLoad}
+				class="border border-neutral-500 px-2 py-1"
+			>
+				Paste
+			</button>
+		</form>
 
 		<form {...logout}>
 			<button type="submit" class="border border-neutral-500 px-2 py-1">
@@ -637,481 +792,351 @@ function moveEntryBy(id: string, delta: number) {
 		</form>
 	</header>
 
-	<div
-		class="flex flex-1 flex-col items-start justify-center gap-4 p-4 lg:flex-row"
-	>
-		<section class="flex w-full flex-1 items-start justify-center">
-			{#if submittedId}
-				{#key submittedId}
-					<svelte:boundary>
-						{#snippet pending()}
-							<p>Loading timelapse…</p>
-						{/snippet}
+	{#if submittedId}
+		{#key submittedId}
+			<svelte:boundary>
+				{#snippet pending()}
+					<section
+						class="area-video flex items-center justify-center p-4"
+					>
+						<p>Loading timelapse…</p>
+					</section>
+				{/snippet}
 
-						{#snippet failed(error: unknown, reset: () => void)}
-							<div class="flex flex-col items-center gap-2">
-								<p>
-									Couldn't load timelapse:
-									{(error as Error)?.message ?? error}
-								</p>
-								<button
-									type="button"
-									onclick={reset}
-									class="border border-neutral-500 px-2 py-1"
-								>
-									Retry
-								</button>
-							</div>
-						{/snippet}
-
-						{const timelapse = await getTimelapse(submittedId)}
-						{#if timelapse}
-							{const actualDuration = $derived(
-								Math.max(
-									0,
-									timelapse.duration -
-										idleDuration -
-										annotationDeflation
-								)
-							)}
-							{const description = $derived(
-								describeTimelapse({
-									id: timelapse.id,
-									duration: timelapse.duration,
-									idleRanges: effectiveIdleRanges,
-									selections,
-								})
-							)}
-							<div
-								class="flex w-full max-w-5xl flex-col items-left gap-4"
-							>
-								{#if timelapse.playbackUrl}
-									<video
-										src={timelapse.playbackUrl}
-										poster={timelapse.thumbnailUrl ?? undefined}
-										controls
-										preload="metadata"
-										bind:this={videoEl}
-										class="max-h-[70vh] w-full"
-									>
-										<track kind="captions">
-									</video>
-									{#if videoEl}
-										<Timeline
-											bind:selections
-											bind:idleRanges
-											bind:idleAnalyzing
-											{ignoreIdle}
-											timelapse={{
-											playbackUrl: timelapse.playbackUrl,
-											thumbnailUrl: timelapse.thumbnailUrl,
-										}}
-											video={videoEl}
-										/>
-										{#if sortedSelections.length > 0}
-											<ul
-												class="flex flex-col gap-1 pt-2 text-sm"
-											>
-												{#each sortedSelections as sel, i (sel.id)}
-													{const reason = $derived(
-														findAnnotationReason(
-															sel.reason
-														)
-													)}
-													<li
-														class="flex flex-wrap items-center gap-2"
-													>
-														<span>
-															Selection {i + 1}:
-															<span
-																class="font-medium"
-																>{formatClock(
-																sel.start
-															)}</span
-															>-<span
-																class="font-medium"
-																>{formatClock(
-																sel.end
-															)}</span
-															>
-														</span>
-														<select
-															aria-label="Annotation reason for selection {i +
-															1}"
-															value={sel.reason ?? ""}
-															onchange={e =>
-															setSelectionReason(
-																sel.id,
-																e.currentTarget
-																	.value
-															)}
-															class="border border-neutral-500 bg-neutral-800 px-1 py-0.5 text-sm"
-														>
-															<option value="">
-																Select a reason…
-															</option>
-															{#each ANNOTATION_REASONS as annotation (annotation.id)}
-																<option
-																	value={annotation.id}
-																>
-																	{annotation.label}
-																</option>
-															{/each}
-														</select>
-														<button
-															type="button"
-															onclick={() =>
-																removeSelection(
-																	sel.id
-																)}
-															aria-label="Delete selection {i +
-																1}"
-															class="border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
-														>
-															Delete
-														</button>
-														{#if reason && reason.deflation > 0}
-															<span
-																class="text-xs text-neutral-500"
-															>
-																-{formatDuration(
-																nonIdleDuration(
-																	sel,
-																	effectiveIdleRanges
-																) *
-																	reason.deflation *
-																	PLAYBACK_TO_RECORDED
-															)}
-															</span>
-														{/if}
-													</li>
-												{/each}
-											</ul>
-										{:else}
-											<p
-												class="pt-2 text-sm text-neutral-500"
-											>
-												Drag across the timeline to
-												select an annotation.
-											</p>
-										{/if}
-										{#if idleRanges.length > 0 || ignoreIdle}
-											<div
-												class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-500"
-											>
-												<label
-													class="flex items-center gap-1.5"
-												>
-													<input
-														type="checkbox"
-														checked={ignoreIdle}
-														onchange={e =>
-															setIgnoreIdle(
-																e.currentTarget
-																	.checked
-															)}
-														class="h-3.5 w-3.5 accent-blue-500"
-													>
-													Ignore idle time
-												</label>
-												{#if !ignoreIdle}
-													<p
-														class="flex items-center gap-2"
-													>
-														<span
-															class="inline-block h-2 w-3 border border-amber-400/50 bg-amber-400/25"
-														></span>
-														Amber regions have no
-														visual changes (time
-														spent away).
-													</p>
-												{/if}
-											</div>
-										{/if}
-									{/if}
-								{:else}
-									<p>
-										This timelapse is still being processed
-										and has no video yet.
-									</p>
-								{/if}
-
-								<dl
-									class="grid w-full grid-cols-2 gap-3 sm:grid-cols-4"
-								>
-									<div class="border border-neutral-500 p-3">
-										<dt
-											class="text-xs uppercase tracking-wide text-neutral-500"
-										>
-											Recorded
-										</dt>
-										<dd class="pt-1 font-medium">
-											{formatDuration(timelapse.duration)}
-										</dd>
-									</div>
-									<div class="border border-neutral-500 p-3">
-										<dt
-											class="text-xs uppercase tracking-wide text-neutral-500"
-										>
-											Actual time
-										</dt>
-										<dd class="pt-1 font-medium">
-											{formatDuration(actualDuration)}
-										</dd>
-										{#if idleAnalyzing && !ignoreIdle}
-											<p
-												class="pt-0.5 text-xs text-amber-600"
-											>
-												Analyzing idle frames…
-											</p>
-										{:else}
-											{#if idleDuration > 0}
-												<p
-													class="pt-0.5 text-xs text-neutral-500"
-												>
-													-{formatDuration(idleDuration)}
-													idle
-												</p>
-											{/if}
-											{#if annotationDeflation > 0}
-												<p
-													class="pt-0.5 text-xs text-neutral-500"
-												>
-													-{formatDuration(
-													annotationDeflation
-												)}
-													annotations
-												</p>
-											{/if}
-										{/if}
-									</div>
-									<div class="border border-neutral-500 p-3">
-										<dt
-											class="text-xs uppercase tracking-wide text-neutral-500"
-										>
-											Created
-										</dt>
-										<dd class="pt-1 font-medium">
-											{formatCreatedAt(timelapse.createdAt)}
-										</dd>
-									</div>
-									<div class="border border-neutral-500 p-3">
-										<dt
-											class="text-xs uppercase tracking-wide text-neutral-500"
-										>
-											Visibility
-										</dt>
-										<dd class="pt-1 font-medium">
-											{timelapse.visibility}
-										</dd>
-									</div>
-								</dl>
-								<section
-									class="w-full border border-neutral-500 p-3"
-								>
-									<div
-										class="flex items-center justify-between gap-2 pb-1"
-									>
-										<h2 class="font-medium">Description</h2>
-										<button
-											type="button"
-											onclick={() => copyText(description)}
-											class="border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
-										>
-											{copied ? "Copied!" : "Copy"}
-										</button>
-									</div>
-									<p
-										class="text-sm text-neutral-300 select-text"
-									>
-										{description}
-									</p>
-								</section>
-							</div>
-						{:else}
-							<p>No timelapse found for ID “{submittedId}”.</p>
-						{/if}
-					</svelte:boundary>
-				{/key}
-			{:else}
-				<p class="text-center">
-					Enter a timelapse ID above to review it here.
-				</p>
-			{/if}
-		</section>
-
-		<aside
-			class="sticky top-4 flex w-full flex-col gap-3 border border-neutral-500 p-3 lg:w-72 lg:shrink-0"
-		>
-			<h2 class="font-medium">Project</h2>
-
-			<label class="flex flex-col gap-1 text-sm">
-				<span class="text-xs uppercase tracking-wide text-neutral-500">
-					Name
-				</span>
-				<input
-					type="text"
-					value={projectName}
-					onchange={e => renameProject(e.currentTarget.value)}
-					placeholder={DEFAULT_PROJECT_NAME}
-					class="border border-neutral-500 px-2 py-1"
-				>
-			</label>
-
-			{#if projectEntries.length > 0}
-				<ul
-					class="flex flex-col gap-1 text-sm"
-					ondragover={handleDragOver}
-					ondrop={handleDrop}
-				>
-					{#each projectEntries as entry (entry.id)}
-						<li
-							animate:flip={{ duration: 180 }}
-							class="flex items-start gap-2 border-b border-neutral-800 pb-1 {draggingId ===
-							entry.id
-								? 'opacity-50'
-								: ''}"
-						>
-							<button
-								type="button"
-								draggable="true"
-								title="Drag to reorder"
-								aria-label="Reorder {entry.name || entry.id}"
-								onkeydown={e => {
-									if (e.key === "ArrowUp") {
-										e.preventDefault()
-										moveEntryBy(entry.id, -1)
-									} else if (e.key === "ArrowDown") {
-										e.preventDefault()
-										moveEntryBy(entry.id, 1)
-									}
-								}}
-								ondragstart={e => {
-									draggingId = entry.id
-									if (e.dataTransfer) {
-										const row =
-											e.currentTarget.closest("li")
-										e.dataTransfer.effectAllowed = "move"
-										e.dataTransfer.setData(
-											"text/plain",
-											entry.id
-										)
-										if (row) {
-											const rect =
-												row.getBoundingClientRect()
-											e.dataTransfer.setDragImage(
-												row,
-												e.clientX - rect.left,
-												e.clientY - rect.top
-											)
-										}
-									}
-								}}
-								ondragend={() => {
-									draggingId = null
-								}}
-								class="cursor-grab select-none text-neutral-500 hover:text-neutral-300 active:cursor-grabbing"
-							>
-								⠿
-							</button>
-							<div class="flex min-w-0 flex-1 flex-col">
-								<button
-									type="button"
-									onclick={() => loadId(entry.id)}
-									title={entry.name || entry.id}
-									class="w-full cursor-pointer truncate text-left hover:underline {entry.id ===
-									submittedId
-										? 'font-medium text-blue-400'
-										: ''}"
-								>
-									{entry.name || entry.id}
-								</button>
-								<span class="text-xs text-neutral-500">
-									{formatDuration(
-										Math.max(
-											0,
-											entry.duration -
-												entry.idleDuration -
-												annotationTotal(
-													entry.annotations
-												)
-										)
-									)}
-								</span>
-							</div>
-						</li>
-					{/each}
-				</ul>
-			{:else}
-				<p class="text-sm text-neutral-500">
-					No timelapses yet. Open one to add it to the project.
-				</p>
-			{/if}
-
-			<dl
-				class="flex flex-col gap-1 border-t border-neutral-700 pt-2 text-sm"
-			>
-				<div class="flex justify-between gap-2">
-					<dt class="text-neutral-500">Time spent working</dt>
-					<dd class="font-medium">
-						{formatDuration(projectTotals.recorded)}
-					</dd>
-				</div>
-				<div class="flex justify-between gap-2">
-					<dt class="text-neutral-500">Time deducted</dt>
-					<dd class="font-medium">
-						{formatDuration(projectTotals.deducted)}
-					</dd>
-				</div>
-				{#if projectTotals.idle > 0}
-					<div class="flex justify-between gap-2 pl-3 text-xs">
-						<dt class="text-neutral-500">Idle</dt>
-						<dd>{formatDuration(projectTotals.idle)}</dd>
-					</div>
-				{/if}
-				{#each projectTotals.annotations as annotation (annotation.reason.id)}
-					<div class="flex justify-between gap-2 pl-3 text-xs">
-						<dt class="text-neutral-500">
-							{annotation.reason.label}
-						</dt>
-						<dd class="shrink-0">
-							{formatDuration(annotation.duration)}
-						</dd>
-					</div>
-				{/each}
-				<div
-					class="flex justify-between gap-2 border-t border-neutral-800 pt-1"
-				>
-					<dt class="font-medium">Final time</dt>
-					<dd class="font-medium">
-						{formatDuration(projectTotals.final)}
-					</dd>
-				</div>
-			</dl>
-
-			{#if projectEntries.length > 0}
-				<section class="border-t border-neutral-700 pt-2">
-					<div class="flex items-center justify-between gap-2 pb-1">
-						<h3
-							class="text-xs uppercase tracking-wide text-neutral-500"
-						>
-							Project description
-						</h3>
+				{#snippet failed(error: unknown, reset: () => void)}
+					<section
+						class="area-video flex flex-col items-center justify-center gap-2 p-4"
+					>
+						<p>
+							Couldn't load timelapse:
+							{(error as Error)?.message ?? error}
+						</p>
 						<button
 							type="button"
-							onclick={() => copyProjectText(projectDescription)}
-							class="border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
+							onclick={reset}
+							class="border border-neutral-500 px-2 py-1"
 						>
-							{projectCopied ? "Copied!" : "Copy"}
+							Retry
 						</button>
-					</div>
-					<p
-						class="text-xs text-neutral-300 select-text whitespace-pre-wrap wrap-break-word"
+					</section>
+				{/snippet}
+
+				{const timelapse = await getTimelapse(submittedId)}
+				{#if timelapse}
+					{const actualDuration = $derived(
+						Math.max(
+							0,
+							timelapse.duration -
+								idleDuration -
+								annotationDeflation
+						)
+					)}
+					{const description = $derived(
+						describeTimelapse({
+							id: timelapse.id,
+							duration: timelapse.duration,
+							idleRanges: effectiveIdleRanges,
+							selections,
+						})
+					)}
+
+					<section
+						class="area-video flex min-h-0 items-center justify-center overflow-hidden p-4"
 					>
-						{projectDescription}
-					</p>
-				</section>
-			{/if}
-		</aside>
-	</div>
+						{#if timelapse.playbackUrl}
+							<video
+								src={timelapse.playbackUrl}
+								poster={timelapse.thumbnailUrl ?? undefined}
+								controls
+								preload="metadata"
+								bind:this={videoEl}
+								class="h-auto max-h-full w-full object-contain lg:h-full"
+							>
+								<track kind="captions">
+							</video>
+						{:else}
+							<p>
+								This timelapse is still being processed and has
+								no video yet.
+							</p>
+						{/if}
+					</section>
+
+					<aside
+						class="area-right flex min-h-0 flex-col gap-3 overflow-y-auto border-neutral-500 p-3 lg:border-r"
+					>
+						<dl class="grid grid-cols-2 gap-2">
+							<div class="border border-neutral-500 p-3">
+								<dt
+									class="text-xs uppercase tracking-wide text-neutral-500"
+								>
+									Recorded
+								</dt>
+								<dd class="pt-1 font-medium">
+									{formatDuration(timelapse.duration)}
+								</dd>
+							</div>
+							<div class="border border-neutral-500 p-3">
+								<dt
+									class="text-xs uppercase tracking-wide text-neutral-500"
+								>
+									Actual time
+								</dt>
+								<dd class="pt-1 font-medium">
+									{formatDuration(actualDuration)}
+								</dd>
+								{#if idleAnalyzing && !ignoreIdle}
+									<p class="pt-0.5 text-xs text-amber-600">
+										Analyzing idle frames…
+									</p>
+								{:else}
+									{#if idleDuration > 0}
+										<p
+											class="pt-0.5 text-xs text-neutral-500"
+										>
+											-{formatDuration(idleDuration)}
+											idle
+										</p>
+									{/if}
+									{#if annotationDeflation > 0}
+										<p
+											class="pt-0.5 text-xs text-neutral-500"
+										>
+											-{formatDuration(annotationDeflation)}
+											annotations
+										</p>
+									{/if}
+								{/if}
+							</div>
+							<div class="border border-neutral-500 p-3">
+								<dt
+									class="text-xs uppercase tracking-wide text-neutral-500"
+								>
+									Created
+								</dt>
+								<dd class="pt-1 font-medium">
+									{formatCreatedAt(timelapse.createdAt)}
+								</dd>
+							</div>
+							<div class="border border-neutral-500 p-3">
+								<dt
+									class="text-xs uppercase tracking-wide text-neutral-500"
+								>
+									Visibility
+								</dt>
+								<dd class="pt-1 font-medium">
+									{timelapse.visibility}
+								</dd>
+							</div>
+						</dl>
+
+						<section class="flex flex-col gap-1">
+							<h2 class="font-medium">Selections</h2>
+							{#if sortedSelections.length > 0}
+								<ul class="flex flex-col gap-1 text-sm">
+									{#each sortedSelections as sel, i (sel.id)}
+										{const reason = $derived(
+											findAnnotationReason(sel.reason)
+										)}
+										<li
+											class="flex flex-wrap items-center gap-2"
+										>
+											<span>
+												Selection {i + 1}:
+												<span class="font-medium"
+													>{formatClock(sel.start)}</span
+												>-<span class="font-medium"
+													>{formatClock(sel.end)}</span
+												>
+											</span>
+											<select
+												aria-label="Annotation reason for selection {i +
+													1}"
+												value={sel.reason ?? ""}
+												onchange={e =>
+													setSelectionReason(
+														sel.id,
+														e.currentTarget.value
+													)}
+												class="border border-neutral-500 bg-neutral-800 px-1 py-0.5 text-sm"
+											>
+												<option value="">
+													Select a reason…
+												</option>
+												{#each ANNOTATION_REASONS as annotation (annotation.id)}
+													<option
+														value={annotation.id}
+													>
+														{annotation.label}
+													</option>
+												{/each}
+											</select>
+											<button
+												type="button"
+												onclick={() =>
+													removeSelection(sel.id)}
+												aria-label="Delete selection {i +
+													1}"
+												class="border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
+											>
+												Delete
+											</button>
+											{#if reason && reason.deflation > 0}
+												<span
+													class="text-xs text-neutral-500"
+												>
+													-{formatDuration(
+														nonIdleDuration(
+															sel,
+															effectiveIdleRanges
+														) *
+															reason.deflation *
+															PLAYBACK_TO_RECORDED
+													)}
+												</span>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							{:else}
+								<p class="text-sm text-neutral-500">
+									Drag across the timeline to select an
+									annotation.
+								</p>
+							{/if}
+						</section>
+
+						{#if idleRanges.length > 0 || ignoreIdle}
+							<div
+								class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-700 pt-2 text-xs text-neutral-500"
+							>
+								<label class="flex items-center gap-1.5">
+									<input
+										type="checkbox"
+										checked={ignoreIdle}
+										onchange={e =>
+											setIgnoreIdle(
+												e.currentTarget.checked
+											)}
+										class="h-3.5 w-3.5 accent-blue-500"
+									>
+									Ignore idle time
+								</label>
+								{#if !ignoreIdle}
+									<p class="flex items-center gap-2">
+										<span
+											class="inline-block h-2 w-3 border border-amber-400/50 bg-amber-400/25"
+										></span>
+										Amber regions have no visual changes
+										(time spent away).
+									</p>
+								{/if}
+							</div>
+						{/if}
+
+						<section class="border-t border-neutral-700 pt-2">
+							<div
+								class="flex items-center justify-between gap-2 pb-1"
+							>
+								<h2 class="font-medium">Description</h2>
+								<button
+									type="button"
+									onclick={() => copyText(description)}
+									class="border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
+								>
+									{copied ? "Copied!" : "Copy"}
+								</button>
+							</div>
+							<p class="text-sm text-neutral-300 select-text">
+								{description}
+							</p>
+						</section>
+					</aside>
+
+					{#if videoEl && timelapse.playbackUrl}
+						<footer
+							class="area-timeline border-t border-neutral-500 px-4 pb-3"
+						>
+							<Timeline
+								bind:selections
+								bind:idleRanges
+								bind:idleAnalyzing
+								{ignoreIdle}
+								timelapse={{
+									playbackUrl: timelapse.playbackUrl,
+									thumbnailUrl: timelapse.thumbnailUrl,
+								}}
+								video={videoEl}
+							/>
+						</footer>
+					{/if}
+				{:else}
+					<section
+						class="area-video flex items-center justify-center p-4"
+					>
+						<p>No timelapse found for ID “{submittedId}”.</p>
+					</section>
+				{/if}
+			</svelte:boundary>
+		{/key}
+	{:else}
+		<section class="area-video flex items-center justify-center p-4">
+			<p class="text-center">
+				Enter a timelapse ID above to review it here.
+			</p>
+		</section>
+	{/if}
 </main>
+
+<style>
+.dashboard {
+	display: grid;
+	height: 100dvh;
+	overflow: hidden;
+	grid-template-columns: 20rem minmax(0, 1fr) 18rem;
+	grid-template-rows: auto minmax(0, 1fr) auto;
+	grid-template-areas:
+		"right header project"
+		"right video project"
+		"timeline timeline timeline";
+}
+
+.area-project {
+	grid-area: project;
+}
+
+.area-header {
+	grid-area: header;
+}
+
+.area-video {
+	grid-area: video;
+}
+
+.area-right {
+	grid-area: right;
+}
+
+.area-timeline {
+	grid-area: timeline;
+}
+
+@media (max-width: 1023px) {
+	.dashboard {
+		height: auto;
+		min-height: 100dvh;
+		overflow: visible;
+		grid-template-columns: minmax(0, 1fr);
+		grid-template-rows: none;
+		grid-template-areas: none;
+	}
+
+	.area-project,
+	.area-header,
+	.area-video,
+	.area-right,
+	.area-timeline {
+		grid-area: auto;
+	}
+}
+</style>
