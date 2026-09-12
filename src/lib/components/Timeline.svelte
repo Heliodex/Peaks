@@ -273,10 +273,15 @@ function flushPendingSeek() {
 function seekTo(seconds: number) {
 	const el = video
 	if (!el || el.readyState < 1 || !Number.isFinite(seconds)) return
-	// Move the playhead immediately so scrubbing feels responsive even while
-	// the video is still catching up.
-	currentTime = seconds
-	pendingSeek = seconds
+	// Snap to a real frame so we don't decode to arbitrary in-between times.
+	const target = snapToFrame(seconds, frameRate)
+	currentTime = target
+	// Ignore sub-frame moves (when no seek is in flight) so slow scrubbing
+	// doesn't issue pointless seeks. While a seek is running we still record
+	// the latest target, since `el.currentTime` reflects the old request.
+	const step = frameRate > 0 ? 1 / frameRate : 0.01
+	if (!el.seeking && Math.abs(el.currentTime - target) < step / 2) return
+	pendingSeek = target
 	flushPendingSeek()
 }
 
