@@ -47,13 +47,34 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 	let queue: number[] = []
 	let capturing = false
 	let tolerance = 0.05
-	let captureSrc = ""
-	let capturer: FrameCapturer | null = null
+	// The source the capture pool should currently point at, and the source its
+	// video elements were actually created for.
+	let targetSrc = ""
+	let poolSrc = ""
+	let capturers: FrameCapturer[] = []
 	let settleTimers: ReturnType<typeof setTimeout>[] = []
 
-	function getCapturer(url: string): FrameCapturer {
-		if (!capturer) capturer = createFrameCapturer(url)
-		return capturer
+	// Capturing is network-bound, so a small pool of hidden videos working in
+	// parallel fills the strip far faster than a single sequential element.
+	const POOL_SIZE = 3
+
+	/**
+	 * Ensure the pool matches `targetSrc`, creating each hidden video on demand.
+	 * Disposes stale elements when the source changes.
+	 */
+	function getCapturer(index: number): FrameCapturer {
+		const url = targetSrc
+		if (poolSrc !== url) {
+			for (const item of capturers) item.dispose()
+			capturers = []
+			poolSrc = url
+		}
+		let item = capturers[index]
+		if (!item) {
+			item = createFrameCapturer(url)
+			capturers[index] = item
+		}
+		return item
 	}
 
 	function isCached(time: number): boolean {
@@ -88,26 +109,32 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		settleTimers = [...settleTimers, timer]
 	}
 
-	/** Sequentially capture any queued frames, adding each as soon as it's ready. */
+	/** Fill the queue using the capture pool, adding each frame as it's ready. */
 	async function runQueue() {
 		if (capturing) return
 		capturing = true
 		try {
-			while (queue.length > 0) {
-				const time = queue.shift() as number
-				if (isCached(time)) continue
-				const fps = frameRate()
-				const epsilon = Math.min(0.05, (fps > 0 ? 1 / fps : 0.05) / 2)
-				const url = await getCapturer(captureSrc).captureAt(
-					time,
-					epsilon
-				)
-				addFrame(time, url)
-			}
-		} catch {
-			// Leave gaps for any frames we couldn't capture.
+			await Promise.all(
+				Array.from({ length: POOL_SIZE }, (_, i) => captureLoop(i))
+			)
 		} finally {
 			capturing = false
+		}
+	}
+
+	/** Pull frames from the shared queue until it's empty. */
+	async function captureLoop(index: number) {
+		while (queue.length > 0) {
+			const time = queue.shift() as number
+			if (isCached(time)) continue
+			try {
+				const fps = frameRate()
+				const epsilon = Math.min(0.05, (fps > 0 ? 1 / fps : 0.05) / 2)
+				const url = await getCapturer(index).captureAt(time, epsilon)
+				addFrame(time, url)
+			} catch {
+				// Leave a gap for any frame we couldn't capture.
+			}
 		}
 	}
 
@@ -116,7 +143,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		const span = end - start
 		if (span <= 0) return
 
-		captureSrc = url
+		targetSrc = url
 		const step = frameStepFor(span, frameRate(), FRAME_COUNT)
 		tolerance = step / 2
 
@@ -180,6 +207,11 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		const current = view()
 		if (!url || !(current.end > current.start)) return
 
+		// Start buffering the first capturer immediately so the initial frames
+		// aren't network-bound, then fill the window once the view settles.
+		targetSrc = url
+		void getCapturer(0)
+
 		const timer = setTimeout(() => {
 			populate(url, current.start, current.end)
 		}, FRAME_REFRESH_MS)
@@ -191,7 +223,8 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		return () => {
 			for (const timer of settleTimers) clearTimeout(timer)
 			settleTimers = []
-			capturer?.dispose()
+			for (const item of capturers) item.dispose()
+			capturers = []
 		}
 	})
 

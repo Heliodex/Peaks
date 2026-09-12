@@ -76,6 +76,8 @@ const HOVER_TOOLTIP_FLIP_PERCENT = 95
 let videoDuration = $state(0)
 let frameRate = $state(0)
 let currentTime = $state(0)
+// Latest requested seek target while one is already in flight (see flushPendingSeek).
+let pendingSeek: number | null = null
 let hoverTime = $state<number | null>(null)
 let hoveredSelectionId = $state<string | null>(null)
 const duration = $derived(videoDuration)
@@ -190,6 +192,10 @@ $effect(() => {
 	const onTime = () => {
 		currentTime = el.currentTime
 	}
+	const onSeeked = () => {
+		currentTime = el.currentTime
+		flushPendingSeek()
+	}
 
 	// Track playback with rAF so the playhead moves smoothly, while still
 	// updating immediately on seeks.
@@ -213,7 +219,7 @@ $effect(() => {
 	el.addEventListener("loadedmetadata", onLoaded)
 	el.addEventListener("timeupdate", onTime)
 	el.addEventListener("seeking", onTime)
-	el.addEventListener("seeked", onTime)
+	el.addEventListener("seeked", onSeeked)
 	el.addEventListener("play", onPlay)
 	el.addEventListener("pause", onPause)
 	el.addEventListener("ended", onPause)
@@ -224,7 +230,7 @@ $effect(() => {
 		el.removeEventListener("loadedmetadata", onLoaded)
 		el.removeEventListener("timeupdate", onTime)
 		el.removeEventListener("seeking", onTime)
-		el.removeEventListener("seeked", onTime)
+		el.removeEventListener("seeked", onSeeked)
 		el.removeEventListener("play", onPlay)
 		el.removeEventListener("pause", onPause)
 		el.removeEventListener("ended", onPause)
@@ -250,11 +256,28 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 	return view.start + ratio * viewSpan
 }
 
+/**
+ * Keep at most one seek in flight. Browsers queue `currentTime` writes, so
+ * scrubbing an unbuffered network video would otherwise stack up slow seeks;
+ * instead remember only the latest target and apply it once the current seek
+ * settles.
+ */
+function flushPendingSeek() {
+	const el = video
+	if (!el || pendingSeek === null || el.seeking) return
+	const target = pendingSeek
+	pendingSeek = null
+	el.currentTime = target
+}
+
 function seekTo(seconds: number) {
 	const el = video
 	if (!el || el.readyState < 1 || !Number.isFinite(seconds)) return
-	el.currentTime = seconds
+	// Move the playhead immediately so scrubbing feels responsive even while
+	// the video is still catching up.
 	currentTime = seconds
+	pendingSeek = seconds
+	flushPendingSeek()
 }
 
 /**
@@ -536,10 +559,7 @@ function onPointerMove(event: PointerEvent) {
 	)
 	hoveredSelectionId = selectionEl?.dataset.selectionId ?? null
 	hoverTime = pointerToTime(event.clientX, track)
-	if (video && video.readyState >= 1) {
-		video.currentTime = hoverTime
-		currentTime = hoverTime
-	}
+	seekTo(hoverTime)
 }
 
 function onPointerUp(event: PointerEvent) {
