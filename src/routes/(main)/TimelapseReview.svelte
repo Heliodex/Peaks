@@ -16,6 +16,7 @@ import {
 import { loadSelections, saveSelections } from "#lib/selection-storage.js"
 import { decodeShare, encodeShare, type ShareState } from "#lib/share.js"
 import {
+	clamp,
 	formatClock,
 	formatHours,
 	PLAYBACK_TO_RECORDED,
@@ -48,6 +49,101 @@ let idleAnalyzing = $state(false)
 // state (rather than read back from `page.url`) so the description always
 // reflects what we encoded, even before the address bar catches up.
 let shareParam = $state<string | null>(page.url.searchParams.get(SHARE_PARAM))
+
+// Pane sizes in pixels, driven by the drag handles on each pane's inner border.
+// Each pane's minimum equals its default, so panes can only grow.
+const DEFAULT_LEFT_WIDTH = 320
+const DEFAULT_RIGHT_WIDTH = 288
+const DEFAULT_TIMELINE_HEIGHT = 184
+const MIN_CENTER_WIDTH = 320
+const MIN_CENTER_HEIGHT = 200
+let leftWidth = $state(DEFAULT_LEFT_WIDTH)
+let rightWidth = $state(DEFAULT_RIGHT_WIDTH)
+let timelineHeight = $state(DEFAULT_TIMELINE_HEIGHT)
+// The bottom row only takes up space once a timeline is actually shown, so the
+// landing page doesn't reserve an empty strip.
+const timelineRowHeight = $derived(videoEl ? `${timelineHeight}px` : "0px")
+
+/**
+ * Run a window-level pointer drag, reporting the total movement from the
+ * start. Tracking on the window keeps the resize alive when the pointer
+ * leaves the narrow handle.
+ */
+function trackResize(
+	event: PointerEvent,
+	onMove: (dx: number, dy: number) => void,
+	cursor: string
+) {
+	event.preventDefault()
+	const startX = event.clientX
+	const startY = event.clientY
+	const previousCursor = document.body.style.cursor
+	const previousUserSelect = document.body.style.userSelect
+	document.body.style.cursor = cursor
+	document.body.style.userSelect = "none"
+
+	const handleMove = (moveEvent: PointerEvent) => {
+		onMove(moveEvent.clientX - startX, moveEvent.clientY - startY)
+	}
+	const stop = () => {
+		window.removeEventListener("pointermove", handleMove)
+		window.removeEventListener("pointerup", stop)
+		window.removeEventListener("pointercancel", stop)
+		document.body.style.cursor = previousCursor
+		document.body.style.userSelect = previousUserSelect
+	}
+	window.addEventListener("pointermove", handleMove)
+	window.addEventListener("pointerup", stop)
+	window.addEventListener("pointercancel", stop)
+}
+
+/** Drag the stats pane's right (inner) border. */
+function startLeftResize(event: PointerEvent) {
+	const start = leftWidth
+	const max = Math.max(
+		DEFAULT_LEFT_WIDTH,
+		window.innerWidth - rightWidth - MIN_CENTER_WIDTH
+	)
+	trackResize(
+		event,
+		dx => {
+			leftWidth = clamp(start + dx, DEFAULT_LEFT_WIDTH, max)
+		},
+		"col-resize"
+	)
+}
+
+/** Drag the project pane's left (inner) border. */
+function startRightResize(event: PointerEvent) {
+	const start = rightWidth
+	const max = Math.max(
+		DEFAULT_RIGHT_WIDTH,
+		window.innerWidth - leftWidth - MIN_CENTER_WIDTH
+	)
+	trackResize(
+		event,
+		dx => {
+			rightWidth = clamp(start - dx, DEFAULT_RIGHT_WIDTH, max)
+		},
+		"col-resize"
+	)
+}
+
+/** Drag the timeline's top (inner) border. */
+function startTimelineResize(event: PointerEvent) {
+	const start = timelineHeight
+	const max = Math.max(
+		DEFAULT_TIMELINE_HEIGHT,
+		window.innerHeight - MIN_CENTER_HEIGHT - 120
+	)
+	trackResize(
+		event,
+		(_dx, dy) => {
+			timelineHeight = clamp(start - dy, DEFAULT_TIMELINE_HEIGHT, max)
+		},
+		"row-resize"
+	)
+}
 
 /** Shareable link for the current review, including the `?tl=` payload. */
 const shareUrl = $derived(
@@ -384,7 +480,10 @@ $effect(() => {
 })
 </script>
 
-<main class="dashboard">
+<main
+	class="dashboard"
+	style="--left-width: {leftWidth}px; --right-width: {rightWidth}px; --timeline-height: {timelineRowHeight};"
+>
 	<ProjectPane
 		bind:projectName
 		bind:projectEntries
@@ -393,6 +492,12 @@ $effect(() => {
 		{projectDescription}
 		onLoad={loadId}
 	/>
+
+	<div
+		class="resize-handle resize-handle-right hidden transition-colors hover:bg-blue-500/40 lg:block"
+		onpointerdown={startRightResize}
+		role="presentation"
+	></div>
 
 	<ReviewHeader {submittedId} onLoad={loadId} />
 
@@ -438,6 +543,12 @@ $effect(() => {
 						onToggleIgnoreIdle={setIgnoreIdle}
 					/>
 
+					<div
+						class="resize-handle resize-handle-left hidden transition-colors hover:bg-blue-500/40 lg:block"
+						onpointerdown={startLeftResize}
+						role="presentation"
+					></div>
+
 					{#if videoEl && timelapse.playbackUrl}
 						<TimelinePane
 							playbackUrl={timelapse.playbackUrl}
@@ -448,6 +559,12 @@ $effect(() => {
 							bind:idleAnalyzing
 							{ignoreIdle}
 						/>
+
+						<div
+							class="resize-handle resize-handle-timeline hidden transition-colors hover:bg-blue-500/40 lg:block"
+							onpointerdown={startTimelineResize}
+							role="presentation"
+						></div>
 					{/if}
 				{:else}
 					<section
@@ -469,15 +586,49 @@ $effect(() => {
 
 <style>
 .dashboard {
+	position: relative;
 	display: grid;
 	height: 100dvh;
 	overflow: hidden;
-	grid-template-columns: 20rem minmax(0, 1fr) 18rem;
-	grid-template-rows: auto minmax(0, 1fr) auto;
+	grid-template-columns: var(--left-width) minmax(0, 1fr) var(--right-width);
+	grid-template-rows: auto minmax(0, 1fr) var(--timeline-height);
 	grid-template-areas:
 		"right header project"
 		"right video project"
 		"timeline timeline timeline";
+}
+
+.resize-handle {
+	position: absolute;
+	z-index: 30;
+	touch-action: none;
+}
+
+.resize-handle-right {
+	top: 0;
+	bottom: var(--timeline-height);
+	right: var(--right-width);
+	width: 0.75rem;
+	transform: translateX(50%);
+	cursor: col-resize;
+}
+
+.resize-handle-left {
+	top: 0;
+	bottom: var(--timeline-height);
+	left: var(--left-width);
+	width: 0.75rem;
+	transform: translateX(-50%);
+	cursor: col-resize;
+}
+
+.resize-handle-timeline {
+	left: 0;
+	right: 0;
+	bottom: var(--timeline-height);
+	height: 0.75rem;
+	transform: translateY(50%);
+	cursor: row-resize;
 }
 
 :global(.area-project) {

@@ -627,9 +627,9 @@ function onKeyDown(event: KeyboardEvent) {
 
 {#if duration > 0}
 	{const layoutFrames = $derived(frameStrip.layout)}
-	<div class="w-full pt-3">
+	<div class="flex min-h-0 w-full flex-1 flex-col pt-3">
 		<div
-			class="relative h-20 w-full touch-none border border-neutral-500 select-none {drag?.kind ===
+			class="relative min-h-0 w-full flex-1 touch-none border border-neutral-500 select-none {drag?.kind ===
 			'create'
 				? 'cursor-text'
 				: pan
@@ -783,7 +783,7 @@ function onKeyDown(event: KeyboardEvent) {
 			{/if}
 		</div>
 
-		<div class="pt-1 w-full">
+		<div class="w-full shrink-0 pt-1">
 			<div
 				class="relative flex justify-between text-xs text-neutral-500 z-1"
 			>

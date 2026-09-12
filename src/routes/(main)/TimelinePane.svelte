@@ -22,7 +22,9 @@ let {
 } = $props()
 </script>
 
-<footer class="area-timeline border-t border-neutral-500 px-4 pb-3">
+<footer
+	class="area-timeline flex min-h-0 flex-col overflow-hidden border-t border-neutral-500 px-4 pb-3"
+>
 	<Timeline
 		bind:selections
 		bind:idleRanges

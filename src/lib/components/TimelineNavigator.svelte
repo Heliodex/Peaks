@@ -167,7 +167,7 @@ function onPointerUp(event: PointerEvent) {
 </script>
 
 <div
-	class="relative mt-2 h-10 w-full touch-none overflow-hidden border border-neutral-500 bg-neutral-800 select-none"
+	class="relative mt-2 h-10 w-full shrink-0 touch-none overflow-hidden border border-neutral-500 bg-neutral-800 select-none"
 	onpointerdown={onPointerDown}
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}
@@ -175,9 +175,7 @@ function onPointerUp(event: PointerEvent) {
 	role="presentation"
 >
 	<!-- Static overview thumbnails spanning the whole video -->
-	<div
-		class="pointer-events-none absolute inset-0 flex overflow-hidden"
-	>
+	<div class="pointer-events-none absolute inset-0 flex overflow-hidden">
 		{#each Array(NAV_FRAME_COUNT) as _, i (i)}
 			<div class="relative h-full min-w-0 flex-1">
 				{#if navFrames[i]}
