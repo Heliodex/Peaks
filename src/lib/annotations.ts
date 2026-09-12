@@ -80,7 +80,7 @@ export type AnnotationReason = {
 export const ANNOTATION_REASONS: AnnotationReason[] = [
 	{
 		id: "invalid-time",
-		label: "Invalid time",
+		label: "Invalid",
 		summaryLabel: "invalid",
 		deflation: 1,
 		deflationLabel: "removed",
@@ -88,7 +88,7 @@ export const ANNOTATION_REASONS: AnnotationReason[] = [
 	},
 	{
 		id: "researching",
-		label: "Time spent researching",
+		label: "Researching",
 		summaryLabel: "spent researching",
 		deflation: 1 / 2,
 		deflationLabel: "1/2 deflated",
@@ -96,7 +96,7 @@ export const ANNOTATION_REASONS: AnnotationReason[] = [
 	},
 	{
 		id: "instructing-ai",
-		label: "Time spent instructing AI",
+		label: "Instructing AI",
 		summaryLabel: "spent instructing AI",
 		deflation: 2 / 3,
 		deflationLabel: "2/3 deflated",
@@ -104,7 +104,7 @@ export const ANNOTATION_REASONS: AnnotationReason[] = [
 	},
 	{
 		id: "requesting-ai-help",
-		label: "Time spent requesting AI help",
+		label: "Requesting AI help",
 		summaryLabel: "spent requesting AI help",
 		deflation: 0,
 		deflationLabel: "no deflation",
@@ -112,7 +112,7 @@ export const ANNOTATION_REASONS: AnnotationReason[] = [
 	},
 	{
 		id: "copying-tutorial",
-		label: "Time spent copying from tutorial",
+		label: "Copying from tutorial",
 		summaryLabel: "spent copying from tutorial",
 		deflation: 1,
 		deflationLabel: "removed",
