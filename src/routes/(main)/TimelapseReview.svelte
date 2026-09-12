@@ -248,37 +248,22 @@ let urlTimer: ReturnType<typeof setTimeout> | undefined
 async function syncShareUrl(state: {
 	id: string
 	selections: TimelineSelection[]
-	ignoreIdle: boolean
 	projectName: string
 	project: ProjectTimelapse[]
 }) {
 	const token = ++urlToken
-	const name = state.projectName.trim()
-	// Only write the (sizeable) payload when there's something to restore.
-	const hasContent =
-		state.selections.length > 0 ||
-		state.ignoreIdle ||
-		state.project.length > 0 ||
-		(name !== "" && name !== DEFAULT_PROJECT_NAME)
-	const encoded = hasContent
-		? await encodeShare({
-				selections: state.selections,
-				ignoreIdle: state.ignoreIdle,
-				projectName: name || undefined,
-				project: state.project,
-				openId: state.id,
-			})
-		: null
+	const encoded = await encodeShare({
+		selections: state.selections,
+		projectName: state.projectName,
+		project: state.project,
+		openId: state.id,
+	})
 	// Bail if a newer encode started, or the open timelapse changed underneath
 	// us (otherwise a stale payload could land on the wrong review).
 	if (token !== urlToken || state.id !== submittedId) return
 	shareParam = encoded
 	const url = new URL(window.location.href)
-	if (encoded) {
-		url.searchParams.set(SHARE_PARAM, encoded)
-	} else {
-		url.searchParams.delete(SHARE_PARAM)
-	}
+	url.searchParams.set(SHARE_PARAM, encoded)
 	url.pathname = `/${encodeURIComponent(state.id)}`
 	const target = `${url.pathname}${url.search}`
 	// Debounce only the history write, so editing doesn't spam entries.
@@ -309,7 +294,6 @@ async function applyShareUrl(id: string, target: string) {
 $effect(() => {
 	const id = submittedId
 	const value = $state.snapshot(selections)
-	const overridden = ignoreIdle
 	const name = projectName
 	const entries = $state.snapshot(projectEntries)
 	if (!id || !loaded) return
@@ -317,7 +301,6 @@ $effect(() => {
 	void syncShareUrl({
 		id,
 		selections: value,
-		ignoreIdle: overridden,
 		projectName: name,
 		project: entries,
 	})
@@ -348,37 +331,19 @@ function renameProject(name: string) {
 	projectName = name.trim() || DEFAULT_PROJECT_NAME
 }
 
-/**
- * Adopt a project carried by a shared URL. Older payloads stored the open
- * timelapse's idle override at the top level rather than on its entry, so
- * backfill it here.
- */
+/** Adopt the project carried by a shared URL. */
 function importSharedProject(shared: ShareState) {
-	if (shared.projectName?.trim()) projectName = shared.projectName.trim()
-	if (!shared.project) return
-	projectEntries = shared.project.map(entry =>
-		entry.id === submittedId &&
-		entry.ignoreIdle === undefined &&
-		shared.ignoreIdle
-			? { ...entry, ignoreIdle: true }
-			: entry
-	)
+	if (shared.projectName.trim()) projectName = shared.projectName.trim()
+	projectEntries = shared.project
 }
 
 /** Toggle whether idle time is ignored for the open timelapse. */
 function setIgnoreIdle(value: boolean) {
 	const index = projectEntries.findIndex(entry => entry.id === submittedId)
 	if (index === -1) return
-	projectEntries = projectEntries.map((entry, i) => {
-		if (i !== index) return entry
-		const updated = { ...entry }
-		if (value) {
-			updated.ignoreIdle = true
-		} else {
-			delete updated.ignoreIdle
-		}
-		return updated
-	})
+	projectEntries = projectEntries.map((entry, i) =>
+		i === index ? { ...entry, ignoreIdle: value } : entry
+	)
 }
 
 /** Totals for the current project, in recorded seconds. */
@@ -405,27 +370,6 @@ const projectTotals = $derived.by(() => {
 	}
 })
 
-/** Approximate description for an entry that was shared without one. */
-function fallbackDescription(entry: ProjectTimelapse): string {
-	const final = Math.max(
-		0,
-		entry.duration - entry.idleDuration - entry.annotationDeflation
-	)
-	const parts = [
-		`${entry.id} – Original time ${formatClock(entry.duration)}.`,
-	]
-	if (entry.idleDuration > 0) {
-		parts.push(`${formatClock(entry.idleDuration)} spent idle.`)
-	}
-	if (entry.annotationDeflation > 0) {
-		parts.push(
-			`${formatClock(entry.annotationDeflation)} removed by annotations.`
-		)
-	}
-	parts.push(`Final time after deflation ${formatClock(final)}.`)
-	return parts.join(" ")
-}
-
 /**
  * The project's description: every timelapse's review text in order (without
  * their individual share links), a summary of the project totals, and finally
@@ -433,9 +377,7 @@ function fallbackDescription(entry: ProjectTimelapse): string {
  */
 const projectDescription = $derived.by(() => {
 	if (projectEntries.length === 0) return ""
-	const parts = projectEntries.map(
-		entry => entry.description ?? fallbackDescription(entry)
-	)
+	const parts = projectEntries.map(entry => entry.description)
 	parts.push(
 		`Total original time ${formatClock(projectTotals.recorded)}, ` +
 			`total time deducted ${formatClock(projectTotals.deducted)}, ` +
@@ -482,8 +424,7 @@ $effect(() => {
 	if (!id || !loaded || !meta || meta.id !== id) return
 	const index = projectEntries.findIndex(entry => entry.id === id)
 	const existing = index === -1 ? undefined : projectEntries[index]
-	const ignored = existing?.ignoreIdle === true
-	const name = meta.name?.trim() || undefined
+	const name = meta.name?.trim() ?? ""
 	const { duration } = meta
 	const description = describeTimelapse({
 		id,
@@ -497,18 +438,18 @@ $effect(() => {
 		existing.name === name &&
 		existing.idleDuration === idle &&
 		existing.annotationDeflation === annotations &&
-		existing.ignoreIdle === (ignored ? true : undefined) &&
+		existing.ignoreIdle === ignoreIdle &&
 		existing.description === description
 	) {
 		return
 	}
 	const entry: ProjectTimelapse = {
 		id,
-		...(name ? { name } : {}),
+		name,
 		duration,
 		idleDuration: idle,
 		annotationDeflation: annotations,
-		...(ignored ? { ignoreIdle: true } : {}),
+		ignoreIdle,
 		description,
 	}
 	projectEntries =

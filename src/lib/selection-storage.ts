@@ -4,7 +4,7 @@
 
 import type { TimelineSelection } from "./timeline.js"
 
-const STORAGE_PREFIX = "peaks:selections:v1:"
+const STORAGE_PREFIX = "peaks:selections:"
 
 function storageKey(timelapseId: string): string {
 	return `${STORAGE_PREFIX}${timelapseId}`
