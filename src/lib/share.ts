@@ -1,8 +1,9 @@
 // Encodes a review session — the open timelapse's selections plus the sidebar
 // project (name, timelapses and the open id) — into a compact, URL-safe string
 // so it can be shared or bookmarked. Times are stored as integer milliseconds
-// and annotation reasons as catalog indexes, then the JSON is deflated. The
-// open timelapse id also lives in the URL path.
+// and annotation reasons as catalog indexes, then the JSON is deflated. This
+// string is the whole share URL path: the open timelapse id is recovered from
+// it rather than stored separately.
 
 import { ANNOTATION_REASONS, type AnnotationDeflation } from "./annotations.js"
 import type { ProjectTimelapse } from "./project-storage.js"

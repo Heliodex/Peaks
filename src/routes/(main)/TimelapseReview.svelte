@@ -32,23 +32,41 @@ import { annotationTotal } from "./review-format.js"
 import TimelinePane from "./TimelinePane.svelte"
 import VideoPane from "./VideoPane.svelte"
 
-/** Query parameter holding the compressed selections. */
-const SHARE_PARAM = "tl"
-
 /** Canonical origin used when a summary links back to the review. */
 const SITE_ORIGIN = "https://peaks.heliodex.cf"
 
-/** Timelapse id taken from the `/{id}` path (empty on the `/home` landing). */
-const submittedId = $derived(page.params.id ?? "")
+/** Decode a path segment, falling back to the raw text when it is malformed. */
+function decodePathParam(pathname: string): string {
+	try {
+		return decodeURIComponent(pathname.slice(1))
+	} catch {
+		return pathname.slice(1)
+	}
+}
+
+/**
+ * Encoded project state taken from the `/{state}` path (empty on the `/home`
+ * landing). The open timelapse id is carried inside that state, so it no
+ * longer needs to live in the URL separately. Shallow writes update
+ * `page.shallow.url` rather than `page.url`, so prefer it when present.
+ */
+const routeParam = $derived(
+	page.params.id !== undefined
+		? decodePathParam((page.shallow?.url ?? page.url).pathname)
+		: ""
+)
+
+/** Open timelapse id decoded from the path (empty on the `/home` landing). */
+let submittedId = $state("")
 
 let videoEl = $state<HTMLVideoElement>()
 let selections = $state<TimelineSelection[]>([])
 let idleRanges = $state<IdleRange[]>([])
 let idleAnalyzing = $state(false)
-// Encoded `tl` payload currently represented by the review. Kept as its own
+// Encoded project state currently represented by the review. Kept as its own
 // state (rather than read back from `page.url`) so the description always
 // reflects what we encoded, even before the address bar catches up.
-let shareParam = $state<string | null>(page.url.searchParams.get(SHARE_PARAM))
+let encodedState = $state("")
 
 // Pane sizes in pixels, driven by the drag handles on each pane's inner border.
 // Each pane's minimum equals its default, so panes can only grow.
@@ -145,12 +163,8 @@ function startTimelineResize(event: PointerEvent) {
 	)
 }
 
-/** Shareable link for the current review, including the `?tl=` payload. */
-const shareUrl = $derived(
-	`${SITE_ORIGIN}/${encodeURIComponent(submittedId)}${
-		shareParam ? `?${SHARE_PARAM}=${shareParam}` : ""
-	}`
-)
+/** Shareable link for the current review: the encoded state is the path. */
+const shareUrl = $derived(encodedState ? `${SITE_ORIGIN}/${encodedState}` : "")
 
 // The workspace holds a single project. Its name and timelapses are persisted
 // locally, so the project survives reloads.
@@ -200,44 +214,47 @@ const idleDuration = $derived(
 	) * PLAYBACK_TO_RECORDED
 )
 
-// Load selections for the current path id: a `tl` parameter takes precedence,
-// otherwise fall back to anything saved locally. Resets idle analysis because
-// the underlying video changes.
+// Guards against an older async encode resolving after a newer one, and records
+// the param we last wrote so decoding our own URL write can't reset the review.
+let urlToken = 0
+let urlTimer: ReturnType<typeof setTimeout> | undefined
+let lastWrittenParam: string | null = null
+
+// Load the state named by the path: it holds an encoded project state whose
+// `openId` is the open timelapse, or — for links without state — a bare
+// timelapse id that falls back to locally saved selections. Resets idle
+// analysis because the underlying video changes.
 let loadToken = 0
 let loaded = $state(false)
 $effect(() => {
-	const id = submittedId
+	const param = routeParam
+	// A path we just wrote already matches the in-memory review; skip decoding
+	// it so a debounced URL update can't clobber in-progress edits.
+	if (param && param === lastWrittenParam) return
 	const token = ++loadToken
 	loaded = false
+	encodedState = ""
 	idleRanges = []
 	idleAnalyzing = false
-	if (!id) {
+	if (!param) {
+		submittedId = ""
 		selections = []
-		shareParam = null
 		loaded = true
 		return
 	}
-	const shared = new URL(window.location.href).searchParams.get(SHARE_PARAM)
-	// Reflect the incoming payload immediately; the encode below will refresh it.
-	shareParam = shared
-	if (shared) {
-		void decodeShare(shared).then(decoded => {
-			if (token !== loadToken) return
-			// The payload may name a different open timelapse than the path.
-			if (decoded?.openId && decoded.openId !== id) {
-				const url = new URL(window.location.href)
-				url.pathname = `/${encodeURIComponent(decoded.openId)}`
-				void goto(`${url.pathname}${url.search}`)
-				return
-			}
-			selections = decoded?.selections ?? loadSelections(id)
-			if (decoded) importSharedProject(decoded)
-			loaded = true
-		})
-	} else {
-		selections = loadSelections(id)
+	void decodeShare(param).then(decoded => {
+		if (token !== loadToken) return
+		if (decoded) {
+			submittedId = decoded.openId
+			encodedState = param
+			selections = decoded.selections
+			importSharedProject(decoded)
+		} else {
+			submittedId = param
+			selections = loadSelections(param)
+		}
 		loaded = true
-	}
+	})
 })
 
 function loadId(value: string) {
@@ -246,14 +263,10 @@ function loadId(value: string) {
 	void goto(`/${encodeURIComponent(id)}`)
 }
 
-// Guards against an older async encode resolving after a newer one.
-let urlToken = 0
-let urlTimer: ReturnType<typeof setTimeout> | undefined
-
 /**
  * Encode the review and project state, publish it to the description
- * immediately, and (debounced) mirror it into the address bar so the whole
- * session can be shared.
+ * immediately, and (debounced) mirror it into the path so the whole session
+ * can be shared.
  */
 async function syncShareUrl(state: {
 	id: string
@@ -271,11 +284,8 @@ async function syncShareUrl(state: {
 	// Bail if a newer encode started, or the open timelapse changed underneath
 	// us (otherwise a stale payload could land on the wrong review).
 	if (token !== urlToken || state.id !== submittedId) return
-	shareParam = encoded
-	const url = new URL(window.location.href)
-	url.searchParams.set(SHARE_PARAM, encoded)
-	url.pathname = `/${encodeURIComponent(state.id)}`
-	const target = `${url.pathname}${url.search}`
+	encodedState = encoded
+	const target = `/${encoded}`
 	// Debounce only the history write, so editing doesn't spam entries.
 	const id = state.id
 	clearTimeout(urlTimer)
@@ -285,22 +295,21 @@ async function syncShareUrl(state: {
 }
 
 /**
- * Mirror the `?tl=` payload into the address bar. Guards ensure a debounced
- * update from a previously open timelapse can only rewrite the query string
- * of the *current* route — it can never navigate back to (or re-apply the
- * project snapshot of) a different timelapse.
+ * Mirror the encoded state into the path. Guards ensure a debounced update from
+ * a previously open timelapse can only rewrite the URL of the *current* route —
+ * it can never navigate back to (or re-apply the project snapshot of) a
+ * different timelapse. Recording the written param lets the load effect skip
+ * decoding our own update.
  */
 async function applyShareUrl(id: string, target: string) {
 	if (id !== submittedId) return
-	const targetUrl = new URL(target, window.location.origin)
-	if (targetUrl.pathname !== window.location.pathname) return
-	if (targetUrl.search === window.location.search) return
+	if (target === window.location.pathname) return
+	lastWrittenParam = target.slice(1)
 	await goto(target, { replace: true, shallow: true, reset: false })
 }
 
 // Persist selections (and their reasons) per timelapse, and mirror the review
-// and project state into the `?tl=` parameter so the whole session can be
-// shared.
+// and project state into the path so the whole session can be shared.
 $effect(() => {
 	const id = submittedId
 	const value = $state.snapshot(selections)
@@ -404,7 +413,7 @@ const projectDescription = $derived.by(() => {
 			`total time deducted ${formatClock(projectTotals.deducted)}, ` +
 			`final total ${formatClock(projectTotals.final)} (${formatHours(projectTotals.final)}).`
 	)
-	if (submittedId) parts.push(shareUrl)
+	if (encodedState) parts.push(shareUrl)
 	return parts.join("\n\n")
 })
 
@@ -575,6 +584,10 @@ $effect(() => {
 				{/if}
 			</svelte:boundary>
 		{/key}
+	{:else if routeParam}
+		<section class="area-video flex items-center justify-center p-4">
+			<p>Loading timelapse…</p>
+		</section>
 	{:else}
 		<section class="area-video flex items-center justify-center p-4">
 			<p class="text-center">
