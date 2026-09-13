@@ -257,10 +257,21 @@ $effect(() => {
 	})
 })
 
-function loadId(value: string) {
+/**
+ * Open a timelapse by id. The URL carries the project state, so encode the
+ * current project with that timelapse open (using its saved selections) and
+ * navigate to `/{state}` rather than a bare `/{id}`.
+ */
+async function loadId(value: string) {
 	const id = value.trim()
 	if (!id || id === submittedId) return
-	void goto(`/${encodeURIComponent(id)}`)
+	const encoded = await encodeShare({
+		selections: loadSelections(id),
+		projectName,
+		project: $state.snapshot(projectEntries),
+		openId: id,
+	})
+	void goto(`/${encoded}`)
 }
 
 /**
