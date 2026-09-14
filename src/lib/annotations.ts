@@ -262,6 +262,27 @@ function formatSpans(spans: { start: number; end: number }[]): string {
 }
 
 /**
+ * Combine overlapping or touching spans into one, so an automatic idle range
+ * inside (or crossing) a manual idle selection reads as a single stretch.
+ */
+function mergeSpans(spans: { start: number; end: number }[]): {
+	start: number
+	end: number
+}[] {
+	const sorted = spans.toSorted((a, b) => a.start - b.start)
+	const merged: { start: number; end: number }[] = []
+	for (const span of sorted) {
+		const last = merged[merged.length - 1]
+		if (last && span.start <= last.end) {
+			last.end = Math.max(last.end, span.end)
+		} else {
+			merged.push({ start: span.start, end: span.end })
+		}
+	}
+	return merged
+}
+
+/**
  * Build a plain-text summary of a timelapse: its original length, the idle
  * stretches, and each annotated reason with the time it deflates.
  */
@@ -294,7 +315,7 @@ export function describeTimelapse({
 
 	if (idleRanges.length > 0 || manualIdle.length > 0) {
 		parts.push(
-			`${formatClock(idleTotal + manualIdleStretch)} spent idle: ${formatSpans([...idleRanges, ...manualIdle])} (${idleReason?.deflationLabel ?? "removed"}).`
+			`${formatClock(idleTotal + manualIdleStretch)} spent idle: ${formatSpans(mergeSpans([...idleRanges, ...manualIdle]))} (${idleReason?.deflationLabel ?? "removed"}).`
 		)
 	}
 
