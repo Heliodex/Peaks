@@ -121,7 +121,16 @@ function moveEntryBy(id: string, delta: number) {
 <aside
 	class="area-project flex min-h-0 flex-col gap-3 overflow-y-auto border-neutral-500 p-3 lg:border-l"
 >
-	<h2 class="font-medium">Projects</h2>
+	<div class="flex items-center justify-between">
+		<h2 class="font-medium">Projects</h2>
+		<button
+			type="button"
+			onclick={onCreateProject}
+			class="cursor-pointer border border-neutral-500 px-2 py-1 text-sm hover:bg-neutral-800"
+		>
+			+
+		</button>
+	</div>
 
 	<ul class="flex flex-col gap-1 text-sm">
 		{#each projects as project (project.id)}
@@ -152,20 +161,12 @@ function moveEntryBy(id: string, delta: number) {
 						aria-label="Delete {project.name}"
 						class="shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
 					>
-						Delete
+						×
 					</button>
 				{/if}
 			</li>
 		{/each}
 	</ul>
-
-	<button
-		type="button"
-		onclick={onCreateProject}
-		class="cursor-pointer border border-neutral-500 px-2 py-1 text-sm hover:bg-neutral-800"
-	>
-		New project
-	</button>
 
 	<label class="flex flex-col gap-1 border-t border-neutral-700 pt-3 text-sm">
 		<span class="text-xs uppercase tracking-wide text-neutral-500">
@@ -261,7 +262,7 @@ function moveEntryBy(id: string, delta: number) {
 						aria-label="Remove {entry.name || entry.id} from project"
 						class="shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
 					>
-						Delete
+						×
 					</button>
 				</li>
 			{/each}

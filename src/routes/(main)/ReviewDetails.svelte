@@ -176,7 +176,7 @@ function removeSelection(id: string) {
 							aria-label="Delete selection {i + 1}"
 							class="border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
 						>
-							Delete
+							×
 						</button>
 						{#if reason && reason.deflation > 0}
 							<span class="text-xs text-neutral-500">
