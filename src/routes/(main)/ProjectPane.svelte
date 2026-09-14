@@ -118,6 +118,26 @@ function moveEntryBy(id: string, delta: number) {
 	if (from === -1) return
 	moveEntryTo(from, from + delta)
 }
+
+// Editable copy of the path id. Typed edits override it; when the path id
+// changes the derived value resyncs the field.
+let timelapseId = $derived(submittedId)
+
+function loadTimelapse(event: SubmitEvent) {
+	event.preventDefault()
+	onLoad(timelapseId)
+}
+
+/** Add the timelapse id currently on the clipboard. */
+async function pasteAndLoad() {
+	let text = ""
+	try {
+		text = await navigator.clipboard.readText()
+	} catch {
+		return
+	}
+	onLoad(text)
+}
 </script>
 
 <aside
@@ -260,9 +280,43 @@ function moveEntryBy(id: string, delta: number) {
 		</ul>
 	{:else}
 		<p class="text-sm text-neutral-500">
-			No timelapses yet. Open one to add it to this project.
+			No timelapses yet. Add one below.
 		</p>
 	{/if}
+
+	<form
+		class="flex flex-col gap-2 border-t border-neutral-700 pt-3 text-sm"
+		onsubmit={loadTimelapse}
+	>
+		<label class="flex flex-col gap-1">
+			<span class="text-xs uppercase tracking-wide text-neutral-500">
+				Timelapse ID
+			</span>
+			<input
+				type="text"
+				name="timelapseId"
+				placeholder="Enter timelapse ID"
+				bind:value={timelapseId}
+				class="border border-neutral-500 px-2 py-1"
+			>
+		</label>
+		<div class="flex gap-2">
+			<button
+				type="submit"
+				disabled={!timelapseId.trim()}
+				class="flex-1 border border-neutral-500 px-2 py-1 disabled:opacity-50"
+			>
+				Load
+			</button>
+			<button
+				type="button"
+				onclick={pasteAndLoad}
+				class="flex-1 border border-neutral-500 px-2 py-1"
+			>
+				Paste
+			</button>
+		</div>
+	</form>
 
 	<dl class="flex flex-col gap-1 border-t border-neutral-700 pt-2 text-sm">
 		<div class="flex justify-between gap-2">

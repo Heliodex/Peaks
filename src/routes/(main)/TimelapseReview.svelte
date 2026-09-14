@@ -754,7 +754,7 @@ $effect(() => {
 
 	{@render resizeHandle("resize-handle-right", startRightResize)}
 
-	<ReviewHeader {submittedId} onLoad={loadId} />
+	<ReviewHeader />
 
 	{#if submittedId}
 		{#key submittedId}

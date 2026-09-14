@@ -1,32 +1,5 @@
 <script lang="ts">
 import { getLapseData, logout } from "./api.remote.js"
-
-let {
-	submittedId,
-	onLoad,
-}: {
-	submittedId: string
-	onLoad: (id: string) => void
-} = $props()
-
-// Editable copy of the path id. Typed edits override it; when the path id
-// changes the derived value resyncs the field.
-let timelapseId = $derived(submittedId)
-
-function loadTimelapse(event: SubmitEvent) {
-	event.preventDefault()
-	onLoad(timelapseId)
-}
-
-async function pasteAndLoad() {
-	let text = ""
-	try {
-		text = await navigator.clipboard.readText()
-	} catch {
-		return
-	}
-	onLoad(text)
-}
 </script>
 
 <header
@@ -52,33 +25,6 @@ async function pasteAndLoad() {
 			</div>
 		{/if}
 	</svelte:boundary>
-
-	<form class="flex items-center gap-2" onsubmit={loadTimelapse}>
-		<label class="flex items-center gap-2">
-			<span class="text-sm">Timelapse ID</span>
-			<input
-				type="text"
-				name="timelapseId"
-				placeholder="Enter timelapse ID"
-				bind:value={timelapseId}
-				class="border border-neutral-500 px-2 py-1"
-			>
-		</label>
-		<button
-			type="submit"
-			disabled={!timelapseId.trim()}
-			class="border border-neutral-500 px-2 py-1 disabled:opacity-50"
-		>
-			Load
-		</button>
-		<button
-			type="button"
-			onclick={pasteAndLoad}
-			class="border border-neutral-500 px-2 py-1"
-		>
-			Paste
-		</button>
-	</form>
 
 	<form {...logout}>
 		<button type="submit" class="border border-neutral-500 px-2 py-1">
