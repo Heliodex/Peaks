@@ -23,7 +23,7 @@ import {
 } from "./annotations.js"
 import type { IdleRange } from "./idle-time.js"
 import type { ProjectTimelapse } from "./project-storage.js"
-import { loadSelections } from "./selection-storage.js"
+import { loadSelections, saveSelections } from "./selection-storage.js"
 import type { TimelineSelection } from "./timeline.js"
 
 const REASON_IDS = ANNOTATION_REASONS.map(reason => reason.id)
@@ -178,12 +178,14 @@ function parseIdleRanges(value: unknown): IdleRange[] | undefined {
 /**
  * Rebuild a project entry from its raw review inputs, recomputing the derived
  * idle duration, annotation breakdown and description that used to be shipped.
+ * Returns the entry alongside the raw selections it was derived from, so the
+ * caller can persist them for reopening the timelapse later.
  */
 function parseProjectEntry(
 	value: unknown,
 	openId: string,
 	openSelections: TimelineSelection[]
-): ProjectTimelapse | null {
+): { entry: ProjectTimelapse; selections: TimelineSelection[] } | null {
 	if (!Array.isArray(value)) return null
 	const [id, name, duration, ignoreIdle, rawIdleRanges, rawSelections] = value
 	if (
@@ -200,19 +202,22 @@ function parseProjectEntry(
 	// Idle only counts towards the maths when it isn't being ignored.
 	const effectiveRanges = ignore ? [] : (idleRanges ?? [])
 	return {
-		id,
-		name,
-		duration,
-		idleDuration: idleRecordedSeconds(effectiveRanges),
-		annotations: deflationByReason(selections, effectiveRanges),
-		ignoreIdle: ignore,
-		description: describeTimelapse({
+		entry: {
 			id,
+			name,
 			duration,
-			idleRanges: effectiveRanges,
-			selections,
-		}),
-		...(idleRanges !== undefined ? { idleRanges } : {}),
+			idleDuration: idleRecordedSeconds(effectiveRanges),
+			annotations: deflationByReason(selections, effectiveRanges),
+			ignoreIdle: ignore,
+			description: describeTimelapse({
+				id,
+				duration,
+				idleRanges: effectiveRanges,
+				selections,
+			}),
+			...(idleRanges !== undefined ? { idleRanges } : {}),
+		},
+		selections,
 	}
 }
 
@@ -222,18 +227,27 @@ export async function decodeShare(value: string): Promise<ShareState | null> {
 		const bytes = await inflate(fromBase64Url(value))
 		const payload: unknown = JSON.parse(new TextDecoder().decode(bytes))
 		if (!Array.isArray(payload)) return null
-		console.log(JSON.stringify(payload, null, 4))
 		const [i, s, n, p, o] = payload
 		if (!Array.isArray(p) || !Array.isArray(s)) return null
 		const openId = typeof o === "string" ? o : ""
 		const selections = parseSelections(s)
+		const parsed = p
+			.map(entry => parseProjectEntry(entry, openId, selections))
+			.filter(
+				(entry): entry is NonNullable<typeof entry> => Boolean(entry)
+			)
+		// Persist every timelapse's selections so opening a non-open entry
+		// later (which reads from storage via `loadSelections`) restores its
+		// annotations instead of starting empty. The open entry is also saved
+		// here so it survives even if the selections effect hasn't run yet.
+		for (const { entry, selections: entrySelections } of parsed) {
+			saveSelections(entry.id, entrySelections)
+		}
 		return {
 			projectId: typeof i === "string" ? i : "",
 			selections,
 			projectName: typeof n === "string" ? n : "",
-			project: p
-				.map(entry => parseProjectEntry(entry, openId, selections))
-				.filter((entry): entry is ProjectTimelapse => Boolean(entry)),
+			project: parsed.map(({ entry }) => entry),
 			openId,
 		}
 	} catch {
