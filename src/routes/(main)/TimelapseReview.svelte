@@ -1,4 +1,5 @@
 <script lang="ts">
+import { untrack } from "svelte"
 import { SvelteSet } from "svelte/reactivity"
 import {
 	ANNOTATION_REASONS,
@@ -243,11 +244,9 @@ const activeIdleRanges = $derived(effectiveIdleRanges(ignoreIdle, idleRanges))
 /** Time removed from the actual duration as idle, in recorded seconds. */
 const idleDuration = $derived(idleRecordedSeconds(activeIdleRanges))
 
-// Guards against an older async encode resolving after a newer one, and records
-// the param we last wrote so decoding our own URL write can't reset the review.
+// Guards against an older async encode resolving after a newer one.
 let urlToken = 0
 let urlTimer: ReturnType<typeof setTimeout> | undefined
-let lastWrittenParam: string | null = null
 
 // Load the state named by the path: it holds an encoded project state whose
 // `openId` is the open timelapse. A path that doesn't decode is treated as
@@ -258,9 +257,12 @@ let loadToken = 0
 let loaded = $state(false)
 $effect(() => {
 	const param = routeParam
-	// A path we just wrote already matches the in-memory review; skip decoding
-	// it so a debounced URL update can't clobber in-progress edits.
-	if (param && param === lastWrittenParam) return
+	// Our own shallow URL writes already match the in-memory review, so skip
+	// decoding them (reading `encodedState` untracked keeps it from retriggering
+	// this effect). Comparing against the *current* state — rather than a value
+	// we wrote earlier — means a genuine navigation that happens to encode to
+	// the same string still loads.
+	if (param && param === untrack(() => encodedState)) return
 	const token = ++loadToken
 	loaded = false
 	encodedState = ""
@@ -339,6 +341,9 @@ async function loadId(value: string) {
 		project: entries,
 		openId: id,
 	})
+	// Drop any debounced write queued while we were encoding so it can't race
+	// this explicit navigation to the new state.
+	clearTimeout(urlTimer)
 	void goto(`/${encoded}`)
 }
 
@@ -467,13 +472,12 @@ async function syncShareUrl(state: {
  * Mirror the encoded state into the path. Guards ensure a debounced update from
  * a previously open timelapse can only rewrite the URL of the *current* route —
  * it can never navigate back to (or re-apply the project snapshot of) a
- * different timelapse. Recording the written param lets the load effect skip
- * decoding our own update.
+ * different timelapse. The load effect recognises the write because it matches
+ * the state currently held in `encodedState`.
  */
 async function applyShareUrl(id: string, target: string) {
 	if (id !== submittedId) return
 	if (target === window.location.pathname) return
-	lastWrittenParam = target.slice(1)
 	await goto(target, { replace: true, shallow: true, reset: false })
 }
 
