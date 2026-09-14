@@ -7,11 +7,15 @@ import {
 } from "#lib/annotations.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import {
+	createProject,
 	DEFAULT_PROJECT_NAME,
-	loadProject,
+	loadProjects,
+	newProjectId,
 	type Project,
+	type ProjectStore,
 	type ProjectTimelapse,
-	saveProject,
+	saveProjects,
+	uniqueProjectName,
 } from "#lib/project-storage.js"
 import { loadSelections, saveSelections } from "#lib/selection-storage.js"
 import { decodeShare, encodeShare, type ShareState } from "#lib/share.js"
@@ -58,11 +62,6 @@ const routeParam = $derived(
 
 /** Open timelapse id decoded from the path (empty on the `/home` landing). */
 let submittedId = $state("")
-
-// The open timelapse is normally added to the project automatically. When the
-// user removes it explicitly, remember its id so that effect cannot restore the
-// entry we just deleted while the review is being closed.
-let removedOpenId = $state("")
 
 let videoEl = $state<HTMLVideoElement>()
 let selections = $state<TimelineSelection[]>([])
@@ -171,11 +170,18 @@ function startTimelineResize(event: PointerEvent) {
 /** Shareable link for the current review: the encoded state is the path. */
 const shareUrl = $derived(encodedState ? `${SITE_ORIGIN}/${encodedState}` : "")
 
-// The workspace holds a single project. Its name and timelapses are persisted
-// locally, so the project survives reloads.
-let projectName = $state(DEFAULT_PROJECT_NAME)
-let projectEntries = $state<ProjectTimelapse[]>([])
+// Every project lives in local storage; `currentProjectId` names the one open
+// in the panel, which is also the only one mirrored into the URL.
+let projects = $state<Project[]>([])
+let currentProjectId = $state("")
 let projectLoaded = $state(false)
+
+/** The project currently open in the panel. */
+const currentProject = $derived(
+	projects.find(project => project.id === currentProjectId) ?? projects[0]
+)
+const projectName = $derived(currentProject?.name ?? DEFAULT_PROJECT_NAME)
+const projectEntries = $derived(currentProject?.timelapses ?? [])
 
 /**
  * Whether idle time is ignored for the open timelapse. It lives on the project
@@ -241,7 +247,6 @@ $effect(() => {
 	encodedState = ""
 	idleRanges = []
 	idleAnalyzing = false
-	removedOpenId = ""
 	if (!param) {
 		submittedId = ""
 		selections = []
@@ -272,6 +277,7 @@ async function loadId(value: string) {
 	const id = value.trim()
 	if (!id || id === submittedId) return
 	const encoded = await encodeShare({
+		projectId: currentProjectId,
 		selections: loadSelections(id),
 		projectName,
 		project: $state.snapshot(projectEntries),
@@ -280,16 +286,75 @@ async function loadId(value: string) {
 	void goto(`/${encoded}`)
 }
 
+/** Replace the current project with the result of `update`. */
+function updateCurrentProject(update: (project: Project) => Project) {
+	const id = currentProjectId
+	projects = projects.map(project =>
+		project.id === id ? update(project) : project
+	)
+}
+
+/** Rename the open project. */
+function renameCurrentProject(name: string) {
+	const trimmed = name.trim() || DEFAULT_PROJECT_NAME
+	updateCurrentProject(project => ({ ...project, name: trimmed }))
+}
+
+/** Replace the open project's timelapse order. */
+function reorderCurrentProject(timelapses: ProjectTimelapse[]) {
+	updateCurrentProject(project => ({ ...project, timelapses }))
+}
+
 /**
- * Remove a timelapse from the project. The open timelapse is normally kept in
- * the project automatically, so removing it also closes its review — otherwise
- * the add effect would immediately restore the entry we just deleted.
+ * Close the open timelapse, if any. Switching projects calls this so the next
+ * project doesn't adopt a timelapse that belongs to the previous one.
  */
+function closeTimelapse() {
+	if (!submittedId) return
+	submittedId = ""
+	selections = []
+	idleRanges = []
+	idleAnalyzing = false
+}
+
+/** Remove a timelapse from the open project, closing it when it was open. */
 function removeEntry(id: string) {
-	projectEntries = projectEntries.filter(entry => entry.id !== id)
-	if (id !== submittedId) return
-	removedOpenId = id
-	void goto("/home")
+	updateCurrentProject(project => ({
+		...project,
+		timelapses: project.timelapses.filter(entry => entry.id !== id),
+	}))
+	if (id === submittedId) closeTimelapse()
+}
+
+/** Open a different project. */
+function selectProject(id: string) {
+	if (id === currentProjectId) return
+	if (!projects.some(project => project.id === id)) return
+	closeTimelapse()
+	currentProjectId = id
+}
+
+/** Create and open a new empty project. */
+function createNewProject() {
+	const project = createProject(uniqueProjectName(projects))
+	projects = [...projects, project]
+	selectProject(project.id)
+}
+
+/** Delete a project, always leaving at least one behind. */
+function removeProject(id: string) {
+	const remaining = projects.filter(project => project.id !== id)
+	if (remaining.length === 0) {
+		const project = createProject()
+		if (id === currentProjectId) closeTimelapse()
+		projects = [project]
+		currentProjectId = project.id
+		return
+	}
+	projects = remaining
+	if (id !== currentProjectId) return
+	closeTimelapse()
+	currentProjectId = remaining[0].id
 }
 
 /**
@@ -298,6 +363,7 @@ function removeEntry(id: string) {
  * can be shared.
  */
 async function syncShareUrl(state: {
+	projectId: string
 	id: string
 	selections: TimelineSelection[]
 	projectName: string
@@ -305,6 +371,7 @@ async function syncShareUrl(state: {
 }) {
 	const token = ++urlToken
 	const encoded = await encodeShare({
+		projectId: state.projectId,
 		selections: state.selections,
 		projectName: state.projectName,
 		project: state.project,
@@ -337,16 +404,25 @@ async function applyShareUrl(id: string, target: string) {
 	await goto(target, { replace: true, shallow: true, reset: false })
 }
 
-// Persist selections (and their reasons) per timelapse, and mirror the review
-// and project state into the path so the whole session can be shared.
+// Persist the open timelapse's selections (and their reasons) per timelapse.
 $effect(() => {
 	const id = submittedId
 	const value = $state.snapshot(selections)
-	const name = projectName
-	const entries = $state.snapshot(projectEntries)
 	if (!id || !loaded) return
 	saveSelections(id, value)
+})
+
+// Mirror the review — the open project and, when one is open, the timelapse —
+// into the URL. Only the current project is encoded; the rest stay in storage.
+$effect(() => {
+	const id = submittedId
+	const value = $state.snapshot(selections)
+	const projectId = currentProjectId
+	const name = projectName
+	const entries = $state.snapshot(projectEntries)
+	if (!projectLoaded || !loaded) return
 	void syncShareUrl({
+		projectId,
 		id,
 		selections: value,
 		projectName: name,
@@ -355,38 +431,51 @@ $effect(() => {
 	return () => clearTimeout(urlTimer)
 })
 
-// Load the single workspace project once on the client; local storage isn't
+// Load the workspace's projects once on the client; local storage isn't
 // available during SSR, so this must not run in the initial render.
 $effect(() => {
-	const project = loadProject()
-	projectName = project.name
-	projectEntries = project.timelapses
+	const store = loadProjects()
+	projects = store.projects
+	currentProjectId = store.currentId
 	projectLoaded = true
 })
 
-// Persist the project whenever its name or timelapses change.
+// Persist every project whenever anything about them changes.
 $effect(() => {
-	const project: Project = {
-		name: projectName,
-		timelapses: $state.snapshot(projectEntries),
+	const store: ProjectStore = {
+		projects: $state.snapshot(projects),
+		currentId: currentProjectId,
 	}
 	if (!projectLoaded) return
-	saveProject(project)
+	saveProjects(store)
 })
 
-/** Adopt the project carried by a shared URL. */
+/** Adopt the project carried by a shared URL and make it current. */
 function importSharedProject(shared: ShareState) {
-	if (shared.projectName.trim()) projectName = shared.projectName.trim()
-	projectEntries = shared.project
+	const id = shared.projectId || newProjectId()
+	const project: Project = {
+		id,
+		name: shared.projectName.trim() || DEFAULT_PROJECT_NAME,
+		timelapses: shared.project,
+	}
+	const index = projects.findIndex(item => item.id === id)
+	projects =
+		index === -1
+			? [...projects, project]
+			: projects.map((item, i) => (i === index ? project : item))
+	currentProjectId = id
 }
 
 /** Toggle whether idle time is ignored for the open timelapse. */
 function setIgnoreIdle(value: boolean) {
 	const index = projectEntries.findIndex(entry => entry.id === submittedId)
 	if (index === -1) return
-	projectEntries = projectEntries.map((entry, i) =>
-		i === index ? { ...entry, ignoreIdle: value } : entry
-	)
+	updateCurrentProject(project => ({
+		...project,
+		timelapses: project.timelapses.map((entry, i) =>
+			i === index ? { ...entry, ignoreIdle: value } : entry
+		),
+	}))
 }
 
 /** Totals for the current project, in recorded seconds. */
@@ -480,8 +569,7 @@ $effect(() => {
 	const ranges = $state.snapshot(effectiveIdleRanges)
 	const currentSelections = $state.snapshot(selections)
 	const annotations = deflationByReason(currentSelections, ranges)
-	if (!id || !loaded || !meta || meta.id !== id || id === removedOpenId)
-		return
+	if (!id || !loaded || !meta || meta.id !== id) return
 	const index = projectEntries.findIndex(entry => entry.id === id)
 	const existing = index === -1 ? undefined : projectEntries[index]
 	const name = meta.name?.trim() ?? ""
@@ -512,10 +600,15 @@ $effect(() => {
 		ignoreIdle,
 		description,
 	}
-	projectEntries =
-		index === -1
-			? [...projectEntries, entry]
-			: projectEntries.map((item, i) => (i === index ? entry : item))
+	updateCurrentProject(project => ({
+		...project,
+		timelapses:
+			index === -1
+				? [...project.timelapses, entry]
+				: project.timelapses.map((item, i) =>
+						i === index ? entry : item
+					),
+	}))
 })
 </script>
 
@@ -524,13 +617,20 @@ $effect(() => {
 	style="--left-width: {leftWidth}px; --right-width: {rightWidth}px; --timeline-height: {timelineRowHeight};"
 >
 	<ProjectPane
-		bind:projectName
-		bind:projectEntries
+		{projects}
+		{currentProjectId}
+		{projectName}
+		{projectEntries}
 		{submittedId}
 		{projectTotals}
 		{projectDescription}
 		onLoad={loadId}
-		onRemove={removeEntry}
+		onRemoveTimelapse={removeEntry}
+		onRenameProject={renameCurrentProject}
+		onReorderProject={reorderCurrentProject}
+		onSelectProject={selectProject}
+		onCreateProject={createNewProject}
+		onRemoveProject={removeProject}
 	/>
 
 	<div
@@ -615,7 +715,7 @@ $effect(() => {
 				{/if}
 			</svelte:boundary>
 		{/key}
-	{:else if routeParam}
+	{:else if routeParam && !loaded}
 		<section class="area-video flex items-center justify-center p-4">
 			<p>Loading timelapse…</p>
 		</section>

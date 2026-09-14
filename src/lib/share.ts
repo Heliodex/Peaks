@@ -1,9 +1,10 @@
-// Encodes a review session — the open timelapse's selections plus the sidebar
-// project (name, timelapses and the open id) — into a compact, URL-safe string
-// so it can be shared or bookmarked. Times are stored as integer milliseconds
-// and annotation reasons as catalog indexes, then the JSON is deflated. This
-// string is the whole share URL path: the open timelapse id is recovered from
-// it rather than stored separately.
+// Encodes a review session — the open timelapse's selections plus the project
+// currently open in the sidebar (its id, name, timelapses and the open id) —
+// into a compact, URL-safe string so it can be shared or bookmarked. Times are
+// stored as integer milliseconds and annotation reasons as catalog indexes,
+// then the JSON is deflated. This string is the whole share URL path: the open
+// timelapse id is recovered from it rather than stored separately. Only the
+// current project travels in the URL; the rest stay in local storage.
 
 import { ANNOTATION_REASONS, type AnnotationDeflation } from "./annotations.js"
 import type { ProjectTimelapse } from "./project-storage.js"
@@ -12,6 +13,7 @@ import type { TimelineSelection } from "./timeline.js"
 const REASON_IDS = ANNOTATION_REASONS.map(reason => reason.id)
 
 export type ShareState = {
+	projectId: string
 	selections: TimelineSelection[]
 	projectName: string
 	project: ProjectTimelapse[]
@@ -29,6 +31,7 @@ type ShareProjectTuple = [
 	0 | 1,
 ]
 type SharePayload = {
+	i: string
 	s: [number, number, number][]
 	n: string
 	p: ShareProjectTuple[]
@@ -83,6 +86,7 @@ async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
 
 export async function encodeShare(state: ShareState): Promise<string> {
 	const payload: SharePayload = {
+		i: state.projectId,
 		s: state.selections.map(selection => [
 			Math.round(selection.start * 1000),
 			Math.round(selection.end * 1000),
@@ -180,9 +184,10 @@ export async function decodeShare(value: string): Promise<ShareState | null> {
 		const bytes = marker === "1" ? await inflate(raw) : raw
 		const payload: unknown = JSON.parse(new TextDecoder().decode(bytes))
 		if (typeof payload !== "object" || payload === null) return null
-		const { s, n, p, o } = payload as Record<string, unknown>
+		const { i, s, n, p, o } = payload as Record<string, unknown>
 		if (!Array.isArray(s) || !Array.isArray(p)) return null
 		return {
+			projectId: typeof i === "string" ? i : "",
 			selections: s
 				.map(parseSelection)
 				.filter((selection): selection is TimelineSelection =>

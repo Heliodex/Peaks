@@ -2,27 +2,42 @@
 import { flip } from "svelte/animate"
 import {
 	DEFAULT_PROJECT_NAME,
+	type Project,
 	type ProjectTimelapse,
 } from "#lib/project-storage.js"
 import { annotationTotal, formatDuration } from "./review-format.js"
 import type { ProjectTotals } from "./review-types.js"
 
 let {
-	projectName = $bindable(""),
-	projectEntries = $bindable<ProjectTimelapse[]>([]),
+	projects = [],
+	currentProjectId = "",
+	projectName = "",
+	projectEntries = [],
 	submittedId,
 	projectTotals,
 	projectDescription,
 	onLoad,
-	onRemove,
+	onRemoveTimelapse,
+	onRenameProject,
+	onReorderProject,
+	onSelectProject,
+	onCreateProject,
+	onRemoveProject,
 }: {
-	projectName?: string
-	projectEntries?: ProjectTimelapse[]
+	projects: Project[]
+	currentProjectId: string
+	projectName: string
+	projectEntries: ProjectTimelapse[]
 	submittedId: string
 	projectTotals: ProjectTotals
 	projectDescription: string
 	onLoad: (id: string) => void
-	onRemove: (id: string) => void
+	onRemoveTimelapse: (id: string) => void
+	onRenameProject: (name: string) => void
+	onReorderProject: (entries: ProjectTimelapse[]) => void
+	onSelectProject: (id: string) => void
+	onCreateProject: () => void
+	onRemoveProject: (id: string) => void
 } = $props()
 
 let draggingId = $state<string | null>(null)
@@ -44,15 +59,15 @@ async function copyProjectText(text: string) {
 
 $effect(() => () => clearTimeout(projectCopyTimer))
 
-/** Rename the project (this never changes which timelapses it contains). */
+/** Rename the current project (this never changes which timelapses it holds). */
 function renameProject(name: string) {
-	projectName = name.trim() || DEFAULT_PROJECT_NAME
+	onRenameProject(name)
 }
 
 /**
- * Move `sourceId` so it lands at `targetIndex` in the list. Only updates
- * state (the project's persistence effect saves the new order) so drag-over
- * can call it repeatedly while `animate:flip` animates each shift.
+ * Move `sourceId` so it lands at `targetIndex` in the list. Only asks the parent
+ * to update the order (its persistence effect saves it) so drag-over can call
+ * it repeatedly while `animate:flip` animates each shift.
  */
 function moveToIndex(sourceId: string, targetIndex: number): boolean {
 	const from = projectEntries.findIndex(entry => entry.id === sourceId)
@@ -63,7 +78,7 @@ function moveToIndex(sourceId: string, targetIndex: number): boolean {
 	const updated = [...projectEntries]
 	const [moved] = updated.splice(from, 1)
 	updated.splice(insert, 0, moved)
-	projectEntries = updated
+	onReorderProject(updated)
 	return true
 }
 
@@ -115,16 +130,54 @@ function moveEntryBy(id: string, delta: number) {
 	const updated = [...projectEntries]
 	const [moved] = updated.splice(from, 1)
 	updated.splice(to, 0, moved)
-	projectEntries = updated
+	onReorderProject(updated)
 }
 </script>
 
 <aside
 	class="area-project flex min-h-0 flex-col gap-3 overflow-y-auto border-neutral-500 p-3 lg:border-l"
 >
-	<h2 class="font-medium">Project</h2>
+	<h2 class="font-medium">Projects</h2>
 
-	<label class="flex flex-col gap-1 text-sm">
+	<ul class="flex flex-col gap-1 text-sm">
+		{#each projects as project (project.id)}
+			<li
+				class="flex items-center gap-2 border-b border-neutral-800 pb-1"
+			>
+				<button
+					type="button"
+					onclick={() => onSelectProject(project.id)}
+					title={project.name}
+					aria-current={project.id === currentProjectId}
+					class="min-w-0 flex-1 cursor-pointer truncate text-left hover:underline {project.id ===
+					currentProjectId
+						? 'font-medium text-blue-400'
+						: ''}"
+				>
+					{project.name}
+				</button>
+				<button
+					type="button"
+					onclick={() => onRemoveProject(project.id)}
+					title="Delete project"
+					aria-label="Delete {project.name}"
+					class="shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
+				>
+					Delete
+				</button>
+			</li>
+		{/each}
+	</ul>
+
+	<button
+		type="button"
+		onclick={onCreateProject}
+		class="cursor-pointer border border-neutral-500 px-2 py-1 text-sm hover:bg-neutral-800"
+	>
+		New project
+	</button>
+
+	<label class="flex flex-col gap-1 border-t border-neutral-700 pt-3 text-sm">
 		<span class="text-xs uppercase tracking-wide text-neutral-500">
 			Name
 		</span>
@@ -213,7 +266,7 @@ function moveEntryBy(id: string, delta: number) {
 					</div>
 					<button
 						type="button"
-						onclick={() => onRemove(entry.id)}
+						onclick={() => onRemoveTimelapse(entry.id)}
 						title="Remove from project"
 						aria-label="Remove {entry.name || entry.id} from project"
 						class="shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
@@ -225,7 +278,7 @@ function moveEntryBy(id: string, delta: number) {
 		</ul>
 	{:else}
 		<p class="text-sm text-neutral-500">
-			No timelapses yet. Open one to add it to the project.
+			No timelapses yet. Open one to add it to this project.
 		</p>
 	{/if}
 
