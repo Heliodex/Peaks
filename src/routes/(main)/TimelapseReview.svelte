@@ -33,6 +33,7 @@ import { goto } from "$app/navigation"
 import { page } from "$app/state"
 import { getTimelapse } from "./api.remote.js"
 import ProjectPane from "./ProjectPane.svelte"
+import ProjectTimelapses from "./ProjectTimelapses.svelte"
 import ReviewDetails from "./ReviewDetails.svelte"
 import { entryFinalDuration } from "./review-format.js"
 import type { ReviewTimelapse } from "./review-types.js"
@@ -827,8 +828,12 @@ $effect(() => {
 		{/key}
 	{:else if routeParam && !loaded}
 		{@render centeredState("Loading timelapse…")}
+	{:else if projectEntries.length > 0}
+		<ProjectTimelapses entries={projectEntries} onLoad={loadId} />
 	{:else}
-		{@render centeredState("Enter a timelapse ID above to review it here.")}
+		{@render centeredState(
+			"No timelapses in this project. Add one from the Project panel."
+		)}
 	{/if}
 </main>
 

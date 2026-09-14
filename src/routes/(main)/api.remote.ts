@@ -93,3 +93,35 @@ export const getTimelapse = query(type("string"), async timelapseId => {
 		},
 	}
 })
+
+/**
+ * Thumbnail URLs for a batch of timelapses, keyed by id. Ids that can't be
+ * resolved (deleted, or a failed request) map to `null` so the grid can fall
+ * back to a placeholder. One query per batch keeps the overview cheap.
+ */
+export const getTimelapseThumbnails = query(
+	type("string[]"),
+	async timelapseIds => {
+		const { user } = await authorise()
+
+		const [result] = await db.query<string[][]>(
+			"SELECT VALUE lapseData.accessToken FROM $user",
+			{ user: user.id }
+		)
+		const accessToken = result?.[0] ?? user.lapseData.accessToken
+		if (!accessToken) return {}
+
+		const ids = [...new Set(timelapseIds.filter(Boolean))]
+		const pairs = await Promise.all(
+			ids.map(async id => {
+				try {
+					const timelapse = await fetchLapseTimelapse(accessToken, id)
+					return [id, timelapse?.thumbnailUrl ?? null] as const
+				} catch {
+					return [id, null] as const
+				}
+			})
+		)
+		return Object.fromEntries(pairs)
+	}
+)
