@@ -233,10 +233,13 @@ let lastWrittenParam: string | null = null
 
 // Load the state named by the path: it holds an encoded project state whose
 // `openId` is the open timelapse, or — for links without state — a bare
-// timelapse id that falls back to locally saved selections. Resets idle
-// analysis because the underlying video changes.
+// timelapse id that falls back to locally saved selections. `decodeFailed`
+// records that the path wasn't a valid project state, so a later miss can be
+// reported as a bad link rather than an unknown timelapse. Resets idle analysis
+// because the underlying video changes.
 let loadToken = 0
 let loaded = $state(false)
+let decodeFailed = $state(false)
 $effect(() => {
 	const param = routeParam
 	// A path we just wrote already matches the in-memory review; skip decoding
@@ -244,6 +247,7 @@ $effect(() => {
 	if (param && param === lastWrittenParam) return
 	const token = ++loadToken
 	loaded = false
+	decodeFailed = false
 	encodedState = ""
 	idleRanges = []
 	idleAnalyzing = false
@@ -261,6 +265,7 @@ $effect(() => {
 			selections = decoded.selections
 			importSharedProject(decoded)
 		} else {
+			decodeFailed = true
 			submittedId = param
 			selections = loadSelections(param)
 		}
@@ -710,7 +715,14 @@ $effect(() => {
 					<section
 						class="area-video flex items-center justify-center p-4"
 					>
-						<p>No timelapse found for ID “{submittedId}”.</p>
+						{#if decodeFailed}
+							<p class="text-center">
+								Couldn't decode the project state. The link may
+								be corrupted or incomplete.
+							</p>
+						{:else}
+							<p>No timelapse found for ID “{submittedId}”.</p>
+						{/if}
 					</section>
 				{/if}
 			</svelte:boundary>

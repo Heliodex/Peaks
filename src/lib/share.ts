@@ -1,10 +1,12 @@
 // Encodes a review session — the open timelapse's selections plus the project
 // currently open in the sidebar (its id, name, timelapses and the open id) —
 // into a compact, URL-safe string so it can be shared or bookmarked. Times are
-// stored as integer milliseconds and annotation reasons as catalog indexes,
-// then the JSON is deflated. This string is the whole share URL path: the open
-// timelapse id is recovered from it rather than stored separately. Only the
-// current project travels in the URL; the rest stay in local storage.
+// stored as integer milliseconds and annotation reasons as catalog indexes; the
+// payload is a positional JSON array (no repeated keys) that is then deflated
+// with raw deflate (so there are no zlib/gzip wrapper bytes) and base64url
+// encoded without a leading marker. This string is the whole share URL path:
+// the open timelapse id is recovered from it rather than stored separately.
+// Only the current project travels in the URL; the rest stay in local storage.
 
 import { ANNOTATION_REASONS, type AnnotationDeflation } from "./annotations.js"
 import type { ProjectTimelapse } from "./project-storage.js"
@@ -20,6 +22,7 @@ export type ShareState = {
 	openId: string
 }
 
+type ShareSelectionTuple = [number, number, number]
 type ShareAnnotationTuple = [string, number]
 type ShareProjectTuple = [
 	string,
@@ -30,13 +33,14 @@ type ShareProjectTuple = [
 	string,
 	0 | 1,
 ]
-type SharePayload = {
-	i: string
-	s: [number, number, number][]
-	n: string
-	p: ShareProjectTuple[]
-	o: string
-}
+/** Positional payload: `[projectId, selections, projectName, project, openId]`. */
+type SharePayload = [
+	string,
+	ShareSelectionTuple[],
+	string,
+	ShareProjectTuple[],
+	string,
+]
 
 function toBase64Url(bytes: Uint8Array): string {
 	let binary = ""
@@ -64,17 +68,12 @@ function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 	) as ArrayBuffer
 }
 
-/** Deflate `bytes`, or return null when compression isn't available. */
-async function deflate(bytes: Uint8Array): Promise<Uint8Array | null> {
-	if (typeof CompressionStream === "undefined") return null
-	try {
-		const stream = new Blob([asArrayBuffer(bytes)])
-			.stream()
-			.pipeThrough(new CompressionStream("deflate-raw"))
-		return new Uint8Array(await new Response(stream).arrayBuffer())
-	} catch {
-		return null
-	}
+/** Compress `bytes` with raw DEFLATE, which carries no zlib/gzip wrapper. */
+async function deflate(bytes: Uint8Array): Promise<Uint8Array> {
+	const stream = new Blob([asArrayBuffer(bytes)])
+		.stream()
+		.pipeThrough(new CompressionStream("deflate-raw"))
+	return new Uint8Array(await new Response(stream).arrayBuffer())
 }
 
 async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
@@ -85,15 +84,15 @@ async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
 }
 
 export async function encodeShare(state: ShareState): Promise<string> {
-	const payload: SharePayload = {
-		i: state.projectId,
-		s: state.selections.map(selection => [
+	const payload: SharePayload = [
+		state.projectId,
+		state.selections.map(selection => [
 			Math.round(selection.start * 1000),
 			Math.round(selection.end * 1000),
 			selection.reason ? REASON_IDS.indexOf(selection.reason) : -1,
 		]),
-		n: state.projectName,
-		p: state.project.map(entry => [
+		state.projectName,
+		state.project.map(entry => [
 			entry.id,
 			entry.name,
 			entry.duration,
@@ -105,12 +104,10 @@ export async function encodeShare(state: ShareState): Promise<string> {
 			entry.description,
 			entry.ignoreIdle ? 1 : 0,
 		]),
-		o: state.openId,
-	}
+		state.openId,
+	]
 	const bytes = new TextEncoder().encode(JSON.stringify(payload))
-	const compressed = await deflate(bytes)
-	// `1` marks a deflated payload, `0` an uncompressed fallback.
-	return compressed ? `1${toBase64Url(compressed)}` : `0${toBase64Url(bytes)}`
+	return toBase64Url(await deflate(bytes))
 }
 
 function parseSelection(
@@ -178,13 +175,11 @@ function parseProjectEntry(value: unknown): ProjectTimelapse | null {
 
 export async function decodeShare(value: string): Promise<ShareState | null> {
 	if (!value) return null
-	const marker = value[0]
 	try {
-		const raw = fromBase64Url(value.slice(1))
-		const bytes = marker === "1" ? await inflate(raw) : raw
+		const bytes = await inflate(fromBase64Url(value))
 		const payload: unknown = JSON.parse(new TextDecoder().decode(bytes))
-		if (typeof payload !== "object" || payload === null) return null
-		const { i, s, n, p, o } = payload as Record<string, unknown>
+		if (!Array.isArray(payload)) return null
+		const [i, s, n, p, o] = payload
 		if (!Array.isArray(s) || !Array.isArray(p)) return null
 		return {
 			projectId: typeof i === "string" ? i : "",
