@@ -34,8 +34,8 @@ import { page } from "$app/state"
 import { getTimelapse } from "./api.remote.js"
 import ProjectPane from "./ProjectPane.svelte"
 import ReviewDetails from "./ReviewDetails.svelte"
-import ReviewHeader from "./ReviewHeader.svelte"
 import { entryFinalDuration } from "./review-format.js"
+import type { ReviewTimelapse } from "./review-types.js"
 import TimelinePane from "./TimelinePane.svelte"
 import VideoPane from "./VideoPane.svelte"
 
@@ -208,6 +208,10 @@ let currentMeta = $state<{
 	name?: string
 	duration: number
 } | null>(null)
+
+// The fully resolved timelapse for the info panel. The center panes await the
+// same cached query, but the panel renders even before (or without) one.
+let currentTimelapse = $state<ReviewTimelapse | null>(null)
 
 /** Whether two annotation breakdowns carry the same reasons and durations. */
 function sameAnnotations(
@@ -622,29 +626,33 @@ const projectDescription = $derived.by(() => {
 $effect(() => {
 	const id = submittedId
 	currentMeta = null
+	currentTimelapse = null
 	if (!id) return
 	void getTimelapse(id)
 		.then(timelapse => {
+			if (submittedId === id) {
+				currentTimelapse = timelapse ?? null
+				currentMeta = timelapse
+					? {
+							id,
+							name: timelapse.name,
+							duration: timelapse.duration,
+						}
+					: null
+			}
 			if (timelapse) {
 				pendingAdds.delete(id)
-				if (submittedId === id) {
-					currentMeta = {
-						id,
-						name: timelapse.name,
-						duration: timelapse.duration,
-					}
-				}
-			} else {
-				if (submittedId === id) currentMeta = null
+			} else if (pendingAdds.has(id)) {
 				// The id couldn't be resolved, so drop the optimistic entry.
-				if (pendingAdds.has(id)) {
-					pendingAdds.delete(id)
-					removeEntry(id)
-				}
+				pendingAdds.delete(id)
+				removeEntry(id)
 			}
 		})
 		.catch(() => {
-			if (submittedId === id) currentMeta = null
+			if (submittedId === id) {
+				currentTimelapse = null
+				currentMeta = null
+			}
 			if (pendingAdds.has(id)) {
 				pendingAdds.delete(id)
 				removeEntry(id)
@@ -754,7 +762,17 @@ $effect(() => {
 
 	{@render resizeHandle("resize-handle-right", startRightResize)}
 
-	<ReviewHeader />
+	<ReviewDetails
+		timelapse={currentTimelapse}
+		bind:selections
+		{idleRanges}
+		{idleAnalyzing}
+		{ignoreIdle}
+		onToggleIgnoreIdle={setIgnoreIdle}
+		onRecalculateIdle={recalculateIdle}
+	/>
+
+	{@render resizeHandle("resize-handle-left", startLeftResize)}
 
 	{#if submittedId}
 		{#key submittedId}
@@ -784,18 +802,6 @@ $effect(() => {
 				{const timelapse = await getTimelapse(submittedId)}
 				{#if timelapse}
 					<VideoPane {timelapse} bind:videoEl />
-
-					<ReviewDetails
-						{timelapse}
-						bind:selections
-						{idleRanges}
-						{idleAnalyzing}
-						{ignoreIdle}
-						onToggleIgnoreIdle={setIgnoreIdle}
-						onRecalculateIdle={recalculateIdle}
-					/>
-
-					{@render resizeHandle("resize-handle-left", startLeftResize)}
 
 					{#if videoEl && timelapse.playbackUrl}
 						<TimelinePane
@@ -833,9 +839,8 @@ $effect(() => {
 	height: 100dvh;
 	overflow: hidden;
 	grid-template-columns: var(--left-width) minmax(0, 1fr) var(--right-width);
-	grid-template-rows: auto minmax(0, 1fr) var(--timeline-height);
+	grid-template-rows: minmax(0, 1fr) var(--timeline-height);
 	grid-template-areas:
-		"right header project"
 		"right video project"
 		"timeline timeline timeline";
 }
@@ -877,10 +882,6 @@ $effect(() => {
 	grid-area: project;
 }
 
-:global(.area-header) {
-	grid-area: header;
-}
-
 :global(.area-video) {
 	grid-area: video;
 }
@@ -904,7 +905,6 @@ $effect(() => {
 	}
 
 	:global(.area-project),
-	:global(.area-header),
 	:global(.area-video),
 	:global(.area-right),
 	:global(.area-timeline) {
