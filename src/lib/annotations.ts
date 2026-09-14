@@ -101,20 +101,20 @@ export const ANNOTATION_REASONS: AnnotationReason[] = [
 		color: "red",
 	},
 	{
-		id: "researching",
-		label: "Researching",
-		summaryLabel: "spent researching",
-		deflation: 1 / 2,
-		deflationLabel: "1/2 deflated",
-		color: "blue",
-	},
-	{
 		id: "planning",
 		label: "Planning",
 		summaryLabel: "spent planning",
 		deflation: 1 / 2,
 		deflationLabel: "1/2 deflated",
 		color: "teal",
+	},
+	{
+		id: "researching",
+		label: "Researching",
+		summaryLabel: "spent researching",
+		deflation: 1 / 2,
+		deflationLabel: "1/2 deflated",
+		color: "blue",
 	},
 	{
 		id: "idle",
