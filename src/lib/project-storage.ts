@@ -36,8 +36,6 @@ export type ProjectStore = {
 export const DEFAULT_PROJECT_NAME = "Untitled project"
 
 const STORAGE_KEY = "peaks:projects"
-// The previous single-project format, migrated on first load.
-const LEGACY_STORAGE_KEY = "peaks:project"
 
 function isFiniteNonNegative(value: unknown): value is number {
 	return typeof value === "number" && Number.isFinite(value) && value >= 0
@@ -155,21 +153,6 @@ function emptyStore(): ProjectStore {
 	return { projects: [project], currentId: project.id }
 }
 
-/** Read the single-project format saved by older versions, if present. */
-function loadLegacyProject(): Project | null {
-	const raw = localStorage.getItem(LEGACY_STORAGE_KEY)
-	if (!raw) return null
-	const parsed: unknown = JSON.parse(raw)
-	if (typeof parsed !== "object" || parsed === null) return null
-	const { name, timelapses } = parsed as Record<string, unknown>
-	localStorage.removeItem(LEGACY_STORAGE_KEY)
-	return {
-		id: newProjectId(),
-		name: typeof name === "string" && name ? name : DEFAULT_PROJECT_NAME,
-		timelapses: parseTimelapses(timelapses),
-	}
-}
-
 /** Load the workspace's projects, falling back to a single empty project. */
 export function loadProjects(): ProjectStore {
 	if (typeof localStorage === "undefined") return emptyStore()
@@ -179,8 +162,6 @@ export function loadProjects(): ProjectStore {
 			const store = parseStore(JSON.parse(raw))
 			if (store) return store
 		}
-		const legacy = loadLegacyProject()
-		if (legacy) return { projects: [legacy], currentId: legacy.id }
 		return emptyStore()
 	} catch {
 		return emptyStore()
