@@ -3,14 +3,17 @@
 // is unavailable (an insecure context, or storage denied), it no-ops and the
 // in-memory caches behave exactly as before.
 
-const CACHE_NAME = "peaks:thumbnails:v1"
+const CACHE_NAME = "peaks:thumbnails:v2"
+// v1 stored base64 data URLs as text; reading those as blobs would be wrong,
+// so it's dropped on startup.
+const LEGACY_CACHE_NAME = "peaks:thumbnails:v1"
 // A same-origin path used purely as a cache key; it never hits the server.
 const KEY_PATH = "/__peaks-thumbnails"
 // Upper bound on how many sources' thumbnails to retain per kind, so storage
 // can't creep up across sessions.
 const MAX_PERSISTED_SOURCES = 12
 
-export type StoredThumbnail = { key: number; url: string }
+export type StoredThumbnail = { key: number; blob: Blob }
 
 function keyFor(kind: string, source: string, key: number): string {
 	const params = new URLSearchParams({
@@ -53,7 +56,7 @@ export async function loadThumbnails(
 			if (!Number.isFinite(key)) continue
 			const response = await cache.match(request)
 			if (!response) continue
-			results.push({ key, url: await response.text() })
+			results.push({ key, blob: await response.blob() })
 		}
 		return results
 	} catch {
@@ -66,15 +69,15 @@ export async function saveThumbnail(
 	kind: string,
 	source: string,
 	key: number,
-	url: string
+	blob: Blob
 ): Promise<void> {
 	const cache = await openCache()
 	if (!cache) return
 	try {
 		await cache.put(
 			keyFor(kind, source, key),
-			new Response(url, {
-				headers: { "content-type": "text/plain; charset=utf-8" },
+			new Response(blob, {
+				headers: { "content-type": "image/jpeg" },
 			})
 		)
 	} catch {
@@ -151,9 +154,15 @@ export async function pruneThumbnails(): Promise<void> {
 // Trim anything left over from previous sessions, once per page load, but wait
 // until after first paint so pruning can't delay the initial thumbnails.
 if (typeof window !== "undefined") {
+	const maintenance = () => {
+		void pruneThumbnails()
+		if (typeof caches !== "undefined") {
+			void caches.delete(LEGACY_CACHE_NAME)
+		}
+	}
 	if (typeof requestIdleCallback === "function") {
-		requestIdleCallback(() => void pruneThumbnails())
+		requestIdleCallback(maintenance)
 	} else {
-		setTimeout(() => void pruneThumbnails(), 3000)
+		setTimeout(maintenance, 3000)
 	}
 }

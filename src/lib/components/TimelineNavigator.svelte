@@ -2,6 +2,7 @@
 import { untrack } from "svelte"
 import { SvelteMap } from "svelte/reactivity"
 import { selectionColors } from "#lib/annotations.js"
+import type { CapturedFrame } from "#lib/frame-capture.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import {
 	deleteThumbnails,
@@ -49,7 +50,7 @@ let {
 	view?: ViewWindow
 	onviewchange?: (view: ViewWindow) => void
 	/** Capture a frame from the shared timeline pool (avoids another video). */
-	captureFrame: (time: number, epsilon?: number) => Promise<string>
+	captureFrame: (time: number, epsilon?: number) => Promise<CapturedFrame>
 } = $props()
 
 // Smallest on-screen width (px) the zoom window may shrink to
@@ -70,7 +71,11 @@ function cacheNavFrames(source: string, frames: string[]) {
 	while (navFrameCache.size > MAX_CACHED_NAV) {
 		const oldest = navFrameCache.keys().next().value
 		if (oldest === undefined) break
+		const evicted = navFrameCache.get(oldest)
 		navFrameCache.delete(oldest)
+		if (evicted) {
+			for (const url of evicted) URL.revokeObjectURL(url)
+		}
 		void deleteThumbnails(NAV_THUMBNAIL_KIND, oldest)
 	}
 }
@@ -93,44 +98,56 @@ $effect(() => {
 	}
 
 	let cancelled = false
+	// Frames captured by this run. If the run is cancelled before its frames
+	// are cached, their object URLs are revoked so they can't leak.
+	let frames: string[] = []
+	let retained = false
 
 	void (async () => {
 		// Reuse thumbnails captured in a previous session, if any.
 		const stored = await loadThumbnails(NAV_THUMBNAIL_KIND, src)
 		if (cancelled) return
 		if (stored.length > 0) {
-			const frames: string[] = []
-			for (const { key, url } of stored) frames[key] = url
+			for (const { key, blob } of stored) {
+				frames[key] = URL.createObjectURL(blob)
+			}
 			cacheNavFrames(src, frames)
+			retained = true
 			navFrames = frames
 			return
 		}
 
 		navFrames = []
-		let frames: string[] = []
 		// Capture sequentially through the shared timeline pool, so the overview
 		// doesn't open a video element of its own.
 		for (let i = 0; i < NAV_FRAME_COUNT; i++) {
 			if (cancelled) return
 			const time = (total * i) / (NAV_FRAME_COUNT - 1)
 			try {
-				const url = await captureFrame(time)
-				if (cancelled) return
+				const captured = await captureFrame(time)
+				if (cancelled) {
+					URL.revokeObjectURL(captured.url)
+					return
+				}
 				const next = [...frames]
-				next[i] = url
+				next[i] = captured.url
 				frames = next
 				navFrames = next
-				void saveThumbnail(NAV_THUMBNAIL_KIND, src, i, url)
+				void saveThumbnail(NAV_THUMBNAIL_KIND, src, i, captured.blob)
 			} catch {
 				// Leave a gap for any frame we couldn't capture.
 			}
 		}
 		if (cancelled || frames.length === 0) return
 		cacheNavFrames(src, frames)
+		retained = true
 	})()
 
 	return () => {
 		cancelled = true
+		if (!retained) {
+			for (const url of frames) URL.revokeObjectURL(url)
+		}
 	}
 })
 

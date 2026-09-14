@@ -2,11 +2,32 @@
 
 import { lapseProxyUrl } from "./lapse.js"
 
+export type CapturedFrame = {
+	/** Raw JPEG bytes, ready to persist without any base64 round-trip. */
+	blob: Blob
+	/** Object URL for rendering the frame in an `<img>`. */
+	url: string
+}
+
 export type FrameCapturer = {
 	/** Seek to `time` and return a small JPEG snapshot. */
-	captureAt: (time: number, epsilon?: number) => Promise<string>
+	captureAt: (time: number, epsilon?: number) => Promise<CapturedFrame>
 	/** Release the underlying video element. */
 	dispose: () => void
+}
+
+/** Encode a canvas as a JPEG blob (the async counterpart of `toDataURL`). */
+function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+	return new Promise((resolve, reject) => {
+		canvas.toBlob(
+			blob =>
+				blob
+					? resolve(blob)
+					: reject(new Error("Failed to encode frame")),
+			"image/jpeg",
+			quality
+		)
+	})
 }
 
 // Give up on a seek that never settles, so one stalled frame can't block a
@@ -70,7 +91,10 @@ export function createFrameCapturer(
 	let disposed = false
 	let queue: Promise<unknown> = Promise.resolve()
 
-	async function runCapture(time: number, epsilon: number): Promise<string> {
+	async function runCapture(
+		time: number,
+		epsilon: number
+	): Promise<CapturedFrame> {
 		if (disposed) throw new Error("Frame capturer disposed")
 		const el = await ready
 		const target = Math.max(
@@ -88,7 +112,8 @@ export function createFrameCapturer(
 		const ctx = canvas.getContext("2d")
 		if (!ctx) throw new Error("No canvas context")
 		ctx.drawImage(el, 0, 0, canvas.width, canvas.height)
-		return canvas.toDataURL("image/jpeg", quality)
+		const blob = await toBlob(canvas, quality)
+		return { blob, url: URL.createObjectURL(blob) }
 	}
 
 	/**
@@ -96,7 +121,7 @@ export function createFrameCapturer(
 	 * the navigator overview share one capturer, so queueing here stops their
 	 * seeks from interleaving on the same video element.
 	 */
-	function captureAt(time: number, epsilon = 0.001): Promise<string> {
+	function captureAt(time: number, epsilon = 0.001): Promise<CapturedFrame> {
 		const task = queue.then(() => runCapture(time, epsilon))
 		queue = task.then(
 			() => undefined,

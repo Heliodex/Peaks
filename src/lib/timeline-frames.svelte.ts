@@ -7,7 +7,11 @@
 
 import { untrack } from "svelte"
 import { SvelteMap, SvelteSet } from "svelte/reactivity"
-import { createFrameCapturer, type FrameCapturer } from "./frame-capture.js"
+import {
+	type CapturedFrame,
+	createFrameCapturer,
+	type FrameCapturer,
+} from "./frame-capture.js"
 import {
 	deleteThumbnails,
 	loadThumbnails,
@@ -41,7 +45,7 @@ export type FrameStrip = {
 	/** Thumbnails to render for the current view, positioned by absolute time. */
 	readonly layout: LayoutFrame[]
 	/** Capture one thumbnail from the shared capturer pool. */
-	captureAt: (time: number, epsilon?: number) => Promise<string>
+	captureAt: (time: number, epsilon?: number) => Promise<CapturedFrame>
 }
 
 // Number of thumbnails aimed for across the visible window
@@ -78,7 +82,11 @@ function storeFrames(source: string, next: CachedFrame[]) {
 	while (frameCache.size > MAX_CACHED_SOURCES) {
 		const oldest = frameCache.keys().next().value
 		if (oldest === undefined) break
+		const evicted = frameCache.get(oldest)
 		frameCache.delete(oldest)
+		if (evicted) {
+			for (const frame of evicted) URL.revokeObjectURL(frame.url)
+		}
 		// Keep persistent storage in step with the in-memory bound.
 		void deleteThumbnails(THUMBNAIL_KIND, oldest)
 	}
@@ -98,7 +106,7 @@ async function hydrate(source: string) {
 		hydrated.add(source)
 		if (stored.length === 0) return
 		const merged = [...framesFor(source)]
-		for (const { key, url } of stored) {
+		for (const { key, blob } of stored) {
 			const time = key / TIME_KEY_SCALE
 			if (
 				merged.some(
@@ -107,15 +115,19 @@ async function hydrate(source: string) {
 			) {
 				continue
 			}
-			merged.push({ time, url, fresh: false })
+			merged.push({ time, url: URL.createObjectURL(blob), fresh: false })
 		}
 		merged.sort((a, b) => a.time - b.time)
-		storeFrames(
-			source,
-			merged.length > FRAME_CACHE_LIMIT
-				? merged.slice(0, FRAME_CACHE_LIMIT)
-				: merged
-		)
+		if (merged.length <= FRAME_CACHE_LIMIT) {
+			storeFrames(source, merged)
+			return
+		}
+		const kept = merged.slice(0, FRAME_CACHE_LIMIT)
+		const keptSet = new Set(kept)
+		for (const frame of merged) {
+			if (!keptSet.has(frame)) URL.revokeObjectURL(frame.url)
+		}
+		storeFrames(source, kept)
 	} finally {
 		hydrating.delete(source)
 	}
@@ -164,26 +176,37 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		)
 	}
 
-	function addFrame(time: number, url: string) {
+	function addFrame(time: number, captured: CapturedFrame) {
 		const source = targetSrc
-		let next = [...framesFor(source), { time, url, fresh: true }]
-		if (next.length > FRAME_CACHE_LIMIT) {
+		const candidates = [
+			...framesFor(source),
+			{ time, url: captured.url, fresh: true },
+		]
+		let next = candidates
+		if (candidates.length > FRAME_CACHE_LIMIT) {
 			// Keep the thumbnails nearest the visible window.
 			const { start, end } = view()
 			const center = (start + end) / 2
-			next = next
+			next = [...candidates]
 				.sort(
 					(a, b) =>
 						Math.abs(a.time - center) - Math.abs(b.time - center)
 				)
 				.slice(0, FRAME_CACHE_LIMIT)
 		}
+		// Revoke object URLs for any frames dropped by the trim.
+		if (next !== candidates) {
+			const kept = new Set(next)
+			for (const frame of candidates) {
+				if (!kept.has(frame)) URL.revokeObjectURL(frame.url)
+			}
+		}
 		storeFrames(source, next)
 		void saveThumbnail(
 			THUMBNAIL_KIND,
 			source,
 			Math.round(time * TIME_KEY_SCALE),
-			url
+			captured.blob
 		)
 
 		// Only freshly captured frames should fade in; clear the flag shortly
@@ -225,8 +248,11 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 			try {
 				const fps = frameRate()
 				const epsilon = Math.min(0.05, (fps > 0 ? 1 / fps : 0.05) / 2)
-				const url = await getCapturer(index).captureAt(time, epsilon)
-				addFrame(time, url)
+				const captured = await getCapturer(index).captureAt(
+					time,
+					epsilon
+				)
+				addFrame(time, captured)
 			} catch {
 				// Leave a gap for any frame we couldn't capture.
 			}
@@ -344,7 +370,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 	 * occasional frames (the navigator) use this instead of opening their own
 	 * video element, so the whole app keeps a small number of videos in play.
 	 */
-	function captureAt(time: number, epsilon?: number): Promise<string> {
+	function captureAt(time: number, epsilon?: number): Promise<CapturedFrame> {
 		const url = src()
 		if (url && targetSrc !== url) targetSrc = url
 		const index = captureIndex++ % POOL_SIZE
