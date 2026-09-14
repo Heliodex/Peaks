@@ -288,10 +288,10 @@ async function pasteAndLoad() {
 	{/if}
 
 	<form
-		class="flex flex-col gap-2 border-t border-neutral-700 pt-3 text-sm"
+		class="flex gap-2 border-t border-neutral-700 pt-3 text-sm"
 		onsubmit={loadTimelapse}
 	>
-		<label class="flex flex-col gap-1">
+		<label class="flex flex-col gap-1 w-full min-w-0">
 			<span class="text-xs uppercase tracking-wide text-neutral-500">
 				Timelapse IDs
 			</span>
@@ -303,7 +303,7 @@ async function pasteAndLoad() {
 				class="border border-neutral-500 px-2 py-1"
 			>
 		</label>
-		<div class="flex gap-2">
+		<div class="flex gap-2 items-end">
 			<button
 				type="submit"
 				disabled={!timelapseId.trim()}
