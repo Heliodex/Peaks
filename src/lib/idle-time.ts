@@ -53,6 +53,25 @@ export function frameDifference(
 	return count > 0 ? total / count : 0
 }
 
+/**
+ * Whether captures at two seek targets can show different frames. The
+ * trailing sample sits at the video's end, and usually its predecessor does
+ * too, so both show the final frame: comparing them always succeeds and would
+ * paint every video's last frame amber. Skipping pairs that land in the same
+ * frame bucket removes that phantom idle. Without a known frame rate, fall
+ * back to requiring the pair to span the default sample step.
+ */
+function spansFrameBoundary(
+	from: number,
+	to: number,
+	frameRate: number
+): boolean {
+	if (frameRate > 0) {
+		return Math.floor(to * frameRate) > Math.floor(from * frameRate)
+	}
+	return to - from + 1e-6 >= FALLBACK_STEP
+}
+
 /** Collapse adjacent idle intervals into contiguous ranges. */
 export function mergeIdleRanges(intervals: IdleRange[]): IdleRange[] {
 	const sorted = [...intervals].sort((a, b) => a.start - b.start)
@@ -102,6 +121,8 @@ export function analyzeIdle(
 		const times = idleSampleTimes(duration, frameRate)
 		const intervals: IdleRange[] = []
 		let previous: Uint8ClampedArray | null = null
+		let previousTarget = -1
+		let previousIdle = false
 		let reportedCount = 0
 
 		for (let i = 0; i < times.length; i++) {
@@ -110,10 +131,8 @@ export function analyzeIdle(
 				Number.isFinite(video.duration) && video.duration > 0
 					? video.duration
 					: duration
-			await seekVideo(
-				video,
-				Math.min(times[i], Math.max(0, limit - 0.001))
-			)
+			const target = Math.min(times[i], Math.max(0, limit - 0.001))
+			await seekVideo(video, target)
 			ctx.drawImage(video, 0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT)
 			const sample = ctx.getImageData(
 				0,
@@ -122,13 +141,27 @@ export function analyzeIdle(
 				SAMPLE_HEIGHT
 			).data
 
+			// The trailing pair closes the scan at the video's end, where the
+			// clamped seek, end-of-media seek flakiness and duplicated tail
+			// frames all conspire to produce identical captures on their own.
+			// Only let it extend idle the previous pair already established,
+			// so a lone phantom pair can't paint the final frame amber. (A
+			// scan of fewer than three samples has no previous pair, so its
+			// lone pair is judged as normal.)
+			const isFinal = i === times.length - 1
 			if (
-				previous &&
+				previous !== null &&
+				(!isFinal || times.length < 3 || previousIdle) &&
+				spansFrameBoundary(previousTarget, target, frameRate) &&
 				frameDifference(previous, sample) <= SAME_FRAME_THRESHOLD
 			) {
 				intervals.push({ start: times[i - 1], end: times[i] })
+				previousIdle = true
+			} else {
+				previousIdle = false
 			}
 			previous = sample
+			previousTarget = target
 			callbacks.onProgress?.((i + 1) / times.length)
 
 			// Only push partial ranges when a new idle span appears, so the
