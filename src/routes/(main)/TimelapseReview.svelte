@@ -59,6 +59,11 @@ const routeParam = $derived(
 /** Open timelapse id decoded from the path (empty on the `/home` landing). */
 let submittedId = $state("")
 
+// The open timelapse is normally added to the project automatically. When the
+// user removes it explicitly, remember its id so that effect cannot restore the
+// entry we just deleted while the review is being closed.
+let removedOpenId = $state("")
+
 let videoEl = $state<HTMLVideoElement>()
 let selections = $state<TimelineSelection[]>([])
 let idleRanges = $state<IdleRange[]>([])
@@ -236,6 +241,7 @@ $effect(() => {
 	encodedState = ""
 	idleRanges = []
 	idleAnalyzing = false
+	removedOpenId = ""
 	if (!param) {
 		submittedId = ""
 		selections = []
@@ -272,6 +278,18 @@ async function loadId(value: string) {
 		openId: id,
 	})
 	void goto(`/${encoded}`)
+}
+
+/**
+ * Remove a timelapse from the project. The open timelapse is normally kept in
+ * the project automatically, so removing it also closes its review — otherwise
+ * the add effect would immediately restore the entry we just deleted.
+ */
+function removeEntry(id: string) {
+	projectEntries = projectEntries.filter(entry => entry.id !== id)
+	if (id !== submittedId) return
+	removedOpenId = id
+	void goto("/home")
 }
 
 /**
@@ -462,7 +480,8 @@ $effect(() => {
 	const ranges = $state.snapshot(effectiveIdleRanges)
 	const currentSelections = $state.snapshot(selections)
 	const annotations = deflationByReason(currentSelections, ranges)
-	if (!id || !loaded || !meta || meta.id !== id) return
+	if (!id || !loaded || !meta || meta.id !== id || id === removedOpenId)
+		return
 	const index = projectEntries.findIndex(entry => entry.id === id)
 	const existing = index === -1 ? undefined : projectEntries[index]
 	const name = meta.name?.trim() ?? ""
@@ -511,6 +530,7 @@ $effect(() => {
 		{projectTotals}
 		{projectDescription}
 		onLoad={loadId}
+		onRemove={removeEntry}
 	/>
 
 	<div

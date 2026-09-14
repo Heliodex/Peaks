@@ -14,6 +14,7 @@ let {
 	projectTotals,
 	projectDescription,
 	onLoad,
+	onRemove,
 }: {
 	projectName?: string
 	projectEntries?: ProjectTimelapse[]
@@ -21,6 +22,7 @@ let {
 	projectTotals: ProjectTotals
 	projectDescription: string
 	onLoad: (id: string) => void
+	onRemove: (id: string) => void
 } = $props()
 
 let draggingId = $state<string | null>(null)
@@ -209,6 +211,15 @@ function moveEntryBy(id: string, delta: number) {
 							)}
 						</span>
 					</div>
+					<button
+						type="button"
+						onclick={() => onRemove(entry.id)}
+						title="Remove from project"
+						aria-label="Remove {entry.name || entry.id} from project"
+						class="shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
+					>
+						Delete
+					</button>
 				</li>
 			{/each}
 		</ul>
