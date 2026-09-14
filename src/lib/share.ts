@@ -222,6 +222,7 @@ export async function decodeShare(value: string): Promise<ShareState | null> {
 		const bytes = await inflate(fromBase64Url(value))
 		const payload: unknown = JSON.parse(new TextDecoder().decode(bytes))
 		if (!Array.isArray(payload)) return null
+		console.log(JSON.stringify(payload, null, 4))
 		const [i, s, n, p, o] = payload
 		if (!Array.isArray(p) || !Array.isArray(s)) return null
 		const openId = typeof o === "string" ? o : ""

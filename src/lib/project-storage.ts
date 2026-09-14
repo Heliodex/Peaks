@@ -120,15 +120,47 @@ function parseTimelapses(value: unknown): ProjectTimelapse[] {
 		.filter((entry): entry is ProjectTimelapse => Boolean(entry))
 }
 
-/** Generate an id that is unique enough for a locally stored project. */
+/**
+ * Every printable ASCII character JSON can store in a string without escaping
+ * (0x20-0x7E, minus `"` and `\`). It's wider than base64url, so each character
+ * carries more entropy and ids can be shorter while staying JSON-safe.
+ */
+const ID_ALPHABET = Array.from({ length: 0x7f - 0x20 }, (_, i) =>
+	String.fromCharCode(0x20 + i)
+)
+	.filter(char => char !== '"' && char !== "\\")
+	.join("")
+
+/** Target length for a project id. */
+const ID_LENGTH = 10
+
+/** Fill a byte array with random values, using the platform CSPRNG if present. */
+function randomBytes(length: number): Uint8Array {
+	const bytes = new Uint8Array(length)
+	crypto.getRandomValues(bytes)
+
+	return bytes
+}
+
+/**
+ * Generate a short, JSON-safe id for a locally stored project. Characters are
+ * drawn uniformly from `ID_ALPHABET` via rejection sampling, so a ten-character
+ * id carries ~65 bits of entropy — collision-safe for a local workspace.
+ */
 export function newProjectId(): string {
-	if (
-		typeof crypto !== "undefined" &&
-		typeof crypto.randomUUID === "function"
-	) {
-		return crypto.randomUUID()
+	// Bytes at or above this bound can't map onto the alphabet without bias, so
+	// they're skipped and redrawn.
+	const limit = Math.floor(256 / ID_ALPHABET.length) * ID_ALPHABET.length
+
+	let id = ""
+	while (id.length < ID_LENGTH) {
+		for (const byte of randomBytes(ID_LENGTH - id.length)) {
+			if (byte >= limit) continue
+			id += ID_ALPHABET.charAt(byte % ID_ALPHABET.length)
+			if (id.length === ID_LENGTH) break
+		}
 	}
-	return `project-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+	return id
 }
 
 /** Create an empty project, optionally named. */
