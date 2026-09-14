@@ -35,6 +35,13 @@ const SELECTION_COLORS = {
 		button: "border-blue-500 text-blue-600",
 		marker: "bg-blue-500",
 	},
+	teal: {
+		border: "border-teal-500",
+		fill: "bg-teal-500/40",
+		handle: "bg-teal-600",
+		button: "border-teal-500 text-teal-600",
+		marker: "bg-teal-500",
+	},
 	violet: {
 		border: "border-violet-500",
 		fill: "bg-violet-500/40",
@@ -93,6 +100,14 @@ export const ANNOTATION_REASONS: AnnotationReason[] = [
 		deflation: 1 / 2,
 		deflationLabel: "1/2 deflated",
 		color: "blue",
+	},
+	{
+		id: "planning",
+		label: "Planning",
+		summaryLabel: "spent planning",
+		deflation: 1 / 2,
+		deflationLabel: "1/2 deflated",
+		color: "teal",
 	},
 	{
 		id: "instructing-ai",
