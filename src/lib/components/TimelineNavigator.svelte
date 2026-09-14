@@ -2,7 +2,6 @@
 import { untrack } from "svelte"
 import { SvelteMap } from "svelte/reactivity"
 import { selectionColors } from "#lib/annotations.js"
-import { captureFramesAt } from "#lib/frame-capture.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import {
 	deleteThumbnails,
@@ -36,6 +35,7 @@ let {
 	ignoreIdle = false,
 	view = { start: 0, end: 0 },
 	onviewchange = () => {},
+	captureFrame,
 }: {
 	duration: number
 	frameRate?: number
@@ -48,6 +48,8 @@ let {
 	ignoreIdle?: boolean
 	view?: ViewWindow
 	onviewchange?: (view: ViewWindow) => void
+	/** Capture a frame from the shared timeline pool (avoids another video). */
+	captureFrame: (time: number, epsilon?: number) => Promise<string>
 } = $props()
 
 // Smallest on-screen width (px) the zoom window may shrink to
@@ -91,7 +93,6 @@ $effect(() => {
 	}
 
 	let cancelled = false
-	let job: ReturnType<typeof captureFramesAt> | null = null
 
 	void (async () => {
 		// Reuse thumbnails captured in a previous session, if any.
@@ -106,31 +107,30 @@ $effect(() => {
 		}
 
 		navFrames = []
-		const times: number[] = []
-		for (let i = 0; i < NAV_FRAME_COUNT; i++) {
-			times.push((total * i) / (NAV_FRAME_COUNT - 1))
-		}
 		let frames: string[] = []
-		job = captureFramesAt(src, times, (index, url) => {
-			const next = [...frames]
-			next[index] = url
-			frames = next
-			navFrames = next
-			void saveThumbnail(NAV_THUMBNAIL_KIND, src, index, url)
-		})
-		void job.promise
-			.then(() => {
-				if (cancelled || frames.length === 0) return
-				cacheNavFrames(src, frames)
-			})
-			.catch(() => {
-				// Leave any uncaptured slots blank.
-			})
+		// Capture sequentially through the shared timeline pool, so the overview
+		// doesn't open a video element of its own.
+		for (let i = 0; i < NAV_FRAME_COUNT; i++) {
+			if (cancelled) return
+			const time = (total * i) / (NAV_FRAME_COUNT - 1)
+			try {
+				const url = await captureFrame(time)
+				if (cancelled) return
+				const next = [...frames]
+				next[i] = url
+				frames = next
+				navFrames = next
+				void saveThumbnail(NAV_THUMBNAIL_KIND, src, i, url)
+			} catch {
+				// Leave a gap for any frame we couldn't capture.
+			}
+		}
+		if (cancelled || frames.length === 0) return
+		cacheNavFrames(src, frames)
 	})()
 
 	return () => {
 		cancelled = true
-		job?.cancel()
 	}
 })
 

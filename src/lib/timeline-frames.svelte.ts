@@ -40,6 +40,8 @@ export type FrameStripOptions = {
 export type FrameStrip = {
 	/** Thumbnails to render for the current view, positioned by absolute time. */
 	readonly layout: LayoutFrame[]
+	/** Capture one thumbnail from the shared capturer pool. */
+	captureAt: (time: number, epsilon?: number) => Promise<string>
 }
 
 // Number of thumbnails aimed for across the visible window
@@ -133,8 +135,9 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 	let settleTimers: ReturnType<typeof setTimeout>[] = []
 
 	// Capturing is network-bound, so a small pool of hidden videos working in
-	// parallel fills the strip far faster than a single sequential element.
-	const POOL_SIZE = 3
+	// parallel fills the strip. Kept deliberately small (and shared with the
+	// navigator) to limit how many video elements load at once.
+	const POOL_SIZE = 2
 
 	/**
 	 * Ensure the pool matches `targetSrc`, creating each hidden video on demand.
@@ -300,6 +303,10 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		const current = view()
 		if (!url || !(current.end > current.start)) return
 
+		// Point the shared capture pool at the current video immediately, so
+		// other callers (the navigator) target the right source too.
+		targetSrc = url
+
 		// Pull persisted thumbnails in alongside capture. This must be untracked:
 		// `hydrate` synchronously reads and mutates its `hydrating` guard, and
 		// tracking that would make this effect re-run each time hydration starts
@@ -311,7 +318,6 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		// alongside; a source with nothing cached captures as it always did.
 		// `untrack` keeps adding frames from re-running this effect.
 		if (untrack(() => framesFor(url).length) === 0) {
-			targetSrc = url
 			void getCapturer(0)
 		}
 
@@ -331,9 +337,24 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		}
 	})
 
+	let captureIndex = 0
+
+	/**
+	 * Capture a single thumbnail from the shared pool. Callers that only need
+	 * occasional frames (the navigator) use this instead of opening their own
+	 * video element, so the whole app keeps a small number of videos in play.
+	 */
+	function captureAt(time: number, epsilon?: number): Promise<string> {
+		const url = src()
+		if (url && targetSrc !== url) targetSrc = url
+		const index = captureIndex++ % POOL_SIZE
+		return getCapturer(index).captureAt(time, epsilon)
+	}
+
 	return {
 		get layout() {
 			return layout
 		},
+		captureAt,
 	}
 }

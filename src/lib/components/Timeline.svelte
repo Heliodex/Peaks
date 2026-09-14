@@ -847,6 +847,7 @@ function onKeyDown(event: KeyboardEvent) {
 			{view}
 			onviewchange={setView}
 			playbackUrl={timelapse.playbackUrl}
+			captureFrame={frameStrip.captureAt}
 		/>
 	</div>
 {/if}

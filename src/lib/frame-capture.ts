@@ -2,17 +2,16 @@
 
 import { lapseProxyUrl } from "./lapse.js"
 
-export type FrameCaptureJob = {
-	promise: Promise<void>
-	cancel: () => void
-}
-
 export type FrameCapturer = {
 	/** Seek to `time` and return a small JPEG snapshot. */
 	captureAt: (time: number, epsilon?: number) => Promise<string>
 	/** Release the underlying video element. */
 	dispose: () => void
 }
+
+// Give up on a seek that never settles, so one stalled frame can't block a
+// capturer that's shared between the timeline strip and the navigator.
+const SEEK_TIMEOUT_MS = 10000
 
 function seek(video: HTMLVideoElement, time: number): Promise<void> {
 	return new Promise<void>((resolve, reject) => {
@@ -23,6 +22,10 @@ function seek(video: HTMLVideoElement, time: number): Promise<void> {
 			resolve()
 			return
 		}
+		const timer = setTimeout(() => {
+			cleanup()
+			reject(new Error("Seek timed out"))
+		}, SEEK_TIMEOUT_MS)
 		const onSeeked = () => {
 			cleanup()
 			resolve()
@@ -32,6 +35,7 @@ function seek(video: HTMLVideoElement, time: number): Promise<void> {
 			reject(new Error("Failed to seek video"))
 		}
 		const cleanup = () => {
+			clearTimeout(timer)
 			video.removeEventListener("seeked", onSeeked)
 			video.removeEventListener("error", onError)
 		}
@@ -63,7 +67,11 @@ export function createFrameCapturer(
 	// Ensure a rejection is always handled, even if disposed before loading.
 	void ready.catch(() => {})
 
-	async function captureAt(time: number, epsilon = 0.001): Promise<string> {
+	let disposed = false
+	let queue: Promise<unknown> = Promise.resolve()
+
+	async function runCapture(time: number, epsilon: number): Promise<string> {
+		if (disposed) throw new Error("Frame capturer disposed")
 		const el = await ready
 		const target = Math.max(
 			0,
@@ -83,42 +91,25 @@ export function createFrameCapturer(
 		return canvas.toDataURL("image/jpeg", quality)
 	}
 
+	/**
+	 * Capture a frame, serialized against other callers. The timeline strip and
+	 * the navigator overview share one capturer, so queueing here stops their
+	 * seeks from interleaving on the same video element.
+	 */
+	function captureAt(time: number, epsilon = 0.001): Promise<string> {
+		const task = queue.then(() => runCapture(time, epsilon))
+		queue = task.then(
+			() => undefined,
+			() => undefined
+		)
+		return task
+	}
+
 	function dispose() {
+		disposed = true
 		video.removeAttribute("src")
 		video.load()
 	}
 
 	return { captureAt, dispose }
-}
-
-/**
- * Capture small JPEG snapshots at the given absolute times, calling `onFrame` as each one is ready. Intended for one-off strips (e.g. the navigator overview) where no caching or incremental updates are needed.
- */
-export function captureFramesAt(
-	src: string,
-	times: number[],
-	onFrame: (index: number, url: string) => void,
-	width = 160
-): FrameCaptureJob {
-	const capturer = createFrameCapturer(src, width)
-	let cancelled = false
-
-	const promise = (async () => {
-		try {
-			for (let i = 0; i < times.length; i++) {
-				if (cancelled) return
-				onFrame(i, await capturer.captureAt(times[i]))
-			}
-		} finally {
-			capturer.dispose()
-		}
-	})()
-
-	return {
-		promise,
-		cancel: () => {
-			cancelled = true
-			capturer.dispose()
-		},
-	}
 }
