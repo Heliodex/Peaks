@@ -28,6 +28,13 @@ const SELECTION_COLORS = {
 		button: "border-red-500 text-red-600",
 		marker: "bg-red-500",
 	},
+	amber: {
+		border: "border-amber-500",
+		fill: "bg-amber-500/40",
+		handle: "bg-amber-600",
+		button: "border-amber-500 text-amber-600",
+		marker: "bg-amber-500",
+	},
 	blue: {
 		border: "border-blue-500",
 		fill: "bg-blue-500/40",
@@ -108,6 +115,14 @@ export const ANNOTATION_REASONS: AnnotationReason[] = [
 		deflation: 1 / 2,
 		deflationLabel: "1/2 deflated",
 		color: "teal",
+	},
+	{
+		id: "idle",
+		label: "Idle",
+		summaryLabel: "spent idle",
+		deflation: 1,
+		deflationLabel: "removed",
+		color: "amber",
 	},
 	{
 		id: "instructing-ai",
@@ -264,10 +279,22 @@ export function describeTimelapse({
 	const parts = [`${id} – Original time ${formatClock(duration)}.`]
 
 	const idleTotal = idleRecordedSeconds(idleRanges)
+	// Manual "idle" annotations and automatic idle detection both remove time
+	// for being idle, so they share one description section instead of
+	// producing two "{x} spent idle" sentences.
+	const idleReason = ANNOTATION_REASONS.find(reason => reason.id === "idle")
+	const manualIdle = selections.filter(
+		selection => selection.reason === "idle"
+	)
+	const manualIdleStretch =
+		manualIdle.reduce(
+			(sum, selection) => sum + nonIdleDuration(selection, idleRanges),
+			0
+		) * PLAYBACK_TO_RECORDED
 
-	if (idleRanges.length > 0) {
+	if (idleRanges.length > 0 || manualIdle.length > 0) {
 		parts.push(
-			`${formatClock(idleTotal)} spent idle: ${formatSpans(idleRanges)}.`
+			`${formatClock(idleTotal + manualIdleStretch)} spent idle: ${formatSpans([...idleRanges, ...manualIdle])} (${idleReason?.deflationLabel ?? "removed"}).`
 		)
 	}
 
@@ -276,6 +303,7 @@ export function describeTimelapse({
 		0
 	)
 	for (const reason of ANNOTATION_REASONS) {
+		if (reason.id === "idle") continue
 		const matches = selections.filter(
 			selection => selection.reason === reason.id
 		)
