@@ -1,7 +1,7 @@
 <script lang="ts">
 import { untrack } from "svelte"
 import { SvelteMap } from "svelte/reactivity"
-import { selectionColors } from "#lib/annotations.js"
+import { effectiveIdleRanges, selectionColors } from "#lib/annotations.js"
 import type { CapturedFrame } from "#lib/frame-capture.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import {
@@ -81,7 +81,7 @@ function cacheNavFrames(source: string, frames: string[]) {
 }
 
 // Idle regions to draw: hidden while the reviewer overrides idle detection.
-const visibleIdleRanges = $derived(ignoreIdle ? [] : idleRanges)
+const visibleIdleRanges = $derived(effectiveIdleRanges(ignoreIdle, idleRanges))
 
 let drag = $state<NavDrag>(null)
 let navFrames = $state<string[]>([])

@@ -1,6 +1,6 @@
 <script lang="ts">
 import { prefersReducedMotion, Spring } from "svelte/motion"
-import { selectionColors } from "#lib/annotations.js"
+import { effectiveIdleRanges, selectionColors } from "#lib/annotations.js"
 import { detectFrameRate } from "#lib/frame-rate.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import { createIdleAnalysis } from "#lib/idle-time.svelte.js"
@@ -86,7 +86,7 @@ let hoverTime = $state<number | null>(null)
 let hoveredSelectionId = $state<string | null>(null)
 const duration = $derived(videoDuration)
 // Idle regions to draw: hidden while the reviewer overrides idle detection.
-const visibleIdleRanges = $derived(ignoreIdle ? [] : idleRanges)
+const visibleIdleRanges = $derived(effectiveIdleRanges(ignoreIdle, idleRanges))
 
 // The part of the timeline currently visible on the main track, in seconds.
 // Wheel-zoom animates through a spring so scroll-zoom glides instead of stepping; drags set it instantly so they stay locked to the pointer.
@@ -657,6 +657,25 @@ function onKeyDown(event: KeyboardEvent) {
 
 <svelte:window onkeydown={onKeyDown} />
 
+{#snippet selectionHandle(
+	side: "start" | "end",
+	sel: TimelineSelection,
+	handleClass: string
+)}
+	<div
+		data-resize={side}
+		data-selection-id={sel.id}
+		class="absolute inset-y-0 {side === 'start'
+			? '-left-1'
+			: '-right-1'} flex w-2 cursor-ew-resize items-center justify-center transition-opacity {controlsClass(
+			sel.id
+		)}"
+		role="presentation"
+	>
+		<span class="h-6 w-1 {handleClass} shadow"></span>
+	</div>
+{/snippet}
+
 {#if duration > 0}
 	{const layoutFrames = $derived(frameStrip.layout)}
 	<div class="flex min-h-0 w-full flex-1 flex-col pt-3">
@@ -739,33 +758,11 @@ function onKeyDown(event: KeyboardEvent) {
 						></div>
 
 						{#if sel.start >= view.start}
-							<div
-								data-resize="start"
-								data-selection-id={sel.id}
-								class="absolute inset-y-0 -left-1 flex w-2 cursor-ew-resize items-center justify-center transition-opacity {controlsClass(
-									sel.id
-								)}"
-								role="presentation"
-							>
-								<span
-									class="h-6 w-1 {color.handle} shadow"
-								></span>
-							</div>
+							{@render selectionHandle("start", sel, color.handle)}
 						{/if}
 
 						{#if sel.end <= view.end}
-							<div
-								data-resize="end"
-								data-selection-id={sel.id}
-								class="absolute inset-y-0 -right-1 flex w-2 cursor-ew-resize items-center justify-center transition-opacity {controlsClass(
-									sel.id
-								)}"
-								role="presentation"
-							>
-								<span
-									class="h-6 w-1 {color.handle} shadow"
-								></span>
-							</div>
+							{@render selectionHandle("end", sel, color.handle)}
 						{/if}
 
 						<button

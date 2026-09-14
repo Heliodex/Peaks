@@ -1,6 +1,7 @@
 // Captures small thumbnail frames from a video through the same-origin proxy.
 
 import { lapseProxyUrl } from "./lapse.js"
+import { seekVideo } from "./media.js"
 
 export type CapturedFrame = {
 	/** Raw JPEG bytes, ready to persist without any base64 round-trip. */
@@ -33,38 +34,6 @@ function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
 // Give up on a seek that never settles, so one stalled frame can't block a
 // capturer that's shared between the timeline strip and the navigator.
 const SEEK_TIMEOUT_MS = 10000
-
-function seek(video: HTMLVideoElement, time: number): Promise<void> {
-	return new Promise<void>((resolve, reject) => {
-		if (
-			video.readyState >= 2 &&
-			Math.abs(video.currentTime - time) < 0.001
-		) {
-			resolve()
-			return
-		}
-		const timer = setTimeout(() => {
-			cleanup()
-			reject(new Error("Seek timed out"))
-		}, SEEK_TIMEOUT_MS)
-		const onSeeked = () => {
-			cleanup()
-			resolve()
-		}
-		const onError = () => {
-			cleanup()
-			reject(new Error("Failed to seek video"))
-		}
-		const cleanup = () => {
-			clearTimeout(timer)
-			video.removeEventListener("seeked", onSeeked)
-			video.removeEventListener("error", onError)
-		}
-		video.addEventListener("seeked", onSeeked)
-		video.addEventListener("error", onError)
-		video.currentTime = time
-	})
-}
 
 /**
  * Create a reusable frame capturer backed by one hidden, muted video element. Load it once, then call `captureAt` for as many frames as needed; call `dispose` when finished.
@@ -101,7 +70,7 @@ export function createFrameCapturer(
 			0,
 			Math.min(time, (el.duration || time) - epsilon)
 		)
-		await seek(el, target)
+		await seekVideo(el, target, SEEK_TIMEOUT_MS)
 
 		if (!canvas) canvas = document.createElement("canvas")
 		canvas.width = width

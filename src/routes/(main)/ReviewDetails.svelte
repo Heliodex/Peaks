@@ -2,9 +2,12 @@
 import {
 	ANNOTATION_REASONS,
 	describeTimelapse,
+	effectiveIdleRanges,
 	findAnnotationReason,
+	idleRecordedSeconds,
 	nonIdleDuration,
 } from "#lib/annotations.js"
+import CopyButton from "#lib/components/CopyButton.svelte"
 import type { IdleRange } from "#lib/idle-time.js"
 import {
 	formatClock,
@@ -37,7 +40,7 @@ const sortedSelections = $derived(
 )
 
 /** Idle ranges that count towards the maths (none while overridden). */
-const effectiveIdleRanges = $derived(ignoreIdle ? [] : idleRanges)
+const activeIdleRanges = $derived(effectiveIdleRanges(ignoreIdle, idleRanges))
 
 /** Time removed from the actual duration by the chosen annotation reasons, in recorded seconds. */
 const annotationDeflation = $derived(
@@ -46,18 +49,13 @@ const annotationDeflation = $derived(
 		if (!reason) return sum
 		return (
 			sum +
-			nonIdleDuration(selection, effectiveIdleRanges) * reason.deflation
+			nonIdleDuration(selection, activeIdleRanges) * reason.deflation
 		)
 	}, 0) * PLAYBACK_TO_RECORDED
 )
 
 /** Time removed from the actual duration as idle, in recorded seconds. */
-const idleDuration = $derived(
-	effectiveIdleRanges.reduce(
-		(sum, range) => sum + (range.end - range.start),
-		0
-	) * PLAYBACK_TO_RECORDED
-)
+const idleDuration = $derived(idleRecordedSeconds(activeIdleRanges))
 
 const actualDuration = $derived(
 	Math.max(0, timelapse.duration - idleDuration - annotationDeflation)
@@ -67,7 +65,7 @@ const description = $derived(
 	describeTimelapse({
 		id: timelapse.id,
 		duration: timelapse.duration,
-		idleRanges: effectiveIdleRanges,
+		idleRanges: activeIdleRanges,
 		selections,
 	})
 )
@@ -81,25 +79,6 @@ function setSelectionReason(id: string, reason: string) {
 function removeSelection(id: string) {
 	selections = selections.filter(selection => selection.id !== id)
 }
-
-// Copy-to-clipboard feedback for the description card.
-let copied = $state(false)
-let copyTimer: ReturnType<typeof setTimeout> | undefined
-
-async function copyText(text: string) {
-	try {
-		await navigator.clipboard.writeText(text)
-		copied = true
-		clearTimeout(copyTimer)
-		copyTimer = setTimeout(() => {
-			copied = false
-		}, 1500)
-	} catch {
-		// Clipboard access may be denied; leave the button unchanged.
-	}
-}
-
-$effect(() => () => clearTimeout(copyTimer))
 </script>
 
 <aside
@@ -204,7 +183,7 @@ $effect(() => () => clearTimeout(copyTimer))
 								-{formatDuration(
 									nonIdleDuration(
 										sel,
-										effectiveIdleRanges
+										activeIdleRanges
 									) *
 										reason.deflation *
 										PLAYBACK_TO_RECORDED
@@ -257,13 +236,7 @@ $effect(() => () => clearTimeout(copyTimer))
 	<section class="border-t border-neutral-700 pt-2">
 		<div class="flex items-center justify-between gap-2 pb-1">
 			<h2 class="font-medium">Description</h2>
-			<button
-				type="button"
-				onclick={() => copyText(description)}
-				class="border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
-			>
-				{copied ? "Copied!" : "Copy"}
-			</button>
+			<CopyButton text={description} />
 		</div>
 		<p class="text-sm text-neutral-300 select-text">
 			{description}

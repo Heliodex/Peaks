@@ -4,6 +4,8 @@ import {
 	type AnnotationDeflation,
 	deflationByReason,
 	describeTimelapse,
+	effectiveIdleRanges,
+	idleRecordedSeconds,
 } from "#lib/annotations.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import {
@@ -23,7 +25,6 @@ import {
 	clamp,
 	formatClock,
 	formatHours,
-	PLAYBACK_TO_RECORDED,
 	type TimelineSelection,
 } from "#lib/timeline.js"
 import { goto } from "$app/navigation"
@@ -32,7 +33,7 @@ import { getTimelapse } from "./api.remote.js"
 import ProjectPane from "./ProjectPane.svelte"
 import ReviewDetails from "./ReviewDetails.svelte"
 import ReviewHeader from "./ReviewHeader.svelte"
-import { annotationTotal } from "./review-format.js"
+import { entryFinalDuration } from "./review-format.js"
 import TimelinePane from "./TimelinePane.svelte"
 import VideoPane from "./VideoPane.svelte"
 
@@ -233,15 +234,10 @@ function sameIdleRanges(
 }
 
 /** Idle ranges that count towards the maths (none while overridden). */
-const effectiveIdleRanges = $derived(ignoreIdle ? [] : idleRanges)
+const activeIdleRanges = $derived(effectiveIdleRanges(ignoreIdle, idleRanges))
 
 /** Time removed from the actual duration as idle, in recorded seconds. */
-const idleDuration = $derived(
-	effectiveIdleRanges.reduce(
-		(sum, range) => sum + (range.end - range.start),
-		0
-	) * PLAYBACK_TO_RECORDED
-)
+const idleDuration = $derived(idleRecordedSeconds(activeIdleRanges))
 
 // Guards against an older async encode resolving after a newer one, and records
 // the param we last wrote so decoding our own URL write can't reset the review.
@@ -541,12 +537,7 @@ const projectTotals = $derived.by(() => {
 	for (const entry of projectEntries) {
 		recorded += entry.duration
 		idle += entry.idleDuration
-		final += Math.max(
-			0,
-			entry.duration -
-				entry.idleDuration -
-				annotationTotal(entry.annotations)
-		)
+		final += entryFinalDuration(entry)
 	}
 	// Keep catalog order so the breakdown stays stable as entries change.
 	const annotations = ANNOTATION_REASONS.map(reason => ({
@@ -621,7 +612,7 @@ $effect(() => {
 	const idle = idleDuration
 	// Read the raw selection/idle state so reason-only edits still refresh the
 	// stored description and breakdown, even when the totals don't change.
-	const ranges = $state.snapshot(effectiveIdleRanges)
+	const ranges = $state.snapshot(activeIdleRanges)
 	const currentSelections = $state.snapshot(selections)
 	const annotations = deflationByReason(currentSelections, ranges)
 	const detected = $state.snapshot(idleRanges)
@@ -678,6 +669,14 @@ $effect(() => {
 })
 </script>
 
+{#snippet resizeHandle(modifier: string, onpointerdown: (event: PointerEvent) => void)}
+	<div
+		class="resize-handle {modifier} hidden transition-colors hover:bg-blue-500/40 lg:block"
+		{onpointerdown}
+		role="presentation"
+	></div>
+{/snippet}
+
 <main
 	class="dashboard"
 	style="--left-width: {leftWidth}px; --right-width: {rightWidth}px; --timeline-height: {timelineRowHeight};"
@@ -699,11 +698,7 @@ $effect(() => {
 		onRemoveProject={removeProject}
 	/>
 
-	<div
-		class="resize-handle resize-handle-right hidden transition-colors hover:bg-blue-500/40 lg:block"
-		onpointerdown={startRightResize}
-		role="presentation"
-	></div>
+	{@render resizeHandle("resize-handle-right", startRightResize)}
 
 	<ReviewHeader {submittedId} onLoad={loadId} />
 
@@ -750,11 +745,7 @@ $effect(() => {
 						onRecalculateIdle={recalculateIdle}
 					/>
 
-					<div
-						class="resize-handle resize-handle-left hidden transition-colors hover:bg-blue-500/40 lg:block"
-						onpointerdown={startLeftResize}
-						role="presentation"
-					></div>
+					{@render resizeHandle("resize-handle-left", startLeftResize)}
 
 					{#if videoEl && timelapse.playbackUrl}
 						<TimelinePane
@@ -769,11 +760,7 @@ $effect(() => {
 							{ignoreIdle}
 						/>
 
-						<div
-							class="resize-handle resize-handle-timeline hidden transition-colors hover:bg-blue-500/40 lg:block"
-							onpointerdown={startTimelineResize}
-							role="presentation"
-						></div>
+						{@render resizeHandle("resize-handle-timeline", startTimelineResize)}
 					{/if}
 				{:else}
 					<section

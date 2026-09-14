@@ -19,11 +19,12 @@ import {
 	ANNOTATION_REASONS,
 	deflationByReason,
 	describeTimelapse,
+	idleRecordedSeconds,
 } from "./annotations.js"
 import type { IdleRange } from "./idle-time.js"
 import type { ProjectTimelapse } from "./project-storage.js"
 import { loadSelections } from "./selection-storage.js"
-import { PLAYBACK_TO_RECORDED, type TimelineSelection } from "./timeline.js"
+import type { TimelineSelection } from "./timeline.js"
 
 const REASON_IDS = ANNOTATION_REASONS.map(reason => reason.id)
 
@@ -202,11 +203,7 @@ function parseProjectEntry(
 		id,
 		name,
 		duration,
-		idleDuration:
-			effectiveRanges.reduce(
-				(sum, range) => sum + (range.end - range.start),
-				0
-			) * PLAYBACK_TO_RECORDED,
+		idleDuration: idleRecordedSeconds(effectiveRanges),
 		annotations: deflationByReason(selections, effectiveRanges),
 		ignoreIdle: ignore,
 		description: describeTimelapse({

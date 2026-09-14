@@ -1,6 +1,7 @@
 // Detects stretches of a timelapse where the picture never changes — the time the user spent away from the keyboard — so the UI can mark them and report an "actual" (non-idle) duration.
 
 import { lapseProxyUrl } from "./lapse.js"
+import { seekVideo } from "./media.js"
 
 export type IdleRange = { start: number; end: number }
 
@@ -21,35 +22,6 @@ const MAX_SAMPLES = 300
 
 // Fallback sample spacing when the video's frame rate is unknown.
 const FALLBACK_STEP = 0.5
-
-function seek(video: HTMLVideoElement, time: number): Promise<void> {
-	return new Promise<void>((resolve, reject) => {
-		if (
-			video.readyState >= 2 &&
-			Math.abs(video.currentTime - time) < 0.001
-		) {
-			resolve()
-			return
-		}
-		const onSeeked = () => {
-			cleanup()
-			resolve()
-		}
-		const onError = () => {
-			cleanup()
-			reject(new Error("Failed to seek video"))
-		}
-		const cleanup = () => {
-			video.removeEventListener("seeked", onSeeked)
-			video.removeEventListener("error", onError)
-			video.removeEventListener("abort", onError)
-		}
-		video.addEventListener("seeked", onSeeked)
-		video.addEventListener("error", onError)
-		video.addEventListener("abort", onError)
-		video.currentTime = time
-	})
-}
 
 /** Times to sample, spaced by at most one video frame and capped in number. */
 export function idleSampleTimes(duration: number, frameRate: number): number[] {
@@ -138,7 +110,10 @@ export function analyzeIdle(
 				Number.isFinite(video.duration) && video.duration > 0
 					? video.duration
 					: duration
-			await seek(video, Math.min(times[i], Math.max(0, limit - 0.001)))
+			await seekVideo(
+				video,
+				Math.min(times[i], Math.max(0, limit - 0.001))
+			)
 			ctx.drawImage(video, 0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT)
 			const sample = ctx.getImageData(
 				0,

@@ -9,13 +9,9 @@ let {
 	onLoad: (id: string) => void
 } = $props()
 
-// Editable copy of the path id. Typed edits override it until the path id
-// changes, at which point the effect resyncs the field.
-// svelte-ignore state_referenced_locally
-let timelapseId = $state(submittedId)
-$effect(() => {
-	timelapseId = submittedId
-})
+// Editable copy of the path id. Typed edits override it; when the path id
+// changes the derived value resyncs the field.
+let timelapseId = $derived(submittedId)
 
 function loadTimelapse(event: SubmitEvent) {
 	event.preventDefault()

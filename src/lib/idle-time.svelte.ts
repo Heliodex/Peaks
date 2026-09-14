@@ -101,16 +101,9 @@ export function createIdleAnalysis({
 
 	onDestroy(cancel)
 
-	const idleDuration = $derived(
-		ranges.reduce((sum, range) => sum + (range.end - range.start), 0)
-	)
-
 	return {
 		get ranges() {
 			return ranges
-		},
-		get idleDuration() {
-			return idleDuration
 		},
 		get progress() {
 			return progress

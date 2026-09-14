@@ -1,11 +1,12 @@
 <script lang="ts">
 import { flip } from "svelte/animate"
+import CopyButton from "#lib/components/CopyButton.svelte"
 import {
 	DEFAULT_PROJECT_NAME,
 	type Project,
 	type ProjectTimelapse,
 } from "#lib/project-storage.js"
-import { annotationTotal, formatDuration } from "./review-format.js"
+import { entryFinalDuration, formatDuration } from "./review-format.js"
 import type { ProjectTotals } from "./review-types.js"
 
 let {
@@ -41,23 +42,6 @@ let {
 } = $props()
 
 let draggingId = $state<string | null>(null)
-let projectCopied = $state(false)
-let projectCopyTimer: ReturnType<typeof setTimeout> | undefined
-
-async function copyProjectText(text: string) {
-	try {
-		await navigator.clipboard.writeText(text)
-		projectCopied = true
-		clearTimeout(projectCopyTimer)
-		projectCopyTimer = setTimeout(() => {
-			projectCopied = false
-		}, 1500)
-	} catch {
-		// Clipboard access may be denied; leave the button unchanged.
-	}
-}
-
-$effect(() => () => clearTimeout(projectCopyTimer))
 
 /** Rename the current project (this never changes which timelapses it holds). */
 function renameProject(name: string) {
@@ -267,14 +251,7 @@ function moveEntryBy(id: string, delta: number) {
 							</button>
 						{/if}
 						<span class="text-xs text-neutral-500">
-							{formatDuration(
-								Math.max(
-									0,
-									entry.duration -
-										entry.idleDuration -
-										annotationTotal(entry.annotations)
-								)
-							)}
+							{formatDuration(entryFinalDuration(entry))}
 						</span>
 					</div>
 					<button
@@ -340,13 +317,7 @@ function moveEntryBy(id: string, delta: number) {
 				<h3 class="text-xs uppercase tracking-wide text-neutral-500">
 					Project description
 				</h3>
-				<button
-					type="button"
-					onclick={() => copyProjectText(projectDescription)}
-					class="border border-neutral-500 px-2 py-0.5 text-xs hover:bg-neutral-800"
-				>
-					{projectCopied ? "Copied!" : "Copy"}
-				</button>
+				<CopyButton text={projectDescription} />
 			</div>
 			<p
 				class="text-xs text-neutral-300 select-text whitespace-pre-wrap wrap-break-word"

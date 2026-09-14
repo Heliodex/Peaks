@@ -156,6 +156,24 @@ export function nonIdleDuration(
 	return Math.max(0, length - idle)
 }
 
+/** Length of a set of idle ranges, in playback seconds. */
+export function idlePlaybackSeconds(idleRanges: IdleRange[]): number {
+	return idleRanges.reduce((sum, range) => sum + (range.end - range.start), 0)
+}
+
+/** Recorded seconds removed by a set of idle ranges. */
+export function idleRecordedSeconds(idleRanges: IdleRange[]): number {
+	return idlePlaybackSeconds(idleRanges) * PLAYBACK_TO_RECORDED
+}
+
+/** Idle ranges that count towards the maths (none while overridden). */
+export function effectiveIdleRanges(
+	ignoreIdle: boolean,
+	idleRanges: IdleRange[]
+): IdleRange[] {
+	return ignoreIdle ? [] : idleRanges
+}
+
 /** Recorded time removed by a single annotation reason. */
 export type AnnotationDeflation = {
 	/** Annotation reason id. */
@@ -216,9 +234,7 @@ export function describeTimelapse({
 }): string {
 	const parts = [`${id} – Original time ${formatClock(duration)}.`]
 
-	const idleTotal =
-		idleRanges.reduce((sum, range) => sum + (range.end - range.start), 0) *
-		PLAYBACK_TO_RECORDED
+	const idleTotal = idleRecordedSeconds(idleRanges)
 
 	if (idleRanges.length > 0) {
 		parts.push(

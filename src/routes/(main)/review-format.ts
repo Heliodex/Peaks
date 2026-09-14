@@ -29,3 +29,15 @@ export function formatCreatedAt(timestamp: number): string {
 export function annotationTotal(annotations: AnnotationDeflation[]): number {
 	return annotations.reduce((sum, annotation) => sum + annotation.duration, 0)
 }
+
+/** Recorded seconds an entry contributes once idle and annotations are removed. */
+export function entryFinalDuration(entry: {
+	duration: number
+	idleDuration: number
+	annotations: AnnotationDeflation[]
+}): number {
+	return Math.max(
+		0,
+		entry.duration - entry.idleDuration - annotationTotal(entry.annotations)
+	)
+}
