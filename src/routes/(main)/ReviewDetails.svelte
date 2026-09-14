@@ -75,169 +75,216 @@ function setSelectionReason(id: string, reason: string) {
 function removeSelection(id: string) {
 	selections = selections.filter(selection => selection.id !== id)
 }
+
+type Tab = "data" | "settings"
+
+// Which tab is showing. The user details footer stays visible in both.
+let tab = $state<Tab>("data")
 </script>
 
-<aside
-	class="area-right flex min-h-0 flex-col gap-3 overflow-y-auto border-neutral-500 p-3 lg:border-r"
->
-	{#if timelapse}
-		<dl class="grid grid-cols-2 gap-2">
-			<div class="border border-neutral-500 p-3">
-				<dt class="text-xs uppercase tracking-wide text-neutral-500">
-					Recorded
-				</dt>
-				<dd class="pt-1 font-medium">
-					{formatDuration(timelapse.duration)}
-				</dd>
-			</div>
-			<div class="border border-neutral-500 p-3">
-				<dt class="text-xs uppercase tracking-wide text-neutral-500">
-					Actual time
-				</dt>
-				<dd class="pt-1 font-medium">
-					{formatDuration(actualDuration)}
-				</dd>
-				{#if idleAnalyzing && !ignoreIdle}
-					<p class="pt-0.5 text-xs text-amber-600">
-						Analyzing idle frames…
-					</p>
-				{:else}
-					{#if idleDuration > 0}
-						<p class="pt-0.5 text-xs text-neutral-500">
-							-{formatDuration(idleDuration)}
-							idle
-						</p>
-					{/if}
-					{#if annotationDeflation > 0}
-						<p class="pt-0.5 text-xs text-neutral-500">
-							-{formatDuration(annotationDeflation)}
-							annotations
-						</p>
-					{/if}
-				{/if}
-			</div>
-			<div class="border border-neutral-500 p-3">
-				<dt class="text-xs uppercase tracking-wide text-neutral-500">
-					Created
-				</dt>
-				<dd class="pt-1 font-medium">
-					{formatCreatedAt(timelapse.createdAt)}
-				</dd>
-			</div>
-			<div class="border border-neutral-500 p-3">
-				<dt class="text-xs uppercase tracking-wide text-neutral-500">
-					Visibility
-				</dt>
-				<dd class="pt-1 font-medium">
-					{timelapse.visibility}
-				</dd>
-			</div>
-		</dl>
-
-		<section class="flex flex-col gap-1">
-			<h2 class="font-medium">Selections</h2>
-			{#if sortedSelections.length > 0}
-				<ul class="flex flex-col gap-1 text-sm">
-					{#each sortedSelections as sel, i (sel.id)}
-						{const deflation = $derived(
-							selectionDeflation(sel, activeIdleRanges)
-						)}
-						<li class="flex flex-wrap items-center gap-2">
-							<span>
-								Selection {i + 1}:
-								<span class="font-medium"
-									>{formatClock(sel.start)}</span
-								>-<span class="font-medium"
-									>{formatClock(sel.end)}</span
-								>
-							</span>
-							<select
-								aria-label="Annotation reason for selection {i +
-								1}"
-								value={sel.reason ?? ""}
-								onchange={e =>
-								setSelectionReason(
-									sel.id,
-									e.currentTarget.value
-								)}
-								class="border border-neutral-500 bg-neutral-800 px-1 py-0.5 text-sm"
-							>
-								<option value="">Select a reason…</option>
-								{#each ANNOTATION_REASONS as annotation (annotation.id)}
-									<option value={annotation.id}>
-										{annotation.label}
-									</option>
-								{/each}
-							</select>
-							<button
-								type="button"
-								onclick={() => removeSelection(sel.id)}
-								aria-label="Delete selection {i + 1}"
-								class="border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
-							>
-								×
-							</button>
-							{#if deflation > 0}
-								<span class="text-xs text-neutral-500">
-									-{formatDuration(deflation)}
-								</span>
-							{/if}
-						</li>
-					{/each}
-				</ul>
-			{:else}
-				<p class="text-sm text-neutral-500">
-					Drag across the timeline to select an annotation.
-				</p>
-			{/if}
-		</section>
-
-		<div
-			class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-700 pt-2 text-xs text-neutral-500"
+<aside class="area-right flex min-h-0 flex-col border-neutral-500 lg:border-r">
+	<div class="flex shrink-0 border-b border-neutral-700" role="tablist">
+		<button
+			type="button"
+			role="tab"
+			aria-selected={tab === "data"}
+			onclick={() => (tab = "data")}
+			class="-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm {tab ===
+			'data'
+				? 'border-blue-500 font-medium text-blue-400'
+				: 'border-transparent text-neutral-400 hover:text-neutral-200'}"
 		>
-			{#if idleRanges.length > 0 || ignoreIdle}
-				<label class="flex items-center gap-1.5">
-					<input
-						type="checkbox"
-						checked={ignoreIdle}
-						onchange={e =>
-						onToggleIgnoreIdle(e.currentTarget.checked)}
-						class="h-3.5 w-3.5 accent-blue-500"
-					>
-					Ignore idle time
-				</label>
-				{#if !ignoreIdle}
-					<p class="flex items-center gap-2">
-						<span
-							class="inline-block h-2 w-3 border border-amber-400/50 bg-amber-400/25"
-						></span>
-						Amber regions have no visual changes (time spent away).
-					</p>
-				{/if}
-			{/if}
-			<button
-				type="button"
-				onclick={onRecalculateIdle}
-				disabled={idleAnalyzing}
-				class="border border-neutral-500 px-1.5 py-0.5 text-neutral-500 hover:border-blue-500 hover:text-blue-400 disabled:opacity-50"
-			>
-				{idleAnalyzing ? "Recalculating…" : "Recalculate idle time"}
-			</button>
-		</div>
+			Timelapse data
+		</button>
+		<button
+			type="button"
+			role="tab"
+			aria-selected={tab === "settings"}
+			onclick={() => (tab = "settings")}
+			class="-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm {tab ===
+			'settings'
+				? 'border-blue-500 font-medium text-blue-400'
+				: 'border-transparent text-neutral-400 hover:text-neutral-200'}"
+		>
+			Settings
+		</button>
+	</div>
 
-		<section class="border-t border-neutral-700 pt-2">
-			<div class="flex items-center justify-between gap-2 pb-1">
-				<h2 class="font-medium">Description</h2>
-				<CopyButton text={description} />
-			</div>
-			<p class="text-sm text-neutral-300 select-text">
-				{description}
-			</p>
-		</section>
-	{/if}
+	<div
+		class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"
+		role="tabpanel"
+	>
+		{#if tab === "data"}
+			{#if timelapse}
+				<dl class="grid grid-cols-2 gap-2">
+					<div class="border border-neutral-500 p-3">
+						<dt
+							class="text-xs uppercase tracking-wide text-neutral-500"
+						>
+							Recorded
+						</dt>
+						<dd class="pt-1 font-medium">
+							{formatDuration(timelapse.duration)}
+						</dd>
+					</div>
+					<div class="border border-neutral-500 p-3">
+						<dt
+							class="text-xs uppercase tracking-wide text-neutral-500"
+						>
+							Actual time
+						</dt>
+						<dd class="pt-1 font-medium">
+							{formatDuration(actualDuration)}
+						</dd>
+						{#if idleAnalyzing && !ignoreIdle}
+							<p class="pt-0.5 text-xs text-amber-600">
+								Analyzing idle frames…
+							</p>
+						{:else}
+							{#if idleDuration > 0}
+								<p class="pt-0.5 text-xs text-neutral-500">
+									-{formatDuration(idleDuration)}
+									idle
+								</p>
+							{/if}
+							{#if annotationDeflation > 0}
+								<p class="pt-0.5 text-xs text-neutral-500">
+									-{formatDuration(annotationDeflation)}
+									annotations
+								</p>
+							{/if}
+						{/if}
+					</div>
+					<div class="border border-neutral-500 p-3">
+						<dt
+							class="text-xs uppercase tracking-wide text-neutral-500"
+						>
+							Created
+						</dt>
+						<dd class="pt-1 font-medium">
+							{formatCreatedAt(timelapse.createdAt)}
+						</dd>
+					</div>
+					<div class="border border-neutral-500 p-3">
+						<dt
+							class="text-xs uppercase tracking-wide text-neutral-500"
+						>
+							Visibility
+						</dt>
+						<dd class="pt-1 font-medium">
+							{timelapse.visibility}
+						</dd>
+					</div>
+				</dl>
+
+				<section class="flex flex-col gap-1">
+					<h2 class="font-medium">Selections</h2>
+					{#if sortedSelections.length > 0}
+						<ul class="flex flex-col gap-1 text-sm">
+							{#each sortedSelections as sel, i (sel.id)}
+								{const deflation = $derived(
+									selectionDeflation(sel, activeIdleRanges)
+								)}
+								<li class="flex flex-wrap items-center gap-2">
+									<span>
+										Selection {i + 1}:
+										<span class="font-medium">
+											{formatClock(sel.start)}
+										</span
+										>-<span class="font-medium">
+											{formatClock(sel.end)}
+										</span>
+									</span>
+									<select
+										aria-label="Annotation reason for selection {i + 1}"
+										value={sel.reason ?? ""}
+										onchange={e =>
+											setSelectionReason(
+												sel.id,
+												e.currentTarget.value
+											)}
+										class="border border-neutral-500 bg-neutral-800 px-1 py-0.5 text-sm"
+									>
+										<option value="">
+											Select a reason…
+										</option>
+										{#each ANNOTATION_REASONS as annotation (annotation.id)}
+											<option value={annotation.id}>
+												{annotation.label}
+											</option>
+										{/each}
+									</select>
+									<button
+										type="button"
+										onclick={() => removeSelection(sel.id)}
+										aria-label="Delete selection {i + 1}"
+										class="border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
+									>
+										×
+									</button>
+									{#if deflation > 0}
+										<span class="text-xs text-neutral-500">
+											-{formatDuration(deflation)}
+										</span>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					{:else}
+						<p class="text-sm text-neutral-500">
+							Drag across the timeline to select an annotation.
+						</p>
+					{/if}
+				</section>
+
+				<div
+					class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-700 pt-2 text-xs text-neutral-500"
+				>
+					{#if idleRanges.length > 0 || ignoreIdle}
+						<label class="flex items-center gap-1.5">
+							<input
+								type="checkbox"
+								checked={ignoreIdle}
+								onchange={e => onToggleIgnoreIdle(e.currentTarget.checked)}
+								class="h-3.5 w-3.5 accent-blue-500"
+							>
+							Ignore idle time
+						</label>
+						{#if !ignoreIdle}
+							<p class="flex items-center gap-2">
+								<span
+									class="inline-block h-2 w-3 border border-amber-400/50 bg-amber-400/25"
+								></span>
+								Amber regions have no visual changes (time spent
+								away).
+							</p>
+						{/if}
+					{/if}
+					<button
+						type="button"
+						onclick={onRecalculateIdle}
+						disabled={idleAnalyzing}
+						class="border border-neutral-500 px-1.5 py-0.5 text-neutral-500 hover:border-blue-500 hover:text-blue-400 disabled:opacity-50"
+					>
+						{idleAnalyzing ? "Recalculating…" : "Recalculate idle time"}
+					</button>
+				</div>
+
+				<section class="border-t border-neutral-700 pt-2">
+					<div class="flex items-center justify-between gap-2 pb-1">
+						<h2 class="font-medium">Description</h2>
+						<CopyButton text={description} />
+					</div>
+					<p class="text-sm text-neutral-300 select-text">
+						{description}
+					</p>
+				</section>
+			{/if}
+		{/if}
+	</div>
 
 	<section
-		class="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-neutral-700 pt-3"
+		class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-neutral-700 p-3"
 	>
 		<svelte:boundary>
 			{#snippet pending()}
