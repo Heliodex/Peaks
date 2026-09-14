@@ -43,27 +43,34 @@ let {
 
 let draggingId = $state<string | null>(null)
 
-/** Rename the current project (this never changes which timelapses it holds). */
-function renameProject(name: string) {
-	onRenameProject(name)
-}
-
 /**
- * Move `sourceId` so it lands at `targetIndex` in the list. Only asks the parent
- * to update the order (its persistence effect saves it) so drag-over can call
- * it repeatedly while `animate:flip` animates each shift.
+ * Move the entry at `from` so it lands at `insert`. Only asks the parent to
+ * update the order (its persistence effect saves it) so drag-over can call it
+ * repeatedly while `animate:flip` animates each shift. Returns whether it moved.
  */
-function moveToIndex(sourceId: string, targetIndex: number): boolean {
-	const from = projectEntries.findIndex(entry => entry.id === sourceId)
-	if (from === -1) return false
-	let insert = targetIndex
-	if (from < insert) insert -= 1
-	if (insert === from) return false
+function moveEntryTo(from: number, insert: number): boolean {
+	if (
+		from === -1 ||
+		insert < 0 ||
+		insert >= projectEntries.length ||
+		insert === from
+	) {
+		return false
+	}
 	const updated = [...projectEntries]
 	const [moved] = updated.splice(from, 1)
 	updated.splice(insert, 0, moved)
 	onReorderProject(updated)
 	return true
+}
+
+/** Move `sourceId` so it lands before the entry currently at `targetIndex`. */
+function moveToIndex(sourceId: string, targetIndex: number): boolean {
+	const from = projectEntries.findIndex(entry => entry.id === sourceId)
+	if (from === -1) return false
+	let insert = targetIndex
+	if (from < insert) insert -= 1
+	return moveEntryTo(from, insert)
 }
 
 // Reordering on every dragover would thrash the FLIP animations, so wait for
@@ -109,12 +116,7 @@ function handleDrop(event: DragEvent) {
 function moveEntryBy(id: string, delta: number) {
 	const from = projectEntries.findIndex(entry => entry.id === id)
 	if (from === -1) return
-	const to = from + delta
-	if (to < 0 || to >= projectEntries.length) return
-	const updated = [...projectEntries]
-	const [moved] = updated.splice(from, 1)
-	updated.splice(to, 0, moved)
-	onReorderProject(updated)
+	moveEntryTo(from, from + delta)
 }
 </script>
 
@@ -175,7 +177,7 @@ function moveEntryBy(id: string, delta: number) {
 		<input
 			type="text"
 			value={projectName}
-			onchange={e => renameProject(e.currentTarget.value)}
+			onchange={e => onRenameProject(e.currentTarget.value)}
 			placeholder={DEFAULT_PROJECT_NAME}
 			class="border border-neutral-500 px-2 py-1"
 		>

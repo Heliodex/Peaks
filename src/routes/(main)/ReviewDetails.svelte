@@ -3,17 +3,12 @@ import {
 	ANNOTATION_REASONS,
 	describeTimelapse,
 	effectiveIdleRanges,
-	findAnnotationReason,
 	idleRecordedSeconds,
-	nonIdleDuration,
+	selectionDeflation,
 } from "#lib/annotations.js"
 import CopyButton from "#lib/components/CopyButton.svelte"
 import type { IdleRange } from "#lib/idle-time.js"
-import {
-	formatClock,
-	PLAYBACK_TO_RECORDED,
-	type TimelineSelection,
-} from "#lib/timeline.js"
+import { formatClock, type TimelineSelection } from "#lib/timeline.js"
 import { formatCreatedAt, formatDuration } from "./review-format.js"
 import type { ReviewTimelapse } from "./review-types.js"
 
@@ -44,14 +39,11 @@ const activeIdleRanges = $derived(effectiveIdleRanges(ignoreIdle, idleRanges))
 
 /** Time removed from the actual duration by the chosen annotation reasons, in recorded seconds. */
 const annotationDeflation = $derived(
-	selections.reduce((sum, selection) => {
-		const reason = findAnnotationReason(selection.reason)
-		if (!reason) return sum
-		return (
-			sum +
-			nonIdleDuration(selection, activeIdleRanges) * reason.deflation
-		)
-	}, 0) * PLAYBACK_TO_RECORDED
+	selections.reduce(
+		(sum, selection) =>
+			sum + selectionDeflation(selection, activeIdleRanges),
+		0
+	)
 )
 
 /** Time removed from the actual duration as idle, in recorded seconds. */
@@ -142,7 +134,9 @@ function removeSelection(id: string) {
 		{#if sortedSelections.length > 0}
 			<ul class="flex flex-col gap-1 text-sm">
 				{#each sortedSelections as sel, i (sel.id)}
-					{const reason = $derived(findAnnotationReason(sel.reason))}
+					{const deflation = $derived(
+						selectionDeflation(sel, activeIdleRanges)
+					)}
 					<li class="flex flex-wrap items-center gap-2">
 						<span>
 							Selection {i + 1}:
@@ -178,16 +172,9 @@ function removeSelection(id: string) {
 						>
 							×
 						</button>
-						{#if reason && reason.deflation > 0}
+						{#if deflation > 0}
 							<span class="text-xs text-neutral-500">
-								-{formatDuration(
-									nonIdleDuration(
-										sel,
-										activeIdleRanges
-									) *
-										reason.deflation *
-										PLAYBACK_TO_RECORDED
-								)}
+								-{formatDuration(deflation)}
 							</span>
 						{/if}
 					</li>

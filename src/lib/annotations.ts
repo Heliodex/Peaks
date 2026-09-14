@@ -156,6 +156,23 @@ export function nonIdleDuration(
 	return Math.max(0, length - idle)
 }
 
+/**
+ * Recorded seconds a single selection removes, given its annotation reason and
+ * the idle ranges already excluded from the maths.
+ */
+export function selectionDeflation(
+	selection: TimelineSelection,
+	idleRanges: IdleRange[]
+): number {
+	const reason = findAnnotationReason(selection.reason)
+	if (!reason) return 0
+	return (
+		nonIdleDuration(selection, idleRanges) *
+		reason.deflation *
+		PLAYBACK_TO_RECORDED
+	)
+}
+
 /** Length of a set of idle ranges, in playback seconds. */
 export function idlePlaybackSeconds(idleRanges: IdleRange[]): number {
 	return idleRanges.reduce((sum, range) => sum + (range.end - range.start), 0)
@@ -192,16 +209,13 @@ export function deflationByReason(
 ): AnnotationDeflation[] {
 	return ANNOTATION_REASONS.map(reason => ({
 		reason: reason.id,
-		duration:
-			selections
-				.filter(selection => selection.reason === reason.id)
-				.reduce(
-					(sum, selection) =>
-						sum + nonIdleDuration(selection, idleRanges),
-					0
-				) *
-			reason.deflation *
-			PLAYBACK_TO_RECORDED,
+		duration: selections
+			.filter(selection => selection.reason === reason.id)
+			.reduce(
+				(sum, selection) =>
+					sum + selectionDeflation(selection, idleRanges),
+				0
+			),
 	})).filter(entry => entry.duration > 0)
 }
 
@@ -242,22 +256,26 @@ export function describeTimelapse({
 		)
 	}
 
-	let deflatedTotal = 0
+	const deflatedTotal = selections.reduce(
+		(sum, selection) => sum + selectionDeflation(selection, idleRanges),
+		0
+	)
 	for (const reason of ANNOTATION_REASONS) {
 		const matches = selections.filter(
 			selection => selection.reason === reason.id
 		)
 		if (matches.length === 0) continue
 
-		const deflated =
+		// The description shows the stretch's full length plus its deflation
+		// fraction, rather than the deflated amount alone.
+		const stretch =
 			matches.reduce(
 				(sum, selection) =>
 					sum + nonIdleDuration(selection, idleRanges),
 				0
 			) * PLAYBACK_TO_RECORDED
-		deflatedTotal += deflated * reason.deflation
 		parts.push(
-			`${formatClock(deflated)} ${reason.summaryLabel}: ${formatSpans(matches)} (${reason.deflationLabel}).`
+			`${formatClock(stretch)} ${reason.summaryLabel}: ${formatSpans(matches)} (${reason.deflationLabel}).`
 		)
 	}
 

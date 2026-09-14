@@ -725,6 +725,12 @@ $effect(() => {
 	></div>
 {/snippet}
 
+{#snippet centeredState(message: string)}
+	<section class="area-video flex items-center justify-center p-4">
+		<p class="text-center">{message}</p>
+	</section>
+{/snippet}
+
 <main
 	class="dashboard"
 	style="--left-width: {leftWidth}px; --right-width: {rightWidth}px; --timeline-height: {timelineRowHeight};"
@@ -754,11 +760,7 @@ $effect(() => {
 		{#key submittedId}
 			<svelte:boundary>
 				{#snippet pending()}
-					<section
-						class="area-video flex items-center justify-center p-4"
-					>
-						<p>Loading timelapse…</p>
-					</section>
+					{@render centeredState("Loading timelapse…")}
 				{/snippet}
 
 				{#snippet failed(error: unknown, reset: () => void)}
@@ -811,24 +813,16 @@ $effect(() => {
 						{@render resizeHandle("resize-handle-timeline", startTimelineResize)}
 					{/if}
 				{:else}
-					<section
-						class="area-video flex items-center justify-center p-4"
-					>
-						<p>No timelapse found for ID “{submittedId}”.</p>
-					</section>
+					{@render centeredState(
+						`No timelapse found for ID "${submittedId}".`
+					)}
 				{/if}
 			</svelte:boundary>
 		{/key}
 	{:else if routeParam && !loaded}
-		<section class="area-video flex items-center justify-center p-4">
-			<p>Loading timelapse…</p>
-		</section>
+		{@render centeredState("Loading timelapse…")}
 	{:else}
-		<section class="area-video flex items-center justify-center p-4">
-			<p class="text-center">
-				Enter a timelapse ID above to review it here.
-			</p>
-		</section>
+		{@render centeredState("Enter a timelapse ID above to review it here.")}
 	{/if}
 </main>
 

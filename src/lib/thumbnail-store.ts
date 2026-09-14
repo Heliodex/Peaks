@@ -33,6 +33,25 @@ function openCache(): Promise<Cache | null> {
 	return cachePromise
 }
 
+/** Every cached request belonging to one `(kind, source)` pair. */
+async function requestsFor(
+	cache: Cache,
+	kind: string,
+	source: string
+): Promise<Request[]> {
+	const matches: Request[] = []
+	for (const request of await cache.keys()) {
+		const url = new URL(request.url)
+		if (url.pathname !== KEY_PATH) continue
+		const params = url.searchParams
+		if (params.get("kind") !== kind || params.get("src") !== source) {
+			continue
+		}
+		matches.push(request)
+	}
+	return matches
+}
+
 /** Every stored thumbnail for a `(kind, source)` pair, keyed by number. */
 export async function loadThumbnails(
 	kind: string,
@@ -42,14 +61,8 @@ export async function loadThumbnails(
 	if (!cache) return []
 	try {
 		const results: StoredThumbnail[] = []
-		for (const request of await cache.keys()) {
-			const url = new URL(request.url)
-			if (url.pathname !== KEY_PATH) continue
-			const params = url.searchParams
-			if (params.get("kind") !== kind || params.get("src") !== source) {
-				continue
-			}
-			const key = Number(params.get("key"))
+		for (const request of await requestsFor(cache, kind, source)) {
+			const key = Number(new URL(request.url).searchParams.get("key"))
 			if (!Number.isFinite(key)) continue
 			const response = await cache.match(request)
 			if (!response) continue
@@ -90,13 +103,7 @@ export async function deleteThumbnails(
 	const cache = await openCache()
 	if (!cache) return
 	try {
-		for (const request of await cache.keys()) {
-			const url = new URL(request.url)
-			if (url.pathname !== KEY_PATH) continue
-			const params = url.searchParams
-			if (params.get("kind") !== kind || params.get("src") !== source) {
-				continue
-			}
+		for (const request of await requestsFor(cache, kind, source)) {
 			await cache.delete(request)
 		}
 	} catch {

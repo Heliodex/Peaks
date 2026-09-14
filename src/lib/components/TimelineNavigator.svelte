@@ -1,14 +1,10 @@
 <script lang="ts">
 import { untrack } from "svelte"
-import { SvelteMap } from "svelte/reactivity"
 import { effectiveIdleRanges, selectionColors } from "#lib/annotations.js"
 import type { CapturedFrame } from "#lib/frame-capture.js"
 import type { IdleRange } from "#lib/idle-time.js"
-import {
-	deleteThumbnails,
-	loadThumbnails,
-	saveThumbnail,
-} from "#lib/thumbnail-store.js"
+import { createObjectUrlCache } from "#lib/object-url-cache.js"
+import { loadThumbnails, saveThumbnail } from "#lib/thumbnail-store.js"
 import {
 	clamp,
 	MIN_VISIBLE_FRAMES,
@@ -57,28 +53,17 @@ let {
 const MIN_WINDOW_PX = 10
 // Number of thumbnails captured across the whole video for the overview strip
 const NAV_FRAME_COUNT = 24
-// Overview thumbnails are stable per source, so keep them across mounts and
-// skip re-capturing when the same timelapse is reopened.
-const navFrameCache = new SvelteMap<string, string[]>()
+// How many sources' overview frames to keep at once.
 const MAX_CACHED_NAV = 12
 // Persistent-storage namespace for overview thumbnails.
 const NAV_THUMBNAIL_KIND = "nav"
-
-/** Cache a source's overview frames, evicting (and forgetting) the oldest. */
-function cacheNavFrames(source: string, frames: string[]) {
-	navFrameCache.delete(source)
-	navFrameCache.set(source, frames)
-	while (navFrameCache.size > MAX_CACHED_NAV) {
-		const oldest = navFrameCache.keys().next().value
-		if (oldest === undefined) break
-		const evicted = navFrameCache.get(oldest)
-		navFrameCache.delete(oldest)
-		if (evicted) {
-			for (const url of evicted) URL.revokeObjectURL(url)
-		}
-		void deleteThumbnails(NAV_THUMBNAIL_KIND, oldest)
-	}
-}
+// Overview thumbnails are stable per source, so keep them across mounts and
+// skip re-capturing when the same timelapse is reopened.
+const navFrameCache = createObjectUrlCache<string[]>({
+	max: MAX_CACHED_NAV,
+	kind: NAV_THUMBNAIL_KIND,
+	urls: frames => frames,
+})
 
 // Idle regions to draw: hidden while the reviewer overrides idle detection.
 const visibleIdleRanges = $derived(effectiveIdleRanges(ignoreIdle, idleRanges))
@@ -111,7 +96,7 @@ $effect(() => {
 			for (const { key, blob } of stored) {
 				frames[key] = URL.createObjectURL(blob)
 			}
-			cacheNavFrames(src, frames)
+			navFrameCache.set(src, frames)
 			retained = true
 			navFrames = frames
 			return
@@ -139,7 +124,7 @@ $effect(() => {
 			}
 		}
 		if (cancelled || frames.length === 0) return
-		cacheNavFrames(src, frames)
+		navFrameCache.set(src, frames)
 		retained = true
 	})()
 

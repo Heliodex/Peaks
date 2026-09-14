@@ -6,17 +6,14 @@
 // re-decoding the video and hitting the proxy again.
 
 import { untrack } from "svelte"
-import { SvelteMap, SvelteSet } from "svelte/reactivity"
+import { SvelteSet } from "svelte/reactivity"
 import {
 	type CapturedFrame,
 	createFrameCapturer,
 	type FrameCapturer,
 } from "./frame-capture.js"
-import {
-	deleteThumbnails,
-	loadThumbnails,
-	saveThumbnail,
-} from "./thumbnail-store.js"
+import { createObjectUrlCache } from "./object-url-cache.js"
+import { loadThumbnails, saveThumbnail } from "./thumbnail-store.js"
 import {
 	clamp,
 	frameStepFor,
@@ -59,10 +56,6 @@ const MAX_CACHED_SOURCES = 12
 // How long a freshly captured thumbnail fades in for
 const FADE_MS = 200
 
-// Shared, reactive store of thumbnails per video source. Re-inserting on write
-// keeps the map in least-recently-used order.
-const frameCache = new SvelteMap<string, CachedFrame[]>()
-
 // Persistent-storage namespace for these thumbnails, plus the time resolution
 // used for their keys.
 const THUMBNAIL_KIND = "strip"
@@ -72,24 +65,17 @@ const TIME_KEY_SCALE = 1000
 const hydrating = new SvelteSet<string>()
 const hydrated = new SvelteSet<string>()
 
+// Shared, reactive store of thumbnails per video source. Re-inserting on write
+// keeps the cache in least-recently-used order; eviction also forgets the
+// source's persisted thumbnails so storage stays in step with memory.
+const frameCache = createObjectUrlCache<CachedFrame[]>({
+	max: MAX_CACHED_SOURCES,
+	kind: THUMBNAIL_KIND,
+	urls: frames => frames.map(frame => frame.url),
+})
+
 function framesFor(source: string): CachedFrame[] {
 	return frameCache.get(source) ?? []
-}
-
-function storeFrames(source: string, next: CachedFrame[]) {
-	frameCache.delete(source)
-	frameCache.set(source, next)
-	while (frameCache.size > MAX_CACHED_SOURCES) {
-		const oldest = frameCache.keys().next().value
-		if (oldest === undefined) break
-		const evicted = frameCache.get(oldest)
-		frameCache.delete(oldest)
-		if (evicted) {
-			for (const frame of evicted) URL.revokeObjectURL(frame.url)
-		}
-		// Keep persistent storage in step with the in-memory bound.
-		void deleteThumbnails(THUMBNAIL_KIND, oldest)
-	}
 }
 
 /**
@@ -119,7 +105,7 @@ async function hydrate(source: string) {
 		}
 		merged.sort((a, b) => a.time - b.time)
 		if (merged.length <= FRAME_CACHE_LIMIT) {
-			storeFrames(source, merged)
+			frameCache.set(source, merged)
 			return
 		}
 		const kept = merged.slice(0, FRAME_CACHE_LIMIT)
@@ -127,7 +113,7 @@ async function hydrate(source: string) {
 		for (const frame of merged) {
 			if (!keptSet.has(frame)) URL.revokeObjectURL(frame.url)
 		}
-		storeFrames(source, kept)
+		frameCache.set(source, kept)
 	} finally {
 		hydrating.delete(source)
 	}
@@ -201,7 +187,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 				if (!kept.has(frame)) URL.revokeObjectURL(frame.url)
 			}
 		}
-		storeFrames(source, next)
+		frameCache.set(source, next)
 		void saveThumbnail(
 			THUMBNAIL_KIND,
 			source,
