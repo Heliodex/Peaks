@@ -6,8 +6,13 @@
 // re-decoding the video and hitting the proxy again.
 
 import { untrack } from "svelte"
-import { SvelteMap } from "svelte/reactivity"
+import { SvelteMap, SvelteSet } from "svelte/reactivity"
 import { createFrameCapturer, type FrameCapturer } from "./frame-capture.js"
+import {
+	deleteThumbnails,
+	loadThumbnails,
+	saveThumbnail,
+} from "./thumbnail-store.js"
 import {
 	clamp,
 	frameStepFor,
@@ -52,6 +57,13 @@ const FADE_MS = 200
 // keeps the map in least-recently-used order.
 const frameCache = new SvelteMap<string, CachedFrame[]>()
 
+// Persistent-storage namespace for these thumbnails, plus the time resolution
+// used for their keys.
+const THUMBNAIL_KIND = "strip"
+const TIME_KEY_SCALE = 1000
+// Sources currently being pulled back in from persistent storage.
+const hydrating = new SvelteSet<string>()
+
 function framesFor(source: string): CachedFrame[] {
 	return frameCache.get(source) ?? []
 }
@@ -63,6 +75,42 @@ function storeFrames(source: string, next: CachedFrame[]) {
 		const oldest = frameCache.keys().next().value
 		if (oldest === undefined) break
 		frameCache.delete(oldest)
+		// Keep persistent storage in step with the in-memory bound.
+		void deleteThumbnails(THUMBNAIL_KIND, oldest)
+	}
+}
+
+/**
+ * Pull a source's persisted thumbnails into the in-memory cache. Runs while the
+ * source isn't already loading; frames captured meanwhile win any collisions.
+ */
+async function hydrate(source: string) {
+	if (hydrating.has(source)) return
+	hydrating.add(source)
+	try {
+		const stored = await loadThumbnails(THUMBNAIL_KIND, source)
+		if (stored.length === 0) return
+		const merged = [...framesFor(source)]
+		for (const { key, url } of stored) {
+			const time = key / TIME_KEY_SCALE
+			if (
+				merged.some(
+					frame => Math.abs(frame.time - time) <= 1 / TIME_KEY_SCALE
+				)
+			) {
+				continue
+			}
+			merged.push({ time, url, fresh: false })
+		}
+		merged.sort((a, b) => a.time - b.time)
+		storeFrames(
+			source,
+			merged.length > FRAME_CACHE_LIMIT
+				? merged.slice(0, FRAME_CACHE_LIMIT)
+				: merged
+		)
+	} finally {
+		hydrating.delete(source)
 	}
 }
 
@@ -123,6 +171,12 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 				.slice(0, FRAME_CACHE_LIMIT)
 		}
 		storeFrames(source, next)
+		void saveThumbnail(
+			THUMBNAIL_KIND,
+			source,
+			Math.round(time * TIME_KEY_SCALE),
+			url
+		)
 
 		// Only freshly captured frames should fade in; clear the flag shortly
 		// after so frames merely re-sampled while zooming/panning don't flash.
@@ -241,10 +295,17 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		const current = view()
 		if (!url || !(current.end > current.start)) return
 
+		// Pull persisted thumbnails in first, so a reload can render the strip
+		// without starting any capturers.
+		void hydrate(url)
+
 		// Start buffering the first capturer immediately so the initial frames
-		// aren't network-bound — but only when there's nothing cached to show.
+		// aren't network-bound — but only when nothing is cached or loading.
 		// `untrack` keeps adding frames from re-running this effect.
-		if (untrack(() => framesFor(url).length) === 0) {
+		if (
+			!untrack(() => hydrating.has(url)) &&
+			untrack(() => framesFor(url).length) === 0
+		) {
 			targetSrc = url
 			void getCapturer(0)
 		}

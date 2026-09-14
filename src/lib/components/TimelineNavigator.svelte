@@ -5,6 +5,11 @@ import { selectionColors } from "#lib/annotations.js"
 import { captureFramesAt } from "#lib/frame-capture.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import {
+	deleteThumbnails,
+	loadThumbnails,
+	saveThumbnail,
+} from "#lib/thumbnail-store.js"
+import {
 	clamp,
 	MIN_VISIBLE_FRAMES,
 	percentOf,
@@ -53,6 +58,20 @@ const NAV_FRAME_COUNT = 24
 // skip re-capturing when the same timelapse is reopened.
 const navFrameCache = new SvelteMap<string, string[]>()
 const MAX_CACHED_NAV = 12
+// Persistent-storage namespace for overview thumbnails.
+const NAV_THUMBNAIL_KIND = "nav"
+
+/** Cache a source's overview frames, evicting (and forgetting) the oldest. */
+function cacheNavFrames(source: string, frames: string[]) {
+	navFrameCache.delete(source)
+	navFrameCache.set(source, frames)
+	while (navFrameCache.size > MAX_CACHED_NAV) {
+		const oldest = navFrameCache.keys().next().value
+		if (oldest === undefined) break
+		navFrameCache.delete(oldest)
+		void deleteThumbnails(NAV_THUMBNAIL_KIND, oldest)
+	}
+}
 
 // Idle regions to draw: hidden while the reviewer overrides idle detection.
 const visibleIdleRanges = $derived(ignoreIdle ? [] : idleRanges)
@@ -71,33 +90,48 @@ $effect(() => {
 		return
 	}
 
-	navFrames = []
-	const times: number[] = []
-	for (let i = 0; i < NAV_FRAME_COUNT; i++) {
-		times.push((total * i) / (NAV_FRAME_COUNT - 1))
+	let cancelled = false
+	let job: ReturnType<typeof captureFramesAt> | null = null
+
+	void (async () => {
+		// Reuse thumbnails captured in a previous session, if any.
+		const stored = await loadThumbnails(NAV_THUMBNAIL_KIND, src)
+		if (cancelled) return
+		if (stored.length > 0) {
+			const frames: string[] = []
+			for (const { key, url } of stored) frames[key] = url
+			cacheNavFrames(src, frames)
+			navFrames = frames
+			return
+		}
+
+		navFrames = []
+		const times: number[] = []
+		for (let i = 0; i < NAV_FRAME_COUNT; i++) {
+			times.push((total * i) / (NAV_FRAME_COUNT - 1))
+		}
+		let frames: string[] = []
+		job = captureFramesAt(src, times, (index, url) => {
+			const next = [...frames]
+			next[index] = url
+			frames = next
+			navFrames = next
+			void saveThumbnail(NAV_THUMBNAIL_KIND, src, index, url)
+		})
+		void job.promise
+			.then(() => {
+				if (cancelled || frames.length === 0) return
+				cacheNavFrames(src, frames)
+			})
+			.catch(() => {
+				// Leave any uncaptured slots blank.
+			})
+	})()
+
+	return () => {
+		cancelled = true
+		job?.cancel()
 	}
-	let frames: string[] = []
-	const job = captureFramesAt(src, times, (index, url) => {
-		const next = [...frames]
-		next[index] = url
-		frames = next
-		navFrames = next
-	})
-	void job.promise
-		.then(() => {
-			if (frames.length === 0) return
-			navFrameCache.delete(src)
-			navFrameCache.set(src, frames)
-			while (navFrameCache.size > MAX_CACHED_NAV) {
-				const oldest = navFrameCache.keys().next().value
-				if (oldest === undefined) break
-				navFrameCache.delete(oldest)
-			}
-		})
-		.catch(() => {
-			// Leave any uncaptured slots blank.
-		})
-	return () => job.cancel()
 })
 
 function pointerToTime(clientX: number, target: HTMLElement): number {
