@@ -10,6 +10,8 @@ let {
 	selections = $bindable<TimelineSelection[]>([]),
 	idleRanges = $bindable<IdleRange[]>([]),
 	idleAnalyzing = $bindable(false),
+	idleAnalyzed = $bindable(false),
+	idleRevision = 0,
 	ignoreIdle,
 }: {
 	playbackUrl: string
@@ -18,6 +20,8 @@ let {
 	selections?: TimelineSelection[]
 	idleRanges?: IdleRange[]
 	idleAnalyzing?: boolean
+	idleAnalyzed?: boolean
+	idleRevision?: number
 	ignoreIdle: boolean
 } = $props()
 </script>
@@ -29,6 +33,8 @@ let {
 		bind:selections
 		bind:idleRanges
 		bind:idleAnalyzing
+		bind:idleAnalyzed
+		{idleRevision}
 		{ignoreIdle}
 		timelapse={{ playbackUrl, thumbnailUrl }}
 		video={videoEl}

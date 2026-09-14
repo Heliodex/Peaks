@@ -67,6 +67,10 @@ let videoEl = $state<HTMLVideoElement>()
 let selections = $state<TimelineSelection[]>([])
 let idleRanges = $state<IdleRange[]>([])
 let idleAnalyzing = $state(false)
+// Whether `idleRanges` came from a completed scan or the project's cache.
+let idleAnalyzed = $state(false)
+// Bumped to request a fresh idle scan; negative means "use the cached ranges".
+let idleRevision = $state(0)
 // Encoded project state currently represented by the review. Kept as its own
 // state (rather than read back from `page.url`) so the description always
 // reflects what we encoded, even before the address bar catches up.
@@ -214,6 +218,20 @@ function sameAnnotations(
 	)
 }
 
+/** Whether two cached idle-range lists match (including both being absent). */
+function sameIdleRanges(
+	a: IdleRange[] | undefined,
+	b: IdleRange[] | undefined
+): boolean {
+	if (a === undefined || b === undefined) return a === b
+	return (
+		a.length === b.length &&
+		a.every(
+			(range, i) => range.start === b[i].start && range.end === b[i].end
+		)
+	)
+}
+
 /** Idle ranges that count towards the maths (none while overridden). */
 const effectiveIdleRanges = $derived(ignoreIdle ? [] : idleRanges)
 
@@ -251,6 +269,7 @@ $effect(() => {
 	encodedState = ""
 	idleRanges = []
 	idleAnalyzing = false
+	idleAnalyzed = false
 	if (!param) {
 		submittedId = ""
 		selections = []
@@ -271,6 +290,31 @@ $effect(() => {
 		}
 		loaded = true
 	})
+})
+
+/**
+ * Seed the open timelapse's idle ranges from the project's cache when a scan
+ * has run before, so reopening a timelapse doesn't re-analyze its video. A
+ * negative revision tells the timeline to reuse the cache instead of scanning.
+ */
+let idleSeededFor = ""
+$effect(() => {
+	const id = submittedId
+	if (!id) {
+		idleSeededFor = ""
+		return
+	}
+	if (idleSeededFor === id) return
+	const entry = currentProject?.timelapses.find(item => item.id === id)
+	idleSeededFor = id
+	idleAnalyzed = false
+	if (entry?.idleRanges) {
+		idleRanges = entry.idleRanges.map(range => ({ ...range }))
+		idleRevision = -1
+	} else {
+		idleRanges = []
+		idleRevision = 0
+	}
 })
 
 /**
@@ -320,6 +364,7 @@ function closeTimelapse() {
 	selections = []
 	idleRanges = []
 	idleAnalyzing = false
+	idleAnalyzed = false
 }
 
 /** Remove a timelapse from the open project, closing it when it was open. */
@@ -483,6 +528,11 @@ function setIgnoreIdle(value: boolean) {
 	}))
 }
 
+/** Force a fresh idle scan for the open timelapse, replacing the cached one. */
+function recalculateIdle() {
+	idleRevision = idleRevision < 0 ? 0 : idleRevision + 1
+}
+
 /** Totals for the current project, in recorded seconds. */
 const projectTotals = $derived.by(() => {
 	let recorded = 0
@@ -574,9 +624,18 @@ $effect(() => {
 	const ranges = $state.snapshot(effectiveIdleRanges)
 	const currentSelections = $state.snapshot(selections)
 	const annotations = deflationByReason(currentSelections, ranges)
+	const detected = $state.snapshot(idleRanges)
 	if (!id || !loaded || !meta || meta.id !== id) return
 	const index = projectEntries.findIndex(entry => entry.id === id)
 	const existing = index === -1 ? undefined : projectEntries[index]
+	// Only cache ranges once a scan has finished (or when reusing a previous
+	// cache), so a scan interrupted by navigation can't persist partial results
+	// that would then never be recalculated.
+	const cachedRanges = idleAnalyzing
+		? existing?.idleRanges
+		: idleAnalyzed
+			? detected
+			: existing?.idleRanges
 	const name = meta.name?.trim() ?? ""
 	const { duration } = meta
 	const description = describeTimelapse({
@@ -592,7 +651,8 @@ $effect(() => {
 		existing.idleDuration === idle &&
 		sameAnnotations(existing.annotations, annotations) &&
 		existing.ignoreIdle === ignoreIdle &&
-		existing.description === description
+		existing.description === description &&
+		sameIdleRanges(existing.idleRanges, cachedRanges)
 	) {
 		return
 	}
@@ -604,6 +664,7 @@ $effect(() => {
 		annotations,
 		ignoreIdle,
 		description,
+		...(cachedRanges !== undefined ? { idleRanges: cachedRanges } : {}),
 	}
 	updateCurrentProject(project => ({
 		...project,
@@ -686,6 +747,7 @@ $effect(() => {
 						{idleAnalyzing}
 						{ignoreIdle}
 						onToggleIgnoreIdle={setIgnoreIdle}
+						onRecalculateIdle={recalculateIdle}
 					/>
 
 					<div
@@ -702,6 +764,8 @@ $effect(() => {
 							bind:selections
 							bind:idleRanges
 							bind:idleAnalyzing
+							bind:idleAnalyzed
+							{idleRevision}
 							{ignoreIdle}
 						/>
 

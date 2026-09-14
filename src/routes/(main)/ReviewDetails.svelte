@@ -21,6 +21,7 @@ let {
 	idleAnalyzing,
 	ignoreIdle,
 	onToggleIgnoreIdle,
+	onRecalculateIdle,
 }: {
 	timelapse: ReviewTimelapse
 	selections?: TimelineSelection[]
@@ -28,6 +29,7 @@ let {
 	idleAnalyzing: boolean
 	ignoreIdle: boolean
 	onToggleIgnoreIdle: (value: boolean) => void
+	onRecalculateIdle: () => void
 } = $props()
 
 const sortedSelections = $derived(
@@ -219,10 +221,10 @@ $effect(() => () => clearTimeout(copyTimer))
 		{/if}
 	</section>
 
-	{#if idleRanges.length > 0 || ignoreIdle}
-		<div
-			class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-700 pt-2 text-xs text-neutral-500"
-		>
+	<div
+		class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-700 pt-2 text-xs text-neutral-500"
+	>
+		{#if idleRanges.length > 0 || ignoreIdle}
 			<label class="flex items-center gap-1.5">
 				<input
 					type="checkbox"
@@ -241,8 +243,16 @@ $effect(() => () => clearTimeout(copyTimer))
 					Amber regions have no visual changes (time spent away).
 				</p>
 			{/if}
-		</div>
-	{/if}
+		{/if}
+		<button
+			type="button"
+			onclick={onRecalculateIdle}
+			disabled={idleAnalyzing}
+			class="border border-neutral-500 px-1.5 py-0.5 text-neutral-500 hover:border-blue-500 hover:text-blue-400 disabled:opacity-50"
+		>
+			{idleAnalyzing ? "Recalculating…" : "Recalculate idle time"}
+		</button>
+	</div>
 
 	<section class="border-t border-neutral-700 pt-2">
 		<div class="flex items-center justify-between gap-2 pb-1">

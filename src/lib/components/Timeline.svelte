@@ -46,6 +46,8 @@ let {
 	selections = $bindable<TimelineSelection[]>([]),
 	idleRanges = $bindable<IdleRange[]>([]),
 	idleAnalyzing = $bindable(false),
+	idleAnalyzed = $bindable(false),
+	idleRevision = 0,
 	ignoreIdle = false,
 }: {
 	timelapse: { playbackUrl: string; thumbnailUrl?: string | null }
@@ -53,6 +55,8 @@ let {
 	selections?: TimelineSelection[]
 	idleRanges?: IdleRange[]
 	idleAnalyzing?: boolean
+	idleAnalyzed?: boolean
+	idleRevision?: number
 	ignoreIdle?: boolean
 } = $props()
 
@@ -131,11 +135,13 @@ let drag = $state<DragState>(null)
 let pan = $state<PanState>(null)
 let nextId = 0
 
-// Scan the video for stretches where the picture never changes (time spent AFK) and publish them to the parent so it can report an "actual" duration.
+// Scan the video for stretches where the picture never changes (time spent AFK) and publish them to the parent so it can report an "actual" duration. Cached ranges are reused until the parent bumps `idleRevision`.
 const idle = createIdleAnalysis({
 	src: () => timelapse.playbackUrl,
 	duration: () => duration,
 	frameRate: () => frameRate,
+	cached: () => idleRanges,
+	revision: () => idleRevision,
 })
 
 // Fraction (0–1) of the idle scan completed, smoothed by a spring so the scanning progress line glides rather than jumping between samples.
@@ -157,6 +163,7 @@ $effect(() => {
 
 	idleRanges = idle.ranges
 	idleAnalyzing = analyzing
+	idleAnalyzed = idle.complete
 	void idleProgressSpring.set(idle.progress, {
 		instant: prefersReducedMotion.current,
 	})

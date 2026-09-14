@@ -3,6 +3,7 @@
 // time; the review view mirrors that one into the URL while the rest stay local.
 
 import type { AnnotationDeflation } from "./annotations.js"
+import type { IdleRange } from "./idle-time.js"
 
 export type ProjectTimelapse = {
 	id: string
@@ -18,6 +19,12 @@ export type ProjectTimelapse = {
 	ignoreIdle: boolean
 	/** Plain-text review description, without the per-timelapse share link. */
 	description: string
+	/**
+	 * Detected idle ranges (playback seconds) from the last completed scan.
+	 * Absent until one has run, so a present-but-empty array means "scanned and
+	 * genuinely idle-free" and avoids re-scanning on every open.
+	 */
+	idleRanges?: IdleRange[]
 }
 
 export type Project = {
@@ -57,6 +64,21 @@ function parseAnnotations(value: unknown): AnnotationDeflation[] {
 		.filter((entry): entry is AnnotationDeflation => Boolean(entry))
 }
 
+function parseIdleRange(value: unknown): IdleRange | null {
+	if (typeof value !== "object" || value === null) return null
+	const { start, end } = value as Record<string, unknown>
+	if (!isFiniteNonNegative(start) || !isFiniteNonNegative(end)) return null
+	return { start, end }
+}
+
+/** Parse cached idle ranges, preserving an empty array as "scanned, none". */
+function parseIdleRanges(value: unknown): IdleRange[] | undefined {
+	if (!Array.isArray(value)) return undefined
+	return value
+		.map(parseIdleRange)
+		.filter((range): range is IdleRange => Boolean(range))
+}
+
 function parseEntry(value: unknown): ProjectTimelapse | null {
 	if (typeof value !== "object" || value === null) return null
 	const {
@@ -67,6 +89,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		annotations,
 		ignoreIdle,
 		description,
+		idleRanges: rawIdleRanges,
 	} = value as Record<string, unknown>
 	if (
 		typeof id !== "string" ||
@@ -77,6 +100,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 	) {
 		return null
 	}
+	const idleRanges = parseIdleRanges(rawIdleRanges)
 	return {
 		id,
 		name,
@@ -85,6 +109,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		annotations: parseAnnotations(annotations),
 		ignoreIdle: ignoreIdle === true,
 		description,
+		...(idleRanges !== undefined ? { idleRanges } : {}),
 	}
 }
 
