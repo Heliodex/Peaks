@@ -603,10 +603,15 @@ const projectTotals = $derived.by(() => {
 const projectDescription = $derived.by(() => {
 	if (projectEntries.length === 0) return ""
 	const parts = projectEntries.map(entry => entry.description)
+	const total = `${formatClock(projectTotals.final)} (${formatHours(projectTotals.final)})`
+	// With nothing deducted, original and final time are the same, so the
+	// breakdown would just repeat itself.
 	parts.push(
-		`Total original time ${formatClock(projectTotals.recorded)}, ` +
-			`total time deducted ${formatClock(projectTotals.deducted)}, ` +
-			`final total ${formatClock(projectTotals.final)} (${formatHours(projectTotals.final)}).`
+		projectTotals.deducted === 0
+			? `Total time ${total}.`
+			: `Total original time ${formatClock(projectTotals.recorded)}, ` +
+					`total time deducted ${formatClock(projectTotals.deducted)}, ` +
+					`final total ${total}.`
 	)
 	if (encodedState) parts.push(shareUrl)
 	return parts.join("\n\n")
