@@ -161,16 +161,16 @@ function moveEntryBy(id: string, delta: number) {
 					>
 						{project.name}
 					</button>
+					<button
+						type="button"
+						onclick={() => onRemoveProject(project.id)}
+						title="Delete project"
+						aria-label="Delete {project.name}"
+						class="shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
+					>
+						Delete
+					</button>
 				{/if}
-				<button
-					type="button"
-					onclick={() => onRemoveProject(project.id)}
-					title="Delete project"
-					aria-label="Delete {project.name}"
-					class="shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
-				>
-					Delete
-				</button>
 			</li>
 		{/each}
 	</ul>
