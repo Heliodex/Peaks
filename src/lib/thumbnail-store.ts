@@ -4,9 +4,6 @@
 // in-memory caches behave exactly as before.
 
 const CACHE_NAME = "peaks:thumbnails:v2"
-// v1 stored base64 data URLs as text; reading those as blobs would be wrong,
-// so it's dropped on startup.
-const LEGACY_CACHE_NAME = "peaks:thumbnails:v1"
 // A same-origin path used purely as a cache key; it never hits the server.
 const KEY_PATH = "/__peaks-thumbnails"
 // Upper bound on how many sources' thumbnails to retain per kind, so storage
@@ -154,15 +151,9 @@ export async function pruneThumbnails(): Promise<void> {
 // Trim anything left over from previous sessions, once per page load, but wait
 // until after first paint so pruning can't delay the initial thumbnails.
 if (typeof window !== "undefined") {
-	const maintenance = () => {
-		void pruneThumbnails()
-		if (typeof caches !== "undefined") {
-			void caches.delete(LEGACY_CACHE_NAME)
-		}
-	}
 	if (typeof requestIdleCallback === "function") {
-		requestIdleCallback(maintenance)
+		requestIdleCallback(() => void pruneThumbnails())
 	} else {
-		setTimeout(maintenance, 3000)
+		setTimeout(() => void pruneThumbnails(), 3000)
 	}
 }
