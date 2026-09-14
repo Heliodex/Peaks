@@ -15,14 +15,36 @@ type ProbeVideo = HTMLVideoElement & {
 	requestVideoFrameCallback?: (callback: FrameCallback) => number
 }
 
+// Video frame rates are stable per source, so remember successful probes and
+// reuse them instead of decoding another hidden video when a timelapse reopens.
+const frameRateCache = new Map<string, Promise<number>>()
+const MAX_CACHED_RATES = 200
+
 /**
- * Estimate a video's frame rate in frames per second.
+ * Estimate a video's frame rate in frames per second, memoized per source.
  *
  * Returns `0` when the rate can't be determined, in which case callers should
  * disable frame snapping. Frame rates are returned as whole numbers, which is
  * how Lapse encodes them (e.g. 6, 24).
  */
-export async function detectFrameRate(src: string): Promise<number> {
+export function detectFrameRate(src: string): Promise<number> {
+	if (typeof document === "undefined") return Promise.resolve(0)
+	const cached = frameRateCache.get(src)
+	if (cached) return cached
+	if (frameRateCache.size >= MAX_CACHED_RATES) {
+		const oldest = frameRateCache.keys().next().value
+		if (oldest !== undefined) frameRateCache.delete(oldest)
+	}
+	const promise = probeFrameRate(src).then(rate => {
+		// Don't memoize failures, so a later attempt can retry.
+		if (rate <= 0) frameRateCache.delete(src)
+		return rate
+	})
+	frameRateCache.set(src, promise)
+	return promise
+}
+
+async function probeFrameRate(src: string): Promise<number> {
 	if (typeof document === "undefined") return 0
 
 	const video = document.createElement("video") as ProbeVideo

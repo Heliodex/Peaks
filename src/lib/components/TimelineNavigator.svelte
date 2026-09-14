@@ -1,4 +1,6 @@
 <script lang="ts">
+import { untrack } from "svelte"
+import { SvelteMap } from "svelte/reactivity"
 import { selectionColors } from "#lib/annotations.js"
 import { captureFramesAt } from "#lib/frame-capture.js"
 import type { IdleRange } from "#lib/idle-time.js"
@@ -47,6 +49,10 @@ let {
 const MIN_WINDOW_PX = 10
 // Number of thumbnails captured across the whole video for the overview strip
 const NAV_FRAME_COUNT = 24
+// Overview thumbnails are stable per source, so keep them across mounts and
+// skip re-capturing when the same timelapse is reopened.
+const navFrameCache = new SvelteMap<string, string[]>()
+const MAX_CACHED_NAV = 12
 
 // Idle regions to draw: hidden while the reviewer overrides idle detection.
 const visibleIdleRanges = $derived(ignoreIdle ? [] : idleRanges)
@@ -59,19 +65,38 @@ $effect(() => {
 	const total = duration
 	if (!src || total <= 0) return
 
+	const cached = untrack(() => navFrameCache.get(src))
+	if (cached) {
+		navFrames = cached
+		return
+	}
+
 	navFrames = []
 	const times: number[] = []
 	for (let i = 0; i < NAV_FRAME_COUNT; i++) {
 		times.push((total * i) / (NAV_FRAME_COUNT - 1))
 	}
+	let frames: string[] = []
 	const job = captureFramesAt(src, times, (index, url) => {
-		const next = [...navFrames]
+		const next = [...frames]
 		next[index] = url
+		frames = next
 		navFrames = next
 	})
-	void job.promise.catch(() => {
-		// Leave any uncaptured slots blank.
-	})
+	void job.promise
+		.then(() => {
+			if (frames.length === 0) return
+			navFrameCache.delete(src)
+			navFrameCache.set(src, frames)
+			while (navFrameCache.size > MAX_CACHED_NAV) {
+				const oldest = navFrameCache.keys().next().value
+				if (oldest === undefined) break
+				navFrameCache.delete(oldest)
+			}
+		})
+		.catch(() => {
+			// Leave any uncaptured slots blank.
+		})
 	return () => job.cancel()
 })
 

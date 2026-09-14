@@ -29,8 +29,19 @@ export async function GET({ url, request }: RequestEvent) {
 	}
 
 	const range = request.headers.get("range")
+	// Pass through validators so a revalidation can be answered with a cheap 304
+	// instead of streaming the whole file again.
+	const conditional: Record<string, string> = {}
+	const ifNoneMatch = request.headers.get("if-none-match")
+	if (ifNoneMatch) conditional["If-None-Match"] = ifNoneMatch
+	const ifModifiedSince = request.headers.get("if-modified-since")
+	if (ifModifiedSince) conditional["If-Modified-Since"] = ifModifiedSince
+
 	const upstream = await fetch(parsed, {
-		headers: range ? { Range: range } : {},
+		headers: {
+			...(range && { Range: range }),
+			...conditional,
+		},
 	})
 
 	const headers = new Headers()
@@ -45,10 +56,14 @@ export async function GET({ url, request }: RequestEvent) {
 		const value = upstream.headers.get(name)
 		if (value) headers.set(name, value)
 	}
-	headers.set("cache-control", "private, max-age=3600")
+	// Lapse media URLs are unique per timelapse and never rewritten, so a long,
+	// immutable lifetime is safe and keeps revisits from touching the network.
+	// `private` keeps the authenticated response out of shared caches.
+	headers.set("cache-control", "private, max-age=31536000, immutable")
 
-	return new Response(upstream.body, {
-		status: upstream.status,
+	const status = upstream.status === 304 ? 304 : upstream.status
+	return new Response(status === 304 ? null : upstream.body, {
+		status,
 		headers,
 	})
 }

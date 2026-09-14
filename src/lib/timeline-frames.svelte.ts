@@ -1,6 +1,12 @@
 // Cached, incrementally-captured thumbnail strip for the main timeline.
 // Thumbnails are stored at absolute times and sampled onto an absolute, zoom-quantized grid, so the strip slides smoothly while panning instead of reshuffling, and denser frames captured at a higher zoom level are reused.
+//
+// The cache is shared across component instances (keyed by the video source) so
+// switching away from a project and back reuses its thumbnails instead of
+// re-decoding the video and hitting the proxy again.
 
+import { untrack } from "svelte"
+import { SvelteMap } from "svelte/reactivity"
 import { createFrameCapturer, type FrameCapturer } from "./frame-capture.js"
 import {
 	clamp,
@@ -35,15 +41,34 @@ export type FrameStrip = {
 const FRAME_COUNT = 12
 // Wait this long after the view stops changing before filling in new frames
 const FRAME_REFRESH_MS = 120
-// Upper bound on cached thumbnails kept in memory (small JPEGs)
+// Upper bound on cached thumbnails kept per video (small JPEGs)
 const FRAME_CACHE_LIMIT = 200
+// How many videos' thumbnail sets to keep at once
+const MAX_CACHED_SOURCES = 12
 // How long a freshly captured thumbnail fades in for
 const FADE_MS = 200
+
+// Shared, reactive store of thumbnails per video source. Re-inserting on write
+// keeps the map in least-recently-used order.
+const frameCache = new SvelteMap<string, CachedFrame[]>()
+
+function framesFor(source: string): CachedFrame[] {
+	return frameCache.get(source) ?? []
+}
+
+function storeFrames(source: string, next: CachedFrame[]) {
+	frameCache.delete(source)
+	frameCache.set(source, next)
+	while (frameCache.size > MAX_CACHED_SOURCES) {
+		const oldest = frameCache.keys().next().value
+		if (oldest === undefined) break
+		frameCache.delete(oldest)
+	}
+}
 
 export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 	const { src, duration, frameRate, view } = options
 
-	let frames = $state<CachedFrame[]>([])
 	let queue: number[] = []
 	let capturing = false
 	let tolerance = 0.05
@@ -77,12 +102,15 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		return item
 	}
 
-	function isCached(time: number): boolean {
-		return frames.some(frame => Math.abs(frame.time - time) <= tolerance)
+	function isCached(source: string, time: number): boolean {
+		return framesFor(source).some(
+			frame => Math.abs(frame.time - time) <= tolerance
+		)
 	}
 
 	function addFrame(time: number, url: string) {
-		let next = [...frames, { time, url, fresh: true }]
+		const source = targetSrc
+		let next = [...framesFor(source), { time, url, fresh: true }]
 		if (next.length > FRAME_CACHE_LIMIT) {
 			// Keep the thumbnails nearest the visible window.
 			const { start, end } = view()
@@ -94,15 +122,20 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 				)
 				.slice(0, FRAME_CACHE_LIMIT)
 		}
-		frames = next
+		storeFrames(source, next)
 
 		// Only freshly captured frames should fade in; clear the flag shortly
 		// after so frames merely re-sampled while zooming/panning don't flash.
 		const timer = setTimeout(() => {
-			frames = frames.map(frame =>
-				frame.time === time && frame.fresh
-					? { ...frame, fresh: false }
-					: frame
+			const list = frameCache.get(source)
+			if (!list) return
+			frameCache.set(
+				source,
+				list.map(frame =>
+					frame.time === time && frame.fresh
+						? { ...frame, fresh: false }
+						: frame
+				)
 			)
 			settleTimers = settleTimers.filter(t => t !== timer)
 		}, FADE_MS)
@@ -126,7 +159,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 	async function captureLoop(index: number) {
 		while (queue.length > 0) {
 			const time = queue.shift() as number
-			if (isCached(time)) continue
+			if (isCached(targetSrc, time)) continue
 			try {
 				const fps = frameRate()
 				const epsilon = Math.min(0.05, (fps > 0 ? 1 / fps : 0.05) / 2)
@@ -152,7 +185,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		const last = Math.floor(end / step)
 		for (let k = first; k <= last; k++) {
 			const time = clamp(k * step, 0, duration())
-			if (!isCached(time)) next.push(time)
+			if (!isCached(url, time)) next.push(time)
 		}
 		queue = next
 		void runQueue()
@@ -163,6 +196,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		const span = current.end - current.start
 		if (span <= 0) return []
 
+		const frames = framesFor(src())
 		const step = frameStepFor(span, frameRate(), FRAME_COUNT)
 		const maxDistance = step / 2
 		const picks: CachedFrame[] = []
@@ -208,9 +242,12 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		if (!url || !(current.end > current.start)) return
 
 		// Start buffering the first capturer immediately so the initial frames
-		// aren't network-bound, then fill the window once the view settles.
-		targetSrc = url
-		void getCapturer(0)
+		// aren't network-bound — but only when there's nothing cached to show.
+		// `untrack` keeps adding frames from re-running this effect.
+		if (untrack(() => framesFor(url).length) === 0) {
+			targetSrc = url
+			void getCapturer(0)
+		}
 
 		const timer = setTimeout(() => {
 			populate(url, current.start, current.end)
