@@ -140,13 +140,15 @@ function moveEntryBy(id: string, delta: number) {
 				class="flex items-center gap-2 border-b border-neutral-800 pb-1"
 			>
 				{#if project.id === currentProjectId}
-					<span
-						class="min-w-0 flex-1 truncate font-medium text-blue-400"
+					<input
+						type="text"
+						value={projectName}
+						onchange={e => onRenameProject(e.currentTarget.value)}
+						placeholder={DEFAULT_PROJECT_NAME}
 						title={project.name}
-						aria-current="true"
+						aria-label="Project name"
+						class="min-w-0 flex-1 border border-neutral-500 px-1 py-0.5 font-medium text-blue-400"
 					>
-						{project.name}
-					</span>
 				{:else}
 					<button
 						type="button"
@@ -169,19 +171,6 @@ function moveEntryBy(id: string, delta: number) {
 			</li>
 		{/each}
 	</ul>
-
-	<label class="flex flex-col gap-1 border-t border-neutral-700 pt-3 text-sm">
-		<span class="text-xs uppercase tracking-wide text-neutral-500">
-			Name
-		</span>
-		<input
-			type="text"
-			value={projectName}
-			onchange={e => onRenameProject(e.currentTarget.value)}
-			placeholder={DEFAULT_PROJECT_NAME}
-			class="border border-neutral-500 px-2 py-1"
-		>
-	</label>
 
 	{#if projectEntries.length > 0}
 		<ul
