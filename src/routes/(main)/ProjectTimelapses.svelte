@@ -1,4 +1,7 @@
 <script lang="ts">
+import { flip } from "svelte/animate"
+import { prefersReducedMotion } from "svelte/motion"
+import { scale } from "svelte/transition"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
 import { getTimelapseThumbnails } from "./api.remote.js"
 import { entryFinalDuration, formatDuration } from "./review-format.js"
@@ -10,6 +13,18 @@ let {
 	entries: ProjectTimelapse[]
 	onLoad: (id: string) => void
 } = $props()
+
+// Card motion, matching the sidebar's 180ms shifts. Scoped `|local` below so
+// switching to a timelapse (which unmounts the whole grid) doesn't wait for
+// every card to animate out. Disabled for reduced-motion users.
+const cardTransition = $derived(
+	prefersReducedMotion.current
+		? { duration: 0 }
+		: { duration: 180, start: 0.9 }
+)
+const cardShift = $derived(
+	prefersReducedMotion.current ? { duration: 0 } : { duration: 180 }
+)
 
 // Thumbnail URLs for the current entries. They resolve after the grid has
 // rendered, so titles and times show immediately and images fill in.
@@ -40,7 +55,10 @@ $effect(() => {
 <section class="area-video min-h-0 overflow-y-auto p-4">
 	<ul class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
 		{#each entries as entry (entry.id)}
-			<li>
+			<li
+				out:scale|local={cardTransition}
+				animate:flip={cardShift}
+			>
 				<button
 					type="button"
 					onclick={() => onLoad(entry.id)}
