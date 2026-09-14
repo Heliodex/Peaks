@@ -22,6 +22,11 @@ import {
 	uniqueProjectName,
 } from "#lib/project-storage.js"
 import { loadSelections, saveSelections } from "#lib/selection-storage.js"
+import {
+	loadSettings,
+	type Settings,
+	saveSettings,
+} from "#lib/settings-storage.js"
 import { decodeShare, encodeShare, type ShareState } from "#lib/share.js"
 import {
 	clamp,
@@ -183,6 +188,11 @@ const shareUrl = $derived(encodedState ? `${SITE_ORIGIN}/${encodedState}` : "")
 let projects = $state<Project[]>([])
 let currentProjectId = $state("")
 let projectLoaded = $state(false)
+
+// Review preferences (timeline layout, …). Loaded once from local storage and
+// persisted on change; never mirrored into the URL.
+let justifyTimeline = $state(true)
+let settingsLoaded = $state(false)
 
 /** The project currently open in the panel. */
 const currentProject = $derived(
@@ -532,6 +542,20 @@ $effect(() => {
 	saveProjects(store)
 })
 
+// Load review preferences once on the client; local storage isn't available
+// during SSR, so this must not run in the initial render.
+$effect(() => {
+	justifyTimeline = loadSettings().justifyTimeline
+	settingsLoaded = true
+})
+
+// Persist review preferences whenever they change.
+$effect(() => {
+	if (!settingsLoaded) return
+	const settings: Settings = { justifyTimeline }
+	saveSettings(settings)
+})
+
 /** Adopt the project carried by a shared URL and make it current. */
 function importSharedProject(shared: ShareState) {
 	const id = shared.projectId || newProjectId()
@@ -741,7 +765,9 @@ $effect(() => {
 {/snippet}
 
 <main
-	class="dashboard"
+	class={["dashboard", justifyTimeline
+		? "timeline-justified"
+		: "timeline-centred"]}
 	style="--left-width: {leftWidth}px; --right-width: {rightWidth}px; --timeline-height: {timelineRowHeight};"
 >
 	<ProjectPane
@@ -769,8 +795,10 @@ $effect(() => {
 		{idleRanges}
 		{idleAnalyzing}
 		{ignoreIdle}
+		{justifyTimeline}
 		onToggleIgnoreIdle={setIgnoreIdle}
 		onRecalculateIdle={recalculateIdle}
+		onToggleJustifyTimeline={value => (justifyTimeline = value)}
 	/>
 
 	{@render resizeHandle("resize-handle-left", startLeftResize)}
@@ -845,9 +873,18 @@ $effect(() => {
 	overflow: hidden;
 	grid-template-columns: var(--left-width) minmax(0, 1fr) var(--right-width);
 	grid-template-rows: minmax(0, 1fr) var(--timeline-height);
+}
+
+.timeline-justified {
 	grid-template-areas:
 		"right video project"
 		"timeline timeline timeline";
+}
+
+.timeline-centred {
+	grid-template-areas:
+		"right video project"
+		"right timeline project";
 }
 
 .resize-handle {
@@ -881,6 +918,11 @@ $effect(() => {
 	height: 0.75rem;
 	transform: translateY(50%);
 	cursor: row-resize;
+}
+
+.timeline-centred .resize-handle-timeline {
+	left: var(--left-width);
+	right: var(--right-width);
 }
 
 :global(.area-project) {

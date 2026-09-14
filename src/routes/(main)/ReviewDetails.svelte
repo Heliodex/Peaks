@@ -12,8 +12,10 @@ let {
 	idleRanges,
 	idleAnalyzing,
 	ignoreIdle,
+	justifyTimeline,
 	onToggleIgnoreIdle,
 	onRecalculateIdle,
+	onToggleJustifyTimeline,
 }: {
 	/** The open timelapse, or `null` while none is selected. */
 	timelapse?: ReviewTimelapse | null
@@ -21,8 +23,10 @@ let {
 	idleRanges: IdleRange[]
 	idleAnalyzing: boolean
 	ignoreIdle: boolean
+	justifyTimeline: boolean
 	onToggleIgnoreIdle: (value: boolean) => void
 	onRecalculateIdle: () => void
+	onToggleJustifyTimeline: (value: boolean) => void
 } = $props()
 
 type Tab = "data" | "settings"
@@ -74,7 +78,7 @@ let tab = $state<Tab>("data")
 				{onRecalculateIdle}
 			/>
 		{:else}
-			<TimelapseSettings />
+			<TimelapseSettings {justifyTimeline} {onToggleJustifyTimeline} />
 		{/if}
 	</div>
 
