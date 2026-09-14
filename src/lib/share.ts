@@ -1,16 +1,29 @@
 // Encodes a review session — the open timelapse's selections plus the project
-// currently open in the sidebar (its id, name, timelapses and the open id) —
-// into a compact, URL-safe string so it can be shared or bookmarked. Times are
-// stored as integer milliseconds and annotation reasons as catalog indexes; the
-// payload is a positional JSON array (no repeated keys) that is then deflated
-// with raw deflate (so there are no zlib/gzip wrapper bytes) and base64url
-// encoded without a leading marker. This string is the whole share URL path:
-// the open timelapse id is recovered from it rather than stored separately.
-// Only the current project travels in the URL; the rest stay in local storage.
+// currently open in the sidebar — into a compact, URL-safe string so it can be
+// shared or bookmarked. Times are stored as integer milliseconds and annotation
+// reasons as catalog indexes.
+//
+// Only the raw review inputs travel: each timelapse's detected idle ranges and
+// its annotation selections. The human-readable description, per-reason
+// deflation totals and idle duration are recomputed on decode, which keeps the
+// payload far smaller than shipping the rendered prose and lets the cached idle
+// scan be reused instead of redone.
+//
+// The positional JSON array is then deflated with raw deflate (so there are no
+// zlib/gzip wrapper bytes) and base64url encoded without a leading marker. This
+// string is the whole share URL path: the open timelapse id is recovered from it
+// rather than stored separately. Only the current project travels in the URL;
+// the rest stay in local storage.
 
-import { ANNOTATION_REASONS, type AnnotationDeflation } from "./annotations.js"
+import {
+	ANNOTATION_REASONS,
+	deflationByReason,
+	describeTimelapse,
+} from "./annotations.js"
+import type { IdleRange } from "./idle-time.js"
 import type { ProjectTimelapse } from "./project-storage.js"
-import type { TimelineSelection } from "./timeline.js"
+import { loadSelections } from "./selection-storage.js"
+import { PLAYBACK_TO_RECORDED, type TimelineSelection } from "./timeline.js"
 
 const REASON_IDS = ANNOTATION_REASONS.map(reason => reason.id)
 
@@ -23,15 +36,14 @@ export type ShareState = {
 }
 
 type ShareSelectionTuple = [number, number, number]
-type ShareAnnotationTuple = [string, number]
+type ShareIdleTuple = [number, number]
 type ShareProjectTuple = [
 	string,
 	string,
 	number,
-	number,
-	ShareAnnotationTuple[],
-	string,
 	0 | 1,
+	ShareIdleTuple[] | null,
+	ShareSelectionTuple[],
 ]
 /** Positional payload: `[projectId, selections, projectName, project, openId]`. */
 type SharePayload = [
@@ -83,26 +95,35 @@ async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
 	return new Uint8Array(await new Response(stream).arrayBuffer())
 }
 
+function selectionTuple(selection: TimelineSelection): ShareSelectionTuple {
+	return [
+		Math.round(selection.start * 1000),
+		Math.round(selection.end * 1000),
+		selection.reason ? REASON_IDS.indexOf(selection.reason) : -1,
+	]
+}
+
 export async function encodeShare(state: ShareState): Promise<string> {
 	const payload: SharePayload = [
 		state.projectId,
-		state.selections.map(selection => [
-			Math.round(selection.start * 1000),
-			Math.round(selection.end * 1000),
-			selection.reason ? REASON_IDS.indexOf(selection.reason) : -1,
-		]),
+		state.selections.map(selectionTuple),
 		state.projectName,
 		state.project.map(entry => [
 			entry.id,
 			entry.name,
 			entry.duration,
-			entry.idleDuration,
-			entry.annotations.map(annotation => [
-				annotation.reason,
-				annotation.duration,
-			]),
-			entry.description,
 			entry.ignoreIdle ? 1 : 0,
+			entry.idleRanges
+				? entry.idleRanges.map(range => [
+						Math.round(range.start * 1000),
+						Math.round(range.end * 1000),
+					])
+				: null,
+			// The open timelapse's selections are carried once, at the top level;
+			// the rest travel with their entry so their descriptions survive.
+			entry.id === state.openId
+				? []
+				: loadSelections(entry.id).map(selectionTuple),
 		]),
 		state.openId,
 	]
@@ -129,47 +150,72 @@ function parseSelection(
 	}
 }
 
-function parseAnnotation(value: unknown): AnnotationDeflation | null {
-	if (!Array.isArray(value)) return null
-	const [reason, duration] = value
-	if (typeof reason !== "string" || typeof duration !== "number") return null
-	return { reason, duration }
+function parseSelections(value: unknown): TimelineSelection[] {
+	if (!Array.isArray(value)) return []
+	return value
+		.map(parseSelection)
+		.filter((selection): selection is TimelineSelection =>
+			Boolean(selection)
+		)
 }
 
-function parseProjectEntry(value: unknown): ProjectTimelapse | null {
+function parseIdleTuple(value: unknown): IdleRange | null {
 	if (!Array.isArray(value)) return null
-	const [
-		id,
-		name,
-		duration,
-		idleDuration,
-		annotations,
-		description,
-		ignoreIdle,
-	] = value
+	const [start, end] = value
+	if (typeof start !== "number" || typeof end !== "number") return null
+	return { start: start / 1000, end: end / 1000 }
+}
+
+/** Parse encoded idle ranges: `null` means never scanned, `[]` means none. */
+function parseIdleRanges(value: unknown): IdleRange[] | undefined {
+	if (!Array.isArray(value)) return undefined
+	return value
+		.map(parseIdleTuple)
+		.filter((range): range is IdleRange => Boolean(range))
+}
+
+/**
+ * Rebuild a project entry from its raw review inputs, recomputing the derived
+ * idle duration, annotation breakdown and description that used to be shipped.
+ */
+function parseProjectEntry(
+	value: unknown,
+	openId: string,
+	openSelections: TimelineSelection[]
+): ProjectTimelapse | null {
+	if (!Array.isArray(value)) return null
+	const [id, name, duration, ignoreIdle, rawIdleRanges, rawSelections] = value
 	if (
 		typeof id !== "string" ||
 		typeof name !== "string" ||
-		typeof description !== "string" ||
-		typeof duration !== "number" ||
-		typeof idleDuration !== "number"
+		!Number.isFinite(duration)
 	) {
 		return null
 	}
+	const ignore = ignoreIdle === 1
+	const idleRanges = parseIdleRanges(rawIdleRanges)
+	const selections =
+		id === openId ? openSelections : parseSelections(rawSelections)
+	// Idle only counts towards the maths when it isn't being ignored.
+	const effectiveRanges = ignore ? [] : (idleRanges ?? [])
 	return {
 		id,
 		name,
 		duration,
-		idleDuration,
-		annotations: Array.isArray(annotations)
-			? annotations
-					.map(parseAnnotation)
-					.filter((annotation): annotation is AnnotationDeflation =>
-						Boolean(annotation)
-					)
-			: [],
-		description,
-		ignoreIdle: ignoreIdle === 1,
+		idleDuration:
+			effectiveRanges.reduce(
+				(sum, range) => sum + (range.end - range.start),
+				0
+			) * PLAYBACK_TO_RECORDED,
+		annotations: deflationByReason(selections, effectiveRanges),
+		ignoreIdle: ignore,
+		description: describeTimelapse({
+			id,
+			duration,
+			idleRanges: effectiveRanges,
+			selections,
+		}),
+		...(idleRanges !== undefined ? { idleRanges } : {}),
 	}
 }
 
@@ -180,19 +226,17 @@ export async function decodeShare(value: string): Promise<ShareState | null> {
 		const payload: unknown = JSON.parse(new TextDecoder().decode(bytes))
 		if (!Array.isArray(payload)) return null
 		const [i, s, n, p, o] = payload
-		if (!Array.isArray(s) || !Array.isArray(p)) return null
+		if (!Array.isArray(p) || !Array.isArray(s)) return null
+		const openId = typeof o === "string" ? o : ""
+		const selections = parseSelections(s)
 		return {
 			projectId: typeof i === "string" ? i : "",
-			selections: s
-				.map(parseSelection)
-				.filter((selection): selection is TimelineSelection =>
-					Boolean(selection)
-				),
+			selections,
 			projectName: typeof n === "string" ? n : "",
 			project: p
-				.map(parseProjectEntry)
+				.map(entry => parseProjectEntry(entry, openId, selections))
 				.filter((entry): entry is ProjectTimelapse => Boolean(entry)),
-			openId: typeof o === "string" ? o : "",
+			openId,
 		}
 	} catch {
 		return null
