@@ -1005,6 +1005,7 @@ $effect(() => {
 
 :global(.area-project) {
 	grid-area: project;
+	container-type: inline-size;
 }
 
 :global(.area-video) {
@@ -1019,7 +1020,7 @@ $effect(() => {
 	grid-area: timeline;
 }
 
-@media (max-width: 1023px) {
+@media (width < 1024px) {
 	.dashboard {
 		height: auto;
 		min-height: 100dvh;
