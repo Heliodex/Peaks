@@ -1,8 +1,7 @@
 // The Lapse API doesn't expose a video's encoded frame rate, so we measure it by
 // playing a hidden, muted copy for a short window and counting how many frames
-// are presented per second of media time.
-
-import { lapseProxyUrl } from "./lapse.js"
+// are presented per second of media time. Only playback metadata is read, so the
+// copy can play straight from the CDN without going through /lapse-proxy.
 
 // Stop once we've seen this many frame presentations (enough for a stable rate)
 const MIN_FRAMES = 3
@@ -53,7 +52,7 @@ async function probeFrameRate(src: string): Promise<number> {
 	video.preload = "auto"
 	video.style.cssText =
 		"position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none"
-	video.src = lapseProxyUrl(src)
+	video.src = src
 	document.body.appendChild(video)
 
 	return new Promise<number>(resolve => {
