@@ -1,4 +1,5 @@
 <script lang="ts">
+import { SvelteSet } from "svelte/reactivity"
 import {
 	ANNOTATION_REASONS,
 	type AnnotationDeflation,
@@ -188,6 +189,9 @@ const currentProject = $derived(
 const projectName = $derived(currentProject?.name ?? DEFAULT_PROJECT_NAME)
 const projectEntries = $derived(currentProject?.timelapses ?? [])
 
+/** The project the panel is actually showing, and therefore editing. */
+const activeProjectId = $derived(currentProject?.id ?? currentProjectId)
+
 /**
  * Whether idle time is ignored for the open timelapse. It lives on the project
  * entry (the single source of truth for timelapse state), defaulting to off.
@@ -246,14 +250,12 @@ let urlTimer: ReturnType<typeof setTimeout> | undefined
 let lastWrittenParam: string | null = null
 
 // Load the state named by the path: it holds an encoded project state whose
-// `openId` is the open timelapse, or — for links without state — a bare
-// timelapse id that falls back to locally saved selections. `decodeFailed`
-// records that the path wasn't a valid project state, so a later miss can be
-// reported as a bad link rather than an unknown timelapse. Resets idle analysis
-// because the underlying video changes.
+// `openId` is the open timelapse. A path that doesn't decode is treated as
+// stale or corrupt: the review stays closed and the URL sync rewrites the path
+// from the locally stored project. Resets idle analysis because the underlying
+// video changes.
 let loadToken = 0
 let loaded = $state(false)
-let decodeFailed = $state(false)
 $effect(() => {
 	const param = routeParam
 	// A path we just wrote already matches the in-memory review; skip decoding
@@ -261,7 +263,6 @@ $effect(() => {
 	if (param && param === lastWrittenParam) return
 	const token = ++loadToken
 	loaded = false
-	decodeFailed = false
 	encodedState = ""
 	idleRanges = []
 	idleAnalyzing = false
@@ -280,9 +281,11 @@ $effect(() => {
 			selections = decoded.selections
 			importSharedProject(decoded)
 		} else {
-			decodeFailed = true
-			submittedId = param
-			selections = loadSelections(param)
+			// Not an encoded project state. Leave the review closed rather than
+			// latching onto the slug, and let the URL sync rewrite the path from
+			// the locally stored project so a stale or corrupt link recovers.
+			submittedId = ""
+			selections = []
 		}
 		loaded = true
 	})
@@ -321,19 +324,43 @@ $effect(() => {
 async function loadId(value: string) {
 	const id = value.trim()
 	if (!id || id === submittedId) return
+	// Add the timelapse to the open project straight away, so it shows up (and
+	// travels in the encoded URL) even before its metadata resolves.
+	const entries = $state.snapshot(projectEntries)
+	if (!entries.some(entry => entry.id === id)) {
+		entries.push(emptyTimelapse(id))
+		updateCurrentProject(project => ({ ...project, timelapses: entries }))
+		pendingAdds.add(id)
+	}
 	const encoded = await encodeShare({
-		projectId: currentProjectId,
+		projectId: activeProjectId,
 		selections: loadSelections(id),
 		projectName,
-		project: $state.snapshot(projectEntries),
+		project: entries,
 		openId: id,
 	})
 	void goto(`/${encoded}`)
 }
 
+/** A project entry for a timelapse whose metadata hasn't resolved yet. */
+function emptyTimelapse(id: string): ProjectTimelapse {
+	return {
+		id,
+		name: "",
+		duration: 0,
+		idleDuration: 0,
+		annotations: [],
+		ignoreIdle: false,
+		description: "",
+	}
+}
+
+// Ids added optimistically by `loadId` that still need confirming by Lapse.
+const pendingAdds = new SvelteSet<string>()
+
 /** Replace the current project with the result of `update`. */
 function updateCurrentProject(update: (project: Project) => Project) {
-	const id = currentProjectId
+	const id = activeProjectId
 	projects = projects.map(project =>
 		project.id === id ? update(project) : project
 	)
@@ -463,7 +490,7 @@ $effect(() => {
 $effect(() => {
 	const id = submittedId
 	const value = $state.snapshot(selections)
-	const projectId = currentProjectId
+	const projectId = activeProjectId
 	const name = projectName
 	const entries = $state.snapshot(projectEntries)
 	if (!projectLoaded || !loaded) return
@@ -589,18 +616,30 @@ $effect(() => {
 	if (!id) return
 	void getTimelapse(id)
 		.then(timelapse => {
-			if (submittedId !== id) return
-			currentMeta = timelapse
-				? {
+			if (timelapse) {
+				pendingAdds.delete(id)
+				if (submittedId === id) {
+					currentMeta = {
 						id,
 						name: timelapse.name,
 						duration: timelapse.duration,
 					}
-				: null
+				}
+			} else {
+				if (submittedId === id) currentMeta = null
+				// The id couldn't be resolved, so drop the optimistic entry.
+				if (pendingAdds.has(id)) {
+					pendingAdds.delete(id)
+					removeEntry(id)
+				}
+			}
 		})
 		.catch(() => {
-			if (submittedId !== id) return
-			currentMeta = null
+			if (submittedId === id) currentMeta = null
+			if (pendingAdds.has(id)) {
+				pendingAdds.delete(id)
+				removeEntry(id)
+			}
 		})
 })
 
@@ -766,14 +805,7 @@ $effect(() => {
 					<section
 						class="area-video flex items-center justify-center p-4"
 					>
-						{#if decodeFailed}
-							<p class="text-center">
-								Couldn't decode the project state. The link may
-								be corrupted or incomplete.
-							</p>
-						{:else}
-							<p>No timelapse found for ID “{submittedId}”.</p>
-						{/if}
+						<p>No timelapse found for ID “{submittedId}”.</p>
 					</section>
 				{/if}
 			</svelte:boundary>
