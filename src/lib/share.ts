@@ -1,7 +1,8 @@
 // Encodes a review session — the open timelapse's selections plus the project
 // currently open in the sidebar — into a compact, URL-safe string so it can be
 // shared or bookmarked. Times are stored as integer milliseconds and annotation
-// reasons as catalog indexes.
+// reasons as their stable catalog ids (never positional indexes, so reordering
+// ANNOTATION_REASONS can't remap existing links).
 //
 // Only the raw review inputs travel: each timelapse's detected idle ranges and
 // its annotation selections. The human-readable description, per-reason
@@ -27,6 +28,7 @@ import { loadSelections, saveSelections } from "./selection-storage.js"
 import type { TimelineSelection } from "./timeline.js"
 
 const REASON_IDS = ANNOTATION_REASONS.map(reason => reason.id)
+const REASON_ID_SET = new Set(REASON_IDS)
 
 export type ShareState = {
 	projectId: string
@@ -36,7 +38,7 @@ export type ShareState = {
 	openId: string
 }
 
-type ShareSelectionTuple = [number, number, number]
+type ShareSelectionTuple = [number, number, string]
 type ShareIdleTuple = [number, number]
 type ShareProjectTuple = [
 	string,
@@ -100,7 +102,7 @@ function selectionTuple(selection: TimelineSelection): ShareSelectionTuple {
 	return [
 		Math.round(selection.start * 1000),
 		Math.round(selection.end * 1000),
-		selection.reason ? REASON_IDS.indexOf(selection.reason) : -1,
+		selection.reason ?? "",
 	]
 }
 
@@ -139,10 +141,8 @@ function parseSelection(
 	if (!Array.isArray(value)) return null
 	const [start, end, reason] = value
 	if (typeof start !== "number" || typeof end !== "number") return null
-	const reasonId =
-		typeof reason === "number" && reason >= 0
-			? REASON_IDS[reason]
-			: undefined
+	let reasonId: string | undefined
+	if (REASON_ID_SET.has(reason)) reasonId = reason
 	return {
 		id: `selection-${index + 1}`,
 		start: start / 1000,
@@ -233,8 +233,8 @@ export async function decodeShare(value: string): Promise<ShareState | null> {
 		const selections = parseSelections(s)
 		const parsed = p
 			.map(entry => parseProjectEntry(entry, openId, selections))
-			.filter(
-				(entry): entry is NonNullable<typeof entry> => Boolean(entry)
+			.filter((entry): entry is NonNullable<typeof entry> =>
+				Boolean(entry)
 			)
 		// Persist every timelapse's selections so opening a non-open entry
 		// later (which reads from storage via `loadSelections`) restores its

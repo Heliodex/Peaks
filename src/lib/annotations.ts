@@ -91,30 +91,15 @@ export type AnnotationReason = {
 	color: AnnotationColor
 }
 
+// positions can change, IDs must remain constant
 export const ANNOTATION_REASONS: AnnotationReason[] = [
 	{
-		id: "invalid-time",
+		id: "invalid",
 		label: "Invalid",
 		summaryLabel: "invalid",
 		deflation: 1,
 		deflationLabel: "removed",
 		color: "red",
-	},
-	{
-		id: "planning",
-		label: "Planning",
-		summaryLabel: "spent planning",
-		deflation: 1 / 2,
-		deflationLabel: "1/2 deflated",
-		color: "teal",
-	},
-	{
-		id: "researching",
-		label: "Researching",
-		summaryLabel: "spent researching",
-		deflation: 1 / 2,
-		deflationLabel: "1/2 deflated",
-		color: "blue",
 	},
 	{
 		id: "idle",
@@ -125,7 +110,31 @@ export const ANNOTATION_REASONS: AnnotationReason[] = [
 		color: "amber",
 	},
 	{
-		id: "instructing-ai",
+		id: "copy-tutorial",
+		label: "Copying from tutorial",
+		summaryLabel: "spent copying from tutorial",
+		deflation: 1,
+		deflationLabel: "removed",
+		color: "lime",
+	},
+	{
+		id: "plan",
+		label: "Planning",
+		summaryLabel: "spent planning",
+		deflation: 1 / 2,
+		deflationLabel: "1/2 deflated",
+		color: "teal",
+	},
+	{
+		id: "research",
+		label: "Researching",
+		summaryLabel: "spent researching",
+		deflation: 1 / 2,
+		deflationLabel: "1/2 deflated",
+		color: "blue",
+	},
+	{
+		id: "instruct-ai",
 		label: "Instructing AI",
 		summaryLabel: "spent instructing AI",
 		deflation: 2 / 3,
@@ -133,20 +142,12 @@ export const ANNOTATION_REASONS: AnnotationReason[] = [
 		color: "violet",
 	},
 	{
-		id: "requesting-ai-help",
+		id: "ai-help",
 		label: "Requesting AI help",
 		summaryLabel: "spent requesting AI help",
 		deflation: 0,
 		deflationLabel: "no deflation",
 		color: "fuchsia",
-	},
-	{
-		id: "copying-tutorial",
-		label: "Copying from tutorial",
-		summaryLabel: "spent copying from tutorial",
-		deflation: 1,
-		deflationLabel: "removed",
-		color: "lime",
 	},
 ]
 
