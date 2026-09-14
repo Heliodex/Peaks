@@ -61,8 +61,10 @@ const frameCache = new SvelteMap<string, CachedFrame[]>()
 // used for their keys.
 const THUMBNAIL_KIND = "strip"
 const TIME_KEY_SCALE = 1000
-// Sources currently being pulled back in from persistent storage.
+// Sources currently being pulled back in from persistent storage, and sources
+// whose storage has already been consulted once this session.
 const hydrating = new SvelteSet<string>()
+const hydrated = new SvelteSet<string>()
 
 function framesFor(source: string): CachedFrame[] {
 	return frameCache.get(source) ?? []
@@ -85,10 +87,13 @@ function storeFrames(source: string, next: CachedFrame[]) {
  * source isn't already loading; frames captured meanwhile win any collisions.
  */
 async function hydrate(source: string) {
-	if (hydrating.has(source)) return
+	if (hydrated.has(source) || hydrating.has(source)) return
 	hydrating.add(source)
 	try {
 		const stored = await loadThumbnails(THUMBNAIL_KIND, source)
+		// Storage is consulted once per source per session; after this the
+		// in-memory cache is the source of truth.
+		hydrated.add(source)
 		if (stored.length === 0) return
 		const merged = [...framesFor(source)]
 		for (const { key, url } of stored) {
@@ -295,17 +300,17 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		const current = view()
 		if (!url || !(current.end > current.start)) return
 
-		// Pull persisted thumbnails in first, so a reload can render the strip
-		// without starting any capturers.
-		void hydrate(url)
+		// Pull persisted thumbnails in alongside capture. This must be untracked:
+		// `hydrate` synchronously reads and mutates its `hydrating` guard, and
+		// tracking that would make this effect re-run each time hydration starts
+		// or finishes — an endless loop that keeps resetting the capture timer.
+		void untrack(() => hydrate(url))
 
 		// Start buffering the first capturer immediately so the initial frames
-		// aren't network-bound — but only when nothing is cached or loading.
+		// aren't network-bound. Hydration from persistent storage merges in
+		// alongside; a source with nothing cached captures as it always did.
 		// `untrack` keeps adding frames from re-running this effect.
-		if (
-			!untrack(() => hydrating.has(url)) &&
-			untrack(() => framesFor(url).length) === 0
-		) {
+		if (untrack(() => framesFor(url).length) === 0) {
 			targetSrc = url
 			void getCapturer(0)
 		}

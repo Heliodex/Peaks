@@ -21,13 +21,16 @@ function keyFor(kind: string, source: string, key: number): string {
 	return `${KEY_PATH}?${params}`
 }
 
-async function openCache(): Promise<Cache | null> {
-	if (typeof caches === "undefined") return null
-	try {
-		return await caches.open(CACHE_NAME)
-	} catch {
-		return null
+// The opened cache is shared for the page's lifetime; opening it repeatedly on
+// every thumbnail write would add avoidable overhead on the capture hot path.
+let cachePromise: Promise<Cache | null> | null = null
+
+function openCache(): Promise<Cache | null> {
+	if (typeof caches === "undefined") return Promise.resolve(null)
+	if (!cachePromise) {
+		cachePromise = caches.open(CACHE_NAME).catch(() => null)
 	}
+	return cachePromise
 }
 
 /** Every stored thumbnail for a `(kind, source)` pair, keyed by number. */
@@ -145,5 +148,12 @@ export async function pruneThumbnails(): Promise<void> {
 	}
 }
 
-// Trim anything left over from previous sessions, once per page load.
-void pruneThumbnails()
+// Trim anything left over from previous sessions, once per page load, but wait
+// until after first paint so pruning can't delay the initial thumbnails.
+if (typeof window !== "undefined") {
+	if (typeof requestIdleCallback === "function") {
+		requestIdleCallback(() => void pruneThumbnails())
+	} else {
+		setTimeout(() => void pruneThumbnails(), 3000)
+	}
+}
