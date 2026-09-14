@@ -72,6 +72,10 @@ const routeParam = $derived(
 /** Open timelapse id decoded from the path (empty on the `/home` landing). */
 let submittedId = $state("")
 
+// Validation failure from the last attempt to add a timelapse by id. Shown in
+// the Project pane so a bad id is reported instead of flashing and vanishing.
+let loadError = $state<string | null>(null)
+
 let videoEl = $state<HTMLVideoElement>()
 let selections = $state<TimelineSelection[]>([])
 let idleRanges = $state<IdleRange[]>([])
@@ -334,32 +338,103 @@ $effect(() => {
 })
 
 /**
- * Open a timelapse by id. The URL carries the project state, so encode the
- * current project with that timelapse open (using its saved selections) and
- * navigate to `/{state}` rather than a bare `/{id}`.
+ * Open timelapses by id. The input may hold several space/comma-separated ids:
+ * each new one is resolved first so invalid ids are reported in the Project
+ * pane instead of being added and then disappearing. Every id that resolves is
+ * added to the project and the first of them opens. The URL carries the
+ * project state, so the current project is encoded with that timelapse open
+ * (using its saved selections) and the app navigates to `/{state}` rather
+ * than a bare `/{id}`.
  */
 async function loadId(value: string) {
-	const id = value.trim()
-	if (!id || id === submittedId) return
-	// Add the timelapse to the open project straight away, so it shows up (and
-	// travels in the encoded URL) even before its metadata resolves.
+	const ids = [...new Set(value.split(/[\s,]+/).filter(Boolean))]
+	if (ids.length === 0) return
+	const current = submittedId
+	if (ids.length === 1 && ids[0] === current) return
+	loadError = null
+	// Ids already in the project were validated when added (and the metadata
+	// effect re-checks on open), so only new ids need resolving. Everything
+	// resolves in parallel; pasted order is restored afterwards.
+	const known = new Set(
+		$state.snapshot(projectEntries).map(entry => entry.id)
+	)
+	const valid: { id: string; meta: ReviewTimelapse | null }[] = []
+	const missing: string[] = []
+	const unchecked: string[] = []
+	await Promise.all(
+		ids.map(async id => {
+			if (id === current || known.has(id)) {
+				valid.push({ id, meta: null })
+				return
+			}
+			try {
+				const meta = await getTimelapse(id)
+				if (meta) valid.push({ id, meta })
+				else missing.push(id)
+			} catch {
+				unchecked.push(id)
+			}
+		})
+	)
+	const order = new Map(ids.map((id, index) => [id, index] as const))
+	const byInputOrder = (a: string, b: string) =>
+		(order.get(a) ?? 0) - (order.get(b) ?? 0)
+	valid.sort((a, b) => byInputOrder(a.id, b.id))
+	missing.sort(byInputOrder)
+	unchecked.sort(byInputOrder)
+	const problems: string[] = []
+	if (missing.length > 0) {
+		problems.push(
+			`No timelapse found for ID${missing.length > 1 ? "s" : ""} ${formatIdList(missing)}.`
+		)
+	}
+	if (unchecked.length > 0) {
+		problems.push(
+			`Couldn't check ID${unchecked.length > 1 ? "s" : ""} ${formatIdList(unchecked)}. Please try again.`
+		)
+	}
+	if (valid.length === 0) {
+		// Nothing resolved, so there is nothing to open; just report.
+		loadError = problems.join(" ")
+		return
+	}
+	if (problems.length > 0) loadError = problems.join(" ")
+	const open = valid[0]
+	// Add the new timelapses to the open project straight away, so they show
+	// up (and travel in the encoded URL) even before the project sync fills in
+	// their review data. Names and durations are already known, so seed those.
 	const entries = $state.snapshot(projectEntries)
-	if (!entries.some(entry => entry.id === id)) {
-		entries.push(emptyTimelapse(id))
+	let added = false
+	for (const { id, meta } of valid) {
+		if (meta && !entries.some(entry => entry.id === id)) {
+			entries.push({
+				...emptyTimelapse(id),
+				name: meta.name?.trim() ?? "",
+				duration: meta.duration,
+			})
+			pendingAdds.add(id)
+			added = true
+		}
+	}
+	if (added) {
 		updateCurrentProject(project => ({ ...project, timelapses: entries }))
-		pendingAdds.add(id)
 	}
 	const encoded = await encodeShare({
 		projectId: activeProjectId,
-		selections: loadSelections(id),
+		selections: loadSelections(open.id),
 		projectName,
 		project: entries,
-		openId: id,
+		openId: open.id,
 	})
 	// Drop any debounced write queued while we were encoding so it can't race
 	// this explicit navigation to the new state.
 	clearTimeout(urlTimer)
 	void goto(`/${encoded}`)
+}
+
+/** Quote ids for an error message: `“a”, “b”`. */
+function formatIdList(ids: string[]): string {
+	return ids.map(id => `"${id}"`).join(", ")
 }
 
 /** A project entry for a timelapse whose metadata hasn't resolved yet. */
@@ -424,6 +499,7 @@ function selectProject(id: string) {
 	if (id === currentProjectId) return
 	if (!projects.some(project => project.id === id)) return
 	closeTimelapse()
+	loadError = null
 	currentProjectId = id
 }
 
@@ -436,6 +512,7 @@ function createNewProject() {
 
 /** Delete a project, always leaving at least one behind. */
 function removeProject(id: string) {
+	loadError = null
 	const remaining = projects.filter(project => project.id !== id)
 	if (remaining.length === 0) {
 		const project = createProject()
@@ -778,6 +855,7 @@ $effect(() => {
 		{submittedId}
 		{projectTotals}
 		{projectDescription}
+		{loadError}
 		onLoad={loadId}
 		onRemoveTimelapse={removeEntry}
 		onRenameProject={renameCurrentProject}

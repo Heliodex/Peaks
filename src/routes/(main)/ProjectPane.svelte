@@ -17,6 +17,7 @@ let {
 	submittedId,
 	projectTotals,
 	projectDescription,
+	loadError = null,
 	onLoad,
 	onRemoveTimelapse,
 	onRenameProject,
@@ -32,6 +33,8 @@ let {
 	submittedId: string
 	projectTotals: ProjectTotals
 	projectDescription: string
+	/** Validation failure from the last attempt to add a timelapse by id. */
+	loadError?: string | null
 	onLoad: (id: string) => void
 	onRemoveTimelapse: (id: string) => void
 	onRenameProject: (name: string) => void
@@ -290,12 +293,12 @@ async function pasteAndLoad() {
 	>
 		<label class="flex flex-col gap-1">
 			<span class="text-xs uppercase tracking-wide text-neutral-500">
-				Timelapse ID
+				Timelapse IDs
 			</span>
 			<input
 				type="text"
 				name="timelapseId"
-				placeholder="Enter timelapse ID"
+				placeholder="IDs separated by spaces or commas"
 				bind:value={timelapseId}
 				class="border border-neutral-500 px-2 py-1"
 			>
@@ -316,6 +319,11 @@ async function pasteAndLoad() {
 				Paste
 			</button>
 		</div>
+		{#if loadError}
+			<p role="alert" class="text-xs text-red-400">
+				{loadError}
+			</p>
+		{/if}
 	</form>
 
 	<dl class="flex flex-col gap-1 border-t border-neutral-700 pt-2 text-sm">
