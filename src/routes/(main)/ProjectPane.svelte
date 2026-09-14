@@ -144,18 +144,24 @@ function moveEntryBy(id: string, delta: number) {
 			<li
 				class="flex items-center gap-2 border-b border-neutral-800 pb-1"
 			>
-				<button
-					type="button"
-					onclick={() => onSelectProject(project.id)}
-					title={project.name}
-					aria-current={project.id === currentProjectId}
-					class="min-w-0 flex-1 cursor-pointer truncate text-left hover:underline {project.id ===
-					currentProjectId
-						? 'font-medium text-blue-400'
-						: ''}"
-				>
-					{project.name}
-				</button>
+				{#if project.id === currentProjectId}
+					<span
+						class="min-w-0 flex-1 truncate font-medium text-blue-400"
+						title={project.name}
+						aria-current="true"
+					>
+						{project.name}
+					</span>
+				{:else}
+					<button
+						type="button"
+						onclick={() => onSelectProject(project.id)}
+						title={project.name}
+						class="min-w-0 flex-1 cursor-pointer truncate text-left hover:underline"
+					>
+						{project.name}
+					</button>
+				{/if}
 				<button
 					type="button"
 					onclick={() => onRemoveProject(project.id)}
@@ -242,17 +248,24 @@ function moveEntryBy(id: string, delta: number) {
 						⠿
 					</button>
 					<div class="flex min-w-0 flex-1 flex-col">
-						<button
-							type="button"
-							onclick={() => onLoad(entry.id)}
-							title={entry.name || entry.id}
-							class="w-full cursor-pointer truncate text-left hover:underline {entry.id ===
-							submittedId
-								? 'font-medium text-blue-400'
-								: ''}"
-						>
-							{entry.name || entry.id}
-						</button>
+						{#if entry.id === submittedId}
+							<span
+								class="w-full truncate font-medium text-blue-400"
+								title={entry.name || entry.id}
+								aria-current="true"
+							>
+								{entry.name || entry.id}
+							</span>
+						{:else}
+							<button
+								type="button"
+								onclick={() => onLoad(entry.id)}
+								title={entry.name || entry.id}
+								class="w-full cursor-pointer truncate text-left hover:underline"
+							>
+								{entry.name || entry.id}
+							</button>
+						{/if}
 						<span class="text-xs text-neutral-500">
 							{formatDuration(
 								Math.max(
