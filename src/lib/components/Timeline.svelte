@@ -669,11 +669,7 @@ function onKeyDown(event: KeyboardEvent) {
 	<div
 		data-resize={side}
 		data-selection-id={sel.id}
-		class="absolute inset-y-0 {side === 'start'
-			? '-left-1'
-			: '-right-1'} flex w-2 cursor-ew-resize items-center justify-center transition-opacity {controlsClass(
-			sel.id
-		)}"
+		class={["absolute inset-y-0", side === "start" ? "-left-1" : "-right-1", "flex w-2 cursor-ew-resize items-center justify-center transition-opacity", controlsClass(sel.id)]}
 		role="presentation"
 	>
 		<span class="h-6 w-1 {handleClass} shadow"></span>
@@ -684,12 +680,12 @@ function onKeyDown(event: KeyboardEvent) {
 	{const layoutFrames = $derived(frameStrip.layout)}
 	<div class="flex min-h-0 w-full flex-1 flex-col pt-3">
 		<div
-			class="relative min-h-0 w-full flex-1 touch-none border border-neutral-500 select-none {drag?.kind ===
-			'create'
-				? 'cursor-text'
-				: pan
-					? 'cursor-grabbing'
-					: ''}"
+			class={["relative min-h-0 w-full flex-1 touch-none border border-neutral-500 select-none", drag?.kind ===
+				"create"
+					? "cursor-text"
+					: pan
+						? "cursor-grabbing"
+						: '']}
 			onpointerdown={onPointerDown}
 			onpointermove={onPointerMove}
 			onpointerup={onPointerUp}
