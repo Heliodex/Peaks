@@ -68,15 +68,23 @@ let tab = $state<Tab>("data")
 		role="tabpanel"
 	>
 		{#if tab === "data"}
-			<TimelapseStats
-				{timelapse}
-				bind:selections
-				{idleRanges}
-				{idleAnalyzing}
-				{ignoreIdle}
-				{onToggleIgnoreIdle}
-				{onRecalculateIdle}
-			/>
+			<!--
+				Recreate the stats when a different timelapse opens. Its derived
+				values (annotations, actual time, description) can otherwise keep
+				the previous timelapse's selections after navigating until an
+				unrelated input changes.
+			-->
+			{#key timelapse?.id}
+				<TimelapseStats
+					{timelapse}
+					bind:selections
+					{idleRanges}
+					{idleAnalyzing}
+					{ignoreIdle}
+					{onToggleIgnoreIdle}
+					{onRecalculateIdle}
+				/>
+			{/key}
 		{:else}
 			<TimelapseSettings {justifyTimeline} {onToggleJustifyTimeline} />
 		{/if}
