@@ -14,8 +14,29 @@ export type IdleAnalysisJob = {
 const SAMPLE_WIDTH = 32
 const SAMPLE_HEIGHT = 18
 
-// Mean absolute channel difference (0–255) at or below which two samples count as the same frame.
-const SAME_FRAME_THRESHOLD = 0.005
+/**
+ * Selectable idle-detection thresholds, as a roughly 1-2-5 progression so each
+ * step up catches noticeably more as idle. Two samples count as the same frame
+ * when their mean absolute channel difference is at or below the threshold.
+ */
+export const IDLE_THRESHOLD_SCALE: readonly number[] = [
+	0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10,
+]
+
+/** Mean absolute channel difference (0–255) at or below which two samples count as the same frame. */
+export const DEFAULT_IDLE_THRESHOLD = IDLE_THRESHOLD_SCALE[0]
+
+/** The selectable threshold closest to `value`. */
+export function nearestIdleThreshold(value: number): number {
+	if (!Number.isFinite(value)) return DEFAULT_IDLE_THRESHOLD
+	let nearest: number = IDLE_THRESHOLD_SCALE[0]
+	for (const candidate of IDLE_THRESHOLD_SCALE) {
+		if (Math.abs(candidate - value) <= Math.abs(nearest - value)) {
+			nearest = candidate
+		}
+	}
+	return nearest
+}
 
 // Upper bound on sampled frames, so analysis stays quick on long videos.
 const MAX_SAMPLES = 300
@@ -94,6 +115,7 @@ export function analyzeIdle(
 	src: string,
 	duration: number,
 	frameRate: number,
+	threshold: number,
 	callbacks: {
 		onProgress?: (progress: number) => void
 		onRanges?: (ranges: IdleRange[]) => void
@@ -153,7 +175,7 @@ export function analyzeIdle(
 				previous !== null &&
 				(!isFinal || times.length < 3 || previousIdle) &&
 				spansFrameBoundary(previousTarget, target, frameRate) &&
-				frameDifference(previous, sample) <= SAME_FRAME_THRESHOLD
+				frameDifference(previous, sample) <= threshold
 			) {
 				intervals.push({ start: times[i - 1], end: times[i] })
 				previousIdle = true

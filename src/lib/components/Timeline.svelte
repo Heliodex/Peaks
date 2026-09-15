@@ -2,7 +2,7 @@
 import { prefersReducedMotion, Spring } from "svelte/motion"
 import { effectiveIdleRanges, selectionColors } from "#lib/annotations.js"
 import { detectFrameRate } from "#lib/frame-rate.js"
-import type { IdleRange } from "#lib/idle-time.js"
+import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
 import { createIdleAnalysis } from "#lib/idle-time.svelte.js"
 import {
 	clamp,
@@ -49,6 +49,7 @@ let {
 	idleAnalyzed = $bindable(false),
 	idleRevision = 0,
 	ignoreIdle = false,
+	idleThreshold = DEFAULT_IDLE_THRESHOLD,
 }: {
 	timelapse: { playbackUrl: string; thumbnailUrl?: string | null }
 	video: HTMLVideoElement | undefined
@@ -58,6 +59,8 @@ let {
 	idleAnalyzed?: boolean
 	idleRevision?: number
 	ignoreIdle?: boolean
+	/** Frame-difference threshold for the idle scan; see `idle-time.ts`. */
+	idleThreshold?: number
 } = $props()
 
 const FRAME_COUNT = 12
@@ -140,6 +143,7 @@ const idle = createIdleAnalysis({
 	src: () => timelapse.playbackUrl,
 	duration: () => duration,
 	frameRate: () => frameRate,
+	threshold: () => idleThreshold,
 	cached: () => idleRanges,
 	revision: () => idleRevision,
 })

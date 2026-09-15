@@ -3,7 +3,7 @@
 // time; the review view mirrors that one into the URL while the rest stay local.
 
 import type { AnnotationDeflation } from "./annotations.js"
-import type { IdleRange } from "./idle-time.js"
+import { type IdleRange, nearestIdleThreshold } from "./idle-time.js"
 
 export type ProjectTimelapse = {
 	id: string
@@ -17,6 +17,8 @@ export type ProjectTimelapse = {
 	annotations: AnnotationDeflation[]
 	/** Whether automatic idle removal is ignored for this timelapse. */
 	ignoreIdle: boolean
+	/** Frame-difference threshold used for the timelapse's idle scan. */
+	idleThreshold: number
 	/** Plain-text review description, without the per-timelapse share link. */
 	description: string
 	/**
@@ -88,6 +90,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		idleDuration,
 		annotations,
 		ignoreIdle,
+		idleThreshold,
 		description,
 		idleRanges: rawIdleRanges,
 	} = value as Record<string, unknown>
@@ -108,6 +111,11 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		idleDuration,
 		annotations: parseAnnotations(annotations),
 		ignoreIdle: ignoreIdle === true,
+		// Entries stored before the threshold was adjustable — or off the
+		// selectable scale — snap to the nearest option.
+		idleThreshold: nearestIdleThreshold(
+			isFiniteNonNegative(idleThreshold) ? idleThreshold : Number.NaN
+		),
 		description,
 		...(idleRanges !== undefined ? { idleRanges } : {}),
 	}

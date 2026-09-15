@@ -22,7 +22,7 @@ import {
 	describeTimelapse,
 	idleRecordedSeconds,
 } from "./annotations.js"
-import type { IdleRange } from "./idle-time.js"
+import { type IdleRange, nearestIdleThreshold } from "./idle-time.js"
 import type { ProjectTimelapse } from "./project-storage.js"
 import { loadSelections, saveSelections } from "./selection-storage.js"
 import type { TimelineSelection } from "./timeline.js"
@@ -47,6 +47,7 @@ type ShareProjectTuple = [
 	0 | 1,
 	ShareIdleTuple[] | null,
 	ShareSelectionTuple[],
+	number,
 ]
 /** Positional payload: `[projectId, selections, projectName, project, openId]`. */
 type SharePayload = [
@@ -127,6 +128,7 @@ export async function encodeShare(state: ShareState): Promise<string> {
 			entry.id === state.openId
 				? []
 				: loadSelections(entry.id).map(selectionTuple),
+			entry.idleThreshold,
 		]),
 		state.openId,
 	]
@@ -187,7 +189,15 @@ function parseProjectEntry(
 	openSelections: TimelineSelection[]
 ): { entry: ProjectTimelapse; selections: TimelineSelection[] } | null {
 	if (!Array.isArray(value)) return null
-	const [id, name, duration, ignoreIdle, rawIdleRanges, rawSelections] = value
+	const [
+		id,
+		name,
+		duration,
+		ignoreIdle,
+		rawIdleRanges,
+		rawSelections,
+		rawThreshold,
+	] = value
 	if (
 		typeof id !== "string" ||
 		typeof name !== "string" ||
@@ -199,6 +209,11 @@ function parseProjectEntry(
 	const idleRanges = parseIdleRanges(rawIdleRanges)
 	const selections =
 		id === openId ? openSelections : parseSelections(rawSelections)
+	// Links encoded before the threshold was adjustable omit it; any value
+	// snaps to the nearest selectable threshold.
+	const idleThreshold = nearestIdleThreshold(
+		typeof rawThreshold === "number" ? rawThreshold : Number.NaN
+	)
 	// Idle only counts towards the maths when it isn't being ignored.
 	const effectiveRanges = ignore ? [] : (idleRanges ?? [])
 	return {
@@ -209,6 +224,7 @@ function parseProjectEntry(
 			idleDuration: idleRecordedSeconds(effectiveRanges),
 			annotations: deflationByReason(selections, effectiveRanges),
 			ignoreIdle: ignore,
+			idleThreshold,
 			description: describeTimelapse({
 				id,
 				duration,

@@ -13,6 +13,7 @@ let {
 	idleAnalyzed = $bindable(false),
 	idleRevision = 0,
 	ignoreIdle,
+	idleThreshold,
 }: {
 	playbackUrl: string
 	thumbnailUrl?: string | null
@@ -23,6 +24,7 @@ let {
 	idleAnalyzed?: boolean
 	idleRevision?: number
 	ignoreIdle: boolean
+	idleThreshold: number
 } = $props()
 </script>
 
@@ -36,6 +38,7 @@ let {
 		bind:idleAnalyzed
 		{idleRevision}
 		{ignoreIdle}
+		{idleThreshold}
 		timelapse={{ playbackUrl, thumbnailUrl }}
 		video={videoEl}
 	/>

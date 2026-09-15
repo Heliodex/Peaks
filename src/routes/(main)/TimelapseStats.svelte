@@ -7,7 +7,11 @@ import {
 	selectionDeflation,
 } from "#lib/annotations.js"
 import CopyButton from "#lib/components/CopyButton.svelte"
-import type { IdleRange } from "#lib/idle-time.js"
+import {
+	DEFAULT_IDLE_THRESHOLD,
+	IDLE_THRESHOLD_SCALE,
+	type IdleRange,
+} from "#lib/idle-time.js"
 import { formatClock, type TimelineSelection } from "#lib/timeline.js"
 import { formatCreatedAt, formatDuration } from "./review-format.js"
 import type { ReviewTimelapse } from "./review-types.js"
@@ -18,7 +22,10 @@ let {
 	idleRanges,
 	idleAnalyzing,
 	ignoreIdle,
+	idleThreshold,
 	onToggleIgnoreIdle,
+	onSetIdleThreshold,
+	onResetIdleThreshold,
 	onRecalculateIdle,
 }: {
 	/** The open timelapse, or `null` while none is selected. */
@@ -27,7 +34,10 @@ let {
 	idleRanges: IdleRange[]
 	idleAnalyzing: boolean
 	ignoreIdle: boolean
+	idleThreshold: number
 	onToggleIgnoreIdle: (value: boolean) => void
+	onSetIdleThreshold: (value: number) => void
+	onResetIdleThreshold: () => void
 	onRecalculateIdle: () => void
 } = $props()
 
@@ -52,6 +62,11 @@ const idleDuration = $derived(idleRecordedSeconds(activeIdleRanges))
 
 const actualDuration = $derived(
 	Math.max(0, (timelapse?.duration ?? 0) - idleDuration - annotationDeflation)
+)
+
+/** Slider position: the open timelapse's threshold as an index into the scale. */
+const thresholdIndex = $derived(
+	Math.max(0, IDLE_THRESHOLD_SCALE.indexOf(idleThreshold))
 )
 
 const description = $derived(
@@ -218,6 +233,34 @@ function removeSelection(id: string) {
 			class="border border-neutral-500 px-1.5 py-0.5 text-neutral-500 hover:border-blue-500 hover:text-blue-400 disabled:opacity-50"
 		>
 			{idleAnalyzing ? "Recalculating…" : "Recalculate idle time"}
+		</button>
+		<label class="flex items-center gap-1.5">
+			<span>Idle sensitivity</span>
+			<input
+				type="range"
+				min="0"
+				max={IDLE_THRESHOLD_SCALE.length - 1}
+				step="1"
+				value={thresholdIndex}
+				onchange={e =>
+					onSetIdleThreshold(
+						IDLE_THRESHOLD_SCALE[e.currentTarget.valueAsNumber] ??
+							DEFAULT_IDLE_THRESHOLD
+					)}
+				title="Higher values treat more frames as idle"
+				aria-label="Idle detection sensitivity"
+				class="w-24 accent-blue-500"
+			>
+			<span class="w-12 tabular-nums">{idleThreshold}</span>
+		</label>
+		<button
+			type="button"
+			onclick={onResetIdleThreshold}
+			disabled={idleThreshold === DEFAULT_IDLE_THRESHOLD}
+			title="Reset to the standard sensitivity"
+			class="border border-neutral-500 px-1.5 py-0.5 text-neutral-500 hover:border-blue-500 hover:text-blue-400 disabled:opacity-50"
+		>
+			Reset
 		</button>
 	</div>
 

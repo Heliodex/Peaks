@@ -9,7 +9,7 @@ import {
 	effectiveIdleRanges,
 	idleRecordedSeconds,
 } from "#lib/annotations.js"
-import type { IdleRange } from "#lib/idle-time.js"
+import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
 import {
 	createProject,
 	DEFAULT_PROJECT_NAME,
@@ -214,6 +214,16 @@ const activeProjectId = $derived(currentProject?.id ?? currentProjectId)
  */
 const ignoreIdle = $derived(
 	projectEntries.find(entry => entry.id === submittedId)?.ignoreIdle ?? false
+)
+
+/**
+ * Frame-difference threshold for the open timelapse's idle scan. Like
+ * `ignoreIdle` it lives on the project entry, defaulting to the standard
+ * sensitivity when unset.
+ */
+const idleThreshold = $derived(
+	projectEntries.find(entry => entry.id === submittedId)?.idleThreshold ??
+		DEFAULT_IDLE_THRESHOLD
 )
 // Metadata for the open timelapse, resolved from Lapse so it can be added to
 // the project automatically. The id is kept alongside it so a late-resolving
@@ -486,6 +496,7 @@ function emptyTimelapse(id: string): ProjectTimelapse {
 		idleDuration: 0,
 		annotations: [],
 		ignoreIdle: false,
+		idleThreshold: DEFAULT_IDLE_THRESHOLD,
 		description: "",
 	}
 }
@@ -701,6 +712,28 @@ function setIgnoreIdle(value: boolean) {
 	}))
 }
 
+/**
+ * Set the idle-detection threshold for the open timelapse. Changing it
+ * invalidates the cached scan, so a fresh one starts with the new sensitivity.
+ */
+function setIdleThreshold(value: number) {
+	const index = projectEntries.findIndex(entry => entry.id === submittedId)
+	if (index === -1) return
+	if (value === idleThreshold) return
+	updateCurrentProject(project => ({
+		...project,
+		timelapses: project.timelapses.map((entry, i) =>
+			i === index ? { ...entry, idleThreshold: value } : entry
+		),
+	}))
+	recalculateIdle()
+}
+
+/** Restore the standard idle-detection sensitivity for the open timelapse. */
+function resetIdleThreshold() {
+	setIdleThreshold(DEFAULT_IDLE_THRESHOLD)
+}
+
 /** Force a fresh idle scan for the open timelapse, replacing the cached one. */
 function recalculateIdle() {
 	idleRevision = idleRevision < 0 ? 0 : idleRevision + 1
@@ -840,6 +873,7 @@ $effect(() => {
 		existing.idleDuration === idle &&
 		sameAnnotations(existing.annotations, annotations) &&
 		existing.ignoreIdle === ignoreIdle &&
+		existing.idleThreshold === idleThreshold &&
 		existing.description === description &&
 		sameIdleRanges(existing.idleRanges, cachedRanges)
 	) {
@@ -852,6 +886,7 @@ $effect(() => {
 		idleDuration: idle,
 		annotations,
 		ignoreIdle,
+		idleThreshold,
 		description,
 		...(cachedRanges !== undefined ? { idleRanges: cachedRanges } : {}),
 	}
@@ -915,8 +950,11 @@ $effect(() => {
 		{idleRanges}
 		{idleAnalyzing}
 		{ignoreIdle}
+		{idleThreshold}
 		{justifyTimeline}
 		onToggleIgnoreIdle={setIgnoreIdle}
+		onSetIdleThreshold={setIdleThreshold}
+		onResetIdleThreshold={resetIdleThreshold}
 		onRecalculateIdle={recalculateIdle}
 		onToggleJustifyTimeline={value => (justifyTimeline = value)}
 	/>
@@ -963,6 +1001,7 @@ $effect(() => {
 							bind:idleAnalyzed
 							{idleRevision}
 							{ignoreIdle}
+							{idleThreshold}
 						/>
 
 						{@render resizeHandle("resize-handle-timeline", startTimelineResize)}

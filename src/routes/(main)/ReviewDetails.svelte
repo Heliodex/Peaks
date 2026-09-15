@@ -12,8 +12,11 @@ let {
 	idleRanges,
 	idleAnalyzing,
 	ignoreIdle,
+	idleThreshold,
 	justifyTimeline,
 	onToggleIgnoreIdle,
+	onSetIdleThreshold,
+	onResetIdleThreshold,
 	onRecalculateIdle,
 	onToggleJustifyTimeline,
 }: {
@@ -23,8 +26,11 @@ let {
 	idleRanges: IdleRange[]
 	idleAnalyzing: boolean
 	ignoreIdle: boolean
+	idleThreshold: number
 	justifyTimeline: boolean
 	onToggleIgnoreIdle: (value: boolean) => void
+	onSetIdleThreshold: (value: number) => void
+	onResetIdleThreshold: () => void
 	onRecalculateIdle: () => void
 	onToggleJustifyTimeline: (value: boolean) => void
 } = $props()
@@ -81,7 +87,10 @@ let tab = $state<Tab>("data")
 					{idleRanges}
 					{idleAnalyzing}
 					{ignoreIdle}
+					{idleThreshold}
 					{onToggleIgnoreIdle}
+					{onSetIdleThreshold}
+					{onResetIdleThreshold}
 					{onRecalculateIdle}
 				/>
 			{/key}

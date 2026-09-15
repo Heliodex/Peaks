@@ -13,6 +13,8 @@ type IdleAnalysisOptions = {
 	src: () => string
 	duration: () => number
 	frameRate: () => number
+	/** Mean absolute frame difference at or below which frames count as idle. */
+	threshold: () => number
 	/** Ranges from a previous scan, shown without re-analyzing. */
 	cached: () => IdleRange[]
 	/**
@@ -26,6 +28,7 @@ export function createIdleAnalysis({
 	src,
 	duration,
 	frameRate,
+	threshold,
 	cached,
 	revision,
 }: IdleAnalysisOptions) {
@@ -75,7 +78,8 @@ export function createIdleAnalysis({
 
 		const token = jobToken
 		const rate = untrack(frameRate)
-		const current = analyzeIdle(url, total, rate, {
+		const sameFrame = untrack(threshold)
+		const current = analyzeIdle(url, total, rate, sameFrame, {
 			onProgress: value => {
 				if (token === jobToken) progress = value
 			},
