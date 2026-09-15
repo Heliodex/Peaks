@@ -7,12 +7,18 @@ import {
 	analyzeIdle,
 	type IdleAnalysisJob,
 	type IdleRange,
+	idleRangesAreFrameAligned,
 } from "./idle-time.js"
 
 type IdleAnalysisOptions = {
 	src: () => string
 	duration: () => number
 	frameRate: () => number
+	/**
+	 * Whether frame-rate detection has settled. A scan waits for this so it
+	 * samples whole frames and its ranges line up with the timeline's ticks.
+	 */
+	ready: () => boolean
 	/** Mean absolute frame difference at or below which frames count as idle. */
 	threshold: () => number
 	/** Ranges from a previous scan, shown without re-analyzing. */
@@ -28,6 +34,7 @@ export function createIdleAnalysis({
 	src,
 	duration,
 	frameRate,
+	ready,
 	threshold,
 	cached,
 	revision,
@@ -53,21 +60,37 @@ export function createIdleAnalysis({
 		const rev = revision()
 		const total = duration()
 		const url = src()
-		// Every revision is handled once; later dependency changes (e.g. the
-		// video's duration arriving) must not restart a scan that's under way.
+		// Read the rate (and whether detection has settled) so the scan starts
+		// once it is known. Every revision is handled once; later dependency
+		// changes (e.g. the video's duration arriving) must not restart a scan
+		// that's under way.
+		const rate = frameRate()
+		const detectionDone = ready()
 		if (rev === handledRevision) return
 
-		// A negative revision means "trust the cache": adopt it and don't scan.
+		// A negative revision usually means "trust the cache". Wait for the
+		// frame rate first: a cache sampled off-frame (an older build, or one
+		// from a failed detection) is re-scanned so its ranges line up with the
+		// ticks instead of being adopted as-is.
 		if (rev < 0) {
-			handledRevision = rev
-			cancel()
-			ranges = untrack(cached)
-			progress = 1
-			analyzing = false
-			complete = true
-			return
+			if (!detectionDone) return
+			const cachedRanges = untrack(cached)
+			if (rate <= 0 || idleRangesAreFrameAligned(cachedRanges, rate)) {
+				handledRevision = rev
+				cancel()
+				ranges = cachedRanges
+				progress = 1
+				analyzing = false
+				complete = true
+				return
+			}
+			// Misaligned cache: fall through and rescan below.
 		}
 
+		// Wait for frame-rate detection so samples — and therefore the idle
+		// range boundaries — land on whole frames. `ready` flips once even if
+		// detection failed (rate stays 0), so this can't stall forever.
+		if (!detectionDone) return
 		if (!url || total <= 0) return
 		handledRevision = rev
 		cancel()
@@ -77,7 +100,6 @@ export function createIdleAnalysis({
 		complete = false
 
 		const token = jobToken
-		const rate = untrack(frameRate)
 		const sameFrame = untrack(threshold)
 		const current = analyzeIdle(url, total, rate, sameFrame, {
 			onProgress: value => {

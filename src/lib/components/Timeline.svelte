@@ -82,6 +82,9 @@ const HOVER_TOOLTIP_FLIP_PERCENT = 95
 
 let videoDuration = $state(0)
 let frameRate = $state(0)
+// Whether frame-rate detection has settled (successfully or not), so the idle
+// scan can wait for whole-frame samples instead of falling back mid-probe.
+let frameRateReady = $state(false)
 let currentTime = $state(0)
 // Latest requested seek target while one is already in flight (see flushPendingSeek).
 let pendingSeek: number | null = null
@@ -143,6 +146,7 @@ const idle = createIdleAnalysis({
 	src: () => timelapse.playbackUrl,
 	duration: () => duration,
 	frameRate: () => frameRate,
+	ready: () => frameRateReady,
 	threshold: () => idleThreshold,
 	cached: () => idleRanges,
 	revision: () => idleRevision,
@@ -165,9 +169,15 @@ $effect(() => {
 	}
 	wasAnalyzing = analyzing
 
-	idleRanges = idle.ranges
-	idleAnalyzing = analyzing
-	idleAnalyzed = idle.complete
+	// Until the analysis has started or adopted a cache, its `ranges` are the
+	// empty initial state. Publishing that would wipe the parent's cached
+	// ranges while the frame rate — and so the adoption decision — is still
+	// pending.
+	if (analyzing || idle.complete || idle.ranges.length > 0) {
+		idleRanges = idle.ranges
+		idleAnalyzing = analyzing
+		idleAnalyzed = idle.complete
+	}
 	void idleProgressSpring.set(idle.progress, {
 		instant: prefersReducedMotion.current,
 	})
@@ -248,13 +258,17 @@ $effect(() => {
 	}
 })
 
-// Measure the video's frame rate once so dragging can snap to real frames.
+// Measure the video's frame rate once so dragging can snap to real frames, and
+// so the idle scan samples whole frames.
 $effect(() => {
 	const src = timelapse.playbackUrl
+	frameRateReady = false
 	if (!src) return
 	let cancelled = false
 	void detectFrameRate(src).then(rate => {
-		if (!cancelled && rate > 0) frameRate = rate
+		if (cancelled) return
+		if (rate > 0) frameRate = rate
+		frameRateReady = true
 	})
 	return () => {
 		cancelled = true

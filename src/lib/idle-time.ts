@@ -44,10 +44,26 @@ const MAX_SAMPLES = 300
 // Fallback sample spacing when the video's frame rate is unknown.
 const FALLBACK_STEP = 0.5
 
-/** Times to sample, spaced by at most one video frame and capped in number. */
+/**
+ * Times to sample. With a known frame rate every sample lands on a whole frame
+ * boundary and is spaced by whole frames, so the idle ranges derived from them
+ * line up with the timeline's frame ticks. Without one, samples are spaced
+ * evenly by at most the fallback step. Either way the count is capped.
+ */
 export function idleSampleTimes(duration: number, frameRate: number): number[] {
-	const base = frameRate > 0 ? 1 / frameRate : FALLBACK_STEP
-	const step = Math.max(base, duration / MAX_SAMPLES)
+	if (duration <= 0) return []
+	if (frameRate > 0) {
+		const lastFrame = Math.max(0, Math.round(duration * frameRate) - 1)
+		const stepFrames = Math.max(1, Math.ceil(lastFrame / (MAX_SAMPLES - 1)))
+		const times: number[] = []
+		for (let frame = 0; frame < lastFrame; frame += stepFrames) {
+			times.push(frame / frameRate)
+		}
+		// Always finish on the last frame so the scan reaches the video's end.
+		times.push(lastFrame / frameRate)
+		return times
+	}
+	const step = Math.max(FALLBACK_STEP, duration / MAX_SAMPLES)
 	const times: number[] = []
 	for (let time = 0; time < duration; time += step) times.push(time)
 	if (times.length === 0 || times[times.length - 1] < duration) {
@@ -75,12 +91,11 @@ export function frameDifference(
 }
 
 /**
- * Whether captures at two seek targets can show different frames. The
- * trailing sample sits at the video's end, and usually its predecessor does
- * too, so both show the final frame: comparing them always succeeds and would
- * paint every video's last frame amber. Skipping pairs that land in the same
- * frame bucket removes that phantom idle. Without a known frame rate, fall
- * back to requiring the pair to span the default sample step.
+ * Whether captures at two seek targets can show different frames. Two samples
+ * that land in the same frame bucket compare identical by construction and
+ * would register as idle, so such pairs are skipped. The epsilon absorbs
+ * floating-point error in `frame index × frame rate`. Without a known frame
+ * rate, require the pair to span the fallback sample step instead.
  */
 function spansFrameBoundary(
 	from: number,
@@ -88,9 +103,34 @@ function spansFrameBoundary(
 	frameRate: number
 ): boolean {
 	if (frameRate > 0) {
-		return Math.floor(to * frameRate) > Math.floor(from * frameRate)
+		return (
+			Math.floor(to * frameRate + 1e-6) >
+			Math.floor(from * frameRate + 1e-6)
+		)
 	}
 	return to - from + 1e-6 >= FALLBACK_STEP
+}
+
+/**
+ * Whether every idle-range boundary sits on a whole frame. Caches sampled
+ * before frame-aligned sampling — or without a known frame rate — fail this, so
+ * callers can re-scan them instead of showing ranges that miss the ticks.
+ *
+ * Times round-trip through share links at millisecond resolution, so a boundary
+ * can sit up to half a millisecond off its frame; allow for that.
+ */
+export function idleRangesAreFrameAligned(
+	ranges: IdleRange[],
+	frameRate: number
+): boolean {
+	if (frameRate <= 0) return true
+	const tolerance = 0.5e-3 * frameRate + 1e-6
+	return ranges.every(range =>
+		[range.start, range.end].every(time => {
+			const frames = time * frameRate
+			return Math.abs(frames - Math.round(frames)) < tolerance
+		})
+	)
 }
 
 /** Collapse adjacent idle intervals into contiguous ranges. */
@@ -163,17 +203,18 @@ export function analyzeIdle(
 				SAMPLE_HEIGHT
 			).data
 
-			// The trailing pair closes the scan at the video's end, where the
-			// clamped seek, end-of-media seek flakiness and duplicated tail
-			// frames all conspire to produce identical captures on their own.
-			// Only let it extend idle the previous pair already established,
-			// so a lone phantom pair can't paint the final frame amber. (A
-			// scan of fewer than three samples has no previous pair, so its
-			// lone pair is judged as normal.)
+			// Without a known frame rate the trailing sample is clamped to the
+			// video's end, where end-of-media seek flakiness can make it match
+			// its predecessor even when the frames differ, so only let it
+			// extend an idle run the previous pair already established. With a
+			// frame rate, samples are exact frame boundaries and
+			// `spansFrameBoundary` already rejects any same-frame pair.
 			const isFinal = i === times.length - 1
+			const phantomTrailingPair =
+				isFinal && frameRate <= 0 && times.length >= 3 && !previousIdle
 			if (
 				previous !== null &&
-				(!isFinal || times.length < 3 || previousIdle) &&
+				!phantomTrailingPair &&
 				spansFrameBoundary(previousTarget, target, frameRate) &&
 				frameDifference(previous, sample) <= threshold
 			) {
