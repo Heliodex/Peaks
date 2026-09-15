@@ -250,15 +250,22 @@ export function deflationByReason(
 	})).filter(entry => entry.duration > 0)
 }
 
-/** Format a run of idle ranges as `0:07-0:08, 0:09-0:12`. */
+/**
+ * Format a run of spans as `0:07-0:08, 0:09-0:12`. Spans that read the same —
+ * several short idle stretches can land within one clock second — collapse to a
+ * count, e.g. `0:12 (2)`, so identical times aren't repeated in the list.
+ */
 function formatSpans(spans: { start: number; end: number }[]): string {
-	return spans
-		.toSorted((a, b) => a.start - b.start)
-		.map(span => {
-			const start = formatClock(span.start)
-			const end = formatClock(span.end)
-			return start === end ? start : `${start}-${end}`
-		})
+	const counts = new Map<string, number>()
+	for (const span of spans.toSorted((a, b) => a.start - b.start)) {
+		const start = formatClock(span.start)
+		const end = formatClock(span.end)
+		const label = start === end ? start : `${start}-${end}`
+		counts.set(label, (counts.get(label) ?? 0) + 1)
+	}
+	// `Map` preserves insertion order, so the labels stay chronological.
+	return [...counts]
+		.map(([label, count]) => (count > 1 ? `${label} (${count})` : label))
 		.join(", ")
 }
 
