@@ -437,6 +437,46 @@ function formatIdList(ids: string[]): string {
 	return ids.map(id => `"${id}"`).join(", ")
 }
 
+/**
+ * Tab and Shift+Tab cycle through the open project's timelapses — forwards and
+ * backwards respectively, wrapping around at either end. With none open,
+ * forwards opens the first entry and backwards the last. Ignored while a
+ * modifier is held (so browser shortcuts still work) and while typing in a form
+ * field or contenteditable element, so focus can leave inputs natively.
+ */
+function onKeyDown(event: KeyboardEvent) {
+	if (event.key !== "Tab" || event.defaultPrevented) return
+	if (event.metaKey || event.ctrlKey || event.altKey) return
+
+	const target = event.target as HTMLElement | null
+	if (
+		target &&
+		(target.isContentEditable ||
+			target.closest("input, textarea, select, [contenteditable]"))
+	) {
+		return
+	}
+
+	const entries = projectEntries
+	if (entries.length === 0) return
+
+	const current = entries.findIndex(entry => entry.id === submittedId)
+	const step = event.shiftKey ? -1 : 1
+	// Wrapping keeps the cycle self-contained; with none open, step towards the
+	// appropriate end of the list instead.
+	const next =
+		current === -1
+			? event.shiftKey
+				? entries.length - 1
+				: 0
+			: (current + step + entries.length) % entries.length
+	// Nothing to cycle to (a lone open timelapse): leave Tab to move focus.
+	if (next === current) return
+
+	event.preventDefault()
+	void loadId(entries[next].id)
+}
+
 /** A project entry for a timelapse whose metadata hasn't resolved yet. */
 function emptyTimelapse(id: string): ProjectTimelapse {
 	return {
@@ -826,6 +866,8 @@ $effect(() => {
 	}))
 })
 </script>
+
+<svelte:window onkeydown={onKeyDown} />
 
 {#snippet resizeHandle(modifier: string, onpointerdown: (event: PointerEvent) => void)}
 	<div
