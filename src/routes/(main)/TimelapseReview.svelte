@@ -38,6 +38,7 @@ import { goto } from "$app/navigation"
 import { page } from "$app/state"
 import { getTimelapse } from "./api.remote.js"
 import ProjectPane from "./ProjectPane.svelte"
+import ProjectSearch from "./ProjectSearch.svelte"
 import ProjectTimelapses from "./ProjectTimelapses.svelte"
 import ReviewDetails from "./ReviewDetails.svelte"
 import { entryFinalDuration } from "./review-format.js"
@@ -192,6 +193,9 @@ const shareUrl = $derived(encodedState ? `${SITE_ORIGIN}/${encodedState}` : "")
 let projects = $state<Project[]>([])
 let currentProjectId = $state("")
 let projectLoaded = $state(false)
+
+// Whether the Ctrl+K project search dialog is open.
+let searchOpen = $state(false)
 
 // Review preferences (timeline layout, …). Loaded once from local storage and
 // persisted on change; never mirrored into the URL.
@@ -459,15 +463,23 @@ function toggleFullscreen() {
 }
 
 /**
- * F toggles fullscreen for the open timelapse's video. Tab and Shift+Tab cycle
- * through the open project's timelapses — forwards and backwards respectively,
- * wrapping around at either end. With none open, forwards opens the first entry
- * and backwards the last. Both are ignored while a modifier is held (so browser
- * shortcuts still work) and while typing in a form field or contenteditable
- * element, so focus can leave inputs natively.
+ * Ctrl+K (or Cmd+K) toggles the project search dialog — from anywhere,
+ * including while a field is focused, so the shortcut can both open and close
+ * it. F toggles fullscreen for the open timelapse's video. Tab and Shift+Tab
+ * cycle through the open project's timelapses — forwards and backwards
+ * respectively, wrapping around at either end. With none open, forwards opens
+ * the first entry and backwards the last. Both are ignored while a modifier is
+ * held (so browser shortcuts still work) and while typing in a form field or
+ * contenteditable element, so focus can leave inputs natively.
  */
 function onKeyDown(event: KeyboardEvent) {
 	if (event.defaultPrevented) return
+
+	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+		event.preventDefault()
+		searchOpen = !searchOpen
+		return
+	}
 
 	const target = event.target as HTMLElement | null
 	if (
@@ -1045,6 +1057,15 @@ $effect(() => {
 		)}
 	{/if}
 </main>
+
+{#if searchOpen}
+	<ProjectSearch
+		{projects}
+		{currentProjectId}
+		onSelect={selectProject}
+		onClose={() => (searchOpen = false)}
+	/>
+{/if}
 
 <style>
 .dashboard {
