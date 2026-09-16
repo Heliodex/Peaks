@@ -86,6 +86,9 @@ let frameRate = $state(0)
 // scan can wait for whole-frame samples instead of falling back mid-probe.
 let frameRateReady = $state(false)
 let currentTime = $state(0)
+// Whether the video is playing, so the playhead can stay locked to it instead of
+// easing towards every frame update (see `playheadSpring`).
+let playing = $state(false)
 // Latest requested seek target while one is already in flight (see flushPendingSeek).
 let pendingSeek: number | null = null
 let hoverTime = $state<number | null>(null)
@@ -183,6 +186,23 @@ $effect(() => {
 	})
 })
 
+// Playback position shown by the cursor, eased by a spring so seeks glide into
+// place rather than jumping. While the video plays the cursor stays locked to
+// the (already frame-driven) time, so only paused seeks and scrubs are smoothed.
+// Springing the time rather than its screen position keeps the cursor aligned
+// with the frames as the view zooms under a spring of its own.
+const playheadSpring = new Spring(0, {
+	stiffness: 0.4,
+	damping: 1,
+	precision: 0.001,
+})
+const playheadTime = $derived(playheadSpring.current)
+$effect(() => {
+	void playheadSpring.set(currentTime, {
+		instant: prefersReducedMotion.current,
+	})
+})
+
 function makeId(): string {
 	// `selections` lives in the parent and can outlive this component instance,
 	// while `nextId` resets on remount — so skip any ids already in use.
@@ -201,6 +221,10 @@ function frameTime(index: number): number {
 $effect(() => {
 	const el = video
 	if (!el || !timelapse.playbackUrl) return
+
+	// A fresh element always starts paused; clear any state left from a
+	// previously bound one so the playhead eases rather than jumping.
+	playing = false
 
 	const onLoaded = () => {
 		const next =
@@ -228,6 +252,7 @@ $effect(() => {
 		}
 	}
 	const onPlay = () => {
+		playing = true
 		stopRaf()
 		const tick = () => {
 			onTime()
@@ -235,7 +260,10 @@ $effect(() => {
 		}
 		rafId = requestAnimationFrame(tick)
 	}
-	const onPause = () => stopRaf()
+	const onPause = () => {
+		playing = false
+		stopRaf()
+	}
 
 	el.addEventListener("loadedmetadata", onLoaded)
 	el.addEventListener("timeupdate", onTime)
@@ -794,10 +822,10 @@ function onKeyDown(event: KeyboardEvent) {
 				{/if}
 			{/each}
 
-			{#if currentTime >= view.start && currentTime <= view.end}
+			{#if playheadTime >= view.start && playheadTime <= view.end}
 				<div
 					class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-emerald-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
-					style:left="{percentWithin(currentTime, view)}%"
+					style:left="{percentWithin(playheadTime, view)}%"
 				></div>
 			{/if}
 
@@ -849,7 +877,7 @@ function onKeyDown(event: KeyboardEvent) {
 		<TimelineNavigator
 			{duration}
 			{frameRate}
-			{currentTime}
+			{playheadTime}
 			{selections}
 			{idleRanges}
 			{idleProgress}

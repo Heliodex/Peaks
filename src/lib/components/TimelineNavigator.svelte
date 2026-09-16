@@ -24,7 +24,7 @@ let {
 	duration,
 	frameRate = 0,
 	playbackUrl = "",
-	currentTime = 0,
+	playheadTime = 0,
 	selections = [],
 	idleRanges = [],
 	idleProgress = 0,
@@ -37,7 +37,7 @@ let {
 	duration: number
 	frameRate?: number
 	playbackUrl?: string
-	currentTime?: number
+	playheadTime?: number
 	selections?: TimelineSelection[]
 	idleRanges?: IdleRange[]
 	idleProgress?: number
@@ -302,10 +302,10 @@ function onPointerUp(event: PointerEvent) {
 	</div>
 
 	<!-- Current playback position -->
-	{#if currentTime >= 0 && currentTime <= duration}
+	{#if playheadTime >= 0 && playheadTime <= duration}
 		<div
 			class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-emerald-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
-			style:left="{percentOf(currentTime, duration)}%"
+			style:left="{percentOf(playheadTime, duration)}%"
 		></div>
 	{/if}
 
