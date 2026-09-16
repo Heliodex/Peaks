@@ -319,12 +319,12 @@ async function pasteAndLoad() {
 				Paste
 			</button>
 		</div>
-		{#if loadError}
-			<p role="alert" class="text-xs text-red-400">
-				{loadError}
-			</p>
-		{/if}
 	</form>
+	{#if loadError}
+		<p role="alert" class="text-xs text-red-400">
+			{loadError}
+		</p>
+	{/if}
 
 	<dl class="flex flex-col gap-1 border-t border-neutral-700 pt-2 text-sm">
 		<div class="flex justify-between gap-2">
