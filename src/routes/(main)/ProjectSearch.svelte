@@ -57,6 +57,19 @@ const activeTimelapse = $derived(
 	Math.min(timelapseIndex, Math.max(0, filteredTimelapses.length - 1))
 )
 
+// Keep the highlighted row in view as it moves — attachments re-run when the
+// state they read changes. Since the index wraps, this also scrolls to the top
+// or bottom when the selection crosses an end of the list.
+function scrollProjectIntoView(node: HTMLDivElement) {
+	if (mode !== "projects" || filteredProjects.length === 0) return
+	node.children[activeProject]?.scrollIntoView({ block: "nearest" })
+}
+
+function scrollTimelapseIntoView(node: HTMLDivElement) {
+	if (mode !== "timelapses" || filteredTimelapses.length === 0) return
+	node.children[activeTimelapse]?.scrollIntoView({ block: "nearest" })
+}
+
 // The search field, so collapsing (or expanding) can put the caret back in it
 // after a click moves focus to a row button.
 let inputEl: HTMLInputElement | null = null
@@ -219,6 +232,7 @@ function handleKeydown(event: KeyboardEvent) {
 					class="min-h-0 overflow-y-auto py-1"
 					role="listbox"
 					aria-label="Projects"
+					{@attach scrollProjectIntoView}
 				>
 					{#each filteredProjects as project, index (project.id)}
 						{@const selected =
@@ -279,6 +293,7 @@ function handleKeydown(event: KeyboardEvent) {
 						class="min-h-0 overflow-y-auto py-1"
 						role="listbox"
 						aria-label="Timelapses"
+						{@attach scrollTimelapseIntoView}
 					>
 						{#each filteredTimelapses as entry, index (entry.id)}
 							<button
