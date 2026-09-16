@@ -178,7 +178,7 @@ async function pasteAndLoad() {
 	<ul class="flex flex-col gap-1 text-sm">
 		{#each projects as project (project.id)}
 			<li
-				class="flex items-center gap-2 border-b border-neutral-800 pb-1"
+				class="project-row flex items-center gap-2 border-b border-neutral-800 pb-1"
 			>
 				{#if project.id === currentProjectId}
 					<input
@@ -205,7 +205,7 @@ async function pasteAndLoad() {
 						onclick={() => onRemoveProject(project.id)}
 						title="Delete project"
 						aria-label="Delete {project.name}"
-						class="shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
+						class="row-action shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
 					>
 						×
 					</button>
@@ -223,7 +223,7 @@ async function pasteAndLoad() {
 			{#each projectEntries as entry (entry.id)}
 				<li
 					animate:flip={{ duration: 180 }}
-					class="flex items-start gap-2 border-b border-neutral-800 pb-1 {draggingId ===
+					class="entry-row flex items-start gap-2 border-b border-neutral-800 pb-1 {draggingId ===
 					entry.id
 						? 'opacity-50'
 						: ''}"
@@ -293,7 +293,7 @@ async function pasteAndLoad() {
 						onclick={() => onRemoveTimelapse(entry.id)}
 						title="Remove from project"
 						aria-label="Remove {entry.name || entry.id} from project"
-						class="shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
+						class="row-action shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
 					>
 						×
 					</button>
@@ -400,3 +400,36 @@ async function pasteAndLoad() {
 		</section>
 	{/if}
 </aside>
+
+<style>
+/*
+ * Row actions (delete a project, remove a timelapse) stay out of the way until
+ * the row is hovered or a control inside it takes keyboard focus. They're only
+ * hidden on devices that can hover, so touch users always see them.
+ */
+.row-action {
+	transition: opacity 120ms;
+}
+
+@media (hover: hover) {
+	.project-row .row-action,
+	.entry-row .row-action {
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.project-row:hover .row-action,
+	.project-row:focus-within .row-action,
+	.entry-row:hover .row-action,
+	.entry-row:focus-within .row-action {
+		opacity: 1;
+		pointer-events: auto;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.row-action {
+		transition: none;
+	}
+}
+</style>

@@ -591,6 +591,15 @@ function selectProject(id: string) {
 	currentProjectId = id
 }
 
+/**
+ * Open a specific project's timelapse from the search dialog: make its project
+ * current first (so the timelapse is loaded into the right one), then load it.
+ */
+function openTimelapseFromSearch(projectId: string, timelapseId: string) {
+	selectProject(projectId)
+	void loadId(timelapseId)
+}
+
 /** Create and open a new empty project. */
 function createNewProject() {
 	const project = createProject(uniqueProjectName(projects))
@@ -1068,7 +1077,9 @@ $effect(() => {
 	<ProjectSearch
 		{projects}
 		{currentProjectId}
+		currentTimelapseId={submittedId}
 		onSelect={selectProject}
+		onLoadTimelapse={openTimelapseFromSearch}
 		onClose={() => (searchOpen = false)}
 	/>
 {/if}
