@@ -468,12 +468,13 @@ function toggleFullscreen() {
 /**
  * Ctrl+K (or Cmd+K) toggles the project search dialog — from anywhere,
  * including while a field is focused, so the shortcut can both open and close
- * it. F toggles fullscreen for the open timelapse's video. Tab and Shift+Tab
- * cycle through the open project's timelapses — forwards and backwards
- * respectively, wrapping around at either end. With none open, forwards opens
- * the first entry and backwards the last. Both are ignored while a modifier is
- * held (so browser shortcuts still work) and while typing in a form field or
- * contenteditable element, so focus can leave inputs natively.
+ * it. F toggles fullscreen for the open timelapse's video, and N creates a new
+ * project (with its name field focused). Tab and Shift+Tab cycle through the
+ * open project's timelapses — forwards and backwards respectively, wrapping
+ * around at either end. With none open, forwards opens the first entry and
+ * backwards the last. These are ignored while a modifier is held (so browser
+ * shortcuts still work) and while typing in a form field or contenteditable
+ * element, so focus can leave inputs natively.
  */
 function onKeyDown(event: KeyboardEvent) {
 	if (event.defaultPrevented) return
@@ -498,6 +499,13 @@ function onKeyDown(event: KeyboardEvent) {
 		if (!videoEl) return
 		event.preventDefault()
 		toggleFullscreen()
+		return
+	}
+
+	if (event.key.toLowerCase() === "n") {
+		if (event.metaKey || event.ctrlKey || event.altKey) return
+		event.preventDefault()
+		createNewProject()
 		return
 	}
 
