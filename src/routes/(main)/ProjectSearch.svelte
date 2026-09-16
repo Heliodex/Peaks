@@ -253,7 +253,7 @@ function handleKeydown(event: KeyboardEvent) {
 									{project.timelapses.length}
 								</span>
 							</button>
-							{#if project.timelapses.length > 0}
+							{#if mode === "projects" && project.timelapses.length > 0}
 								<button
 									type="button"
 									onclick={() => expand(project)}
