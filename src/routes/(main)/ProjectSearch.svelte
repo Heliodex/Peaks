@@ -193,14 +193,14 @@ function handleKeydown(event: KeyboardEvent) {
 		onkeydown={handleKeydown}
 		class="flex min-h-0 flex-col"
 	>
-		<div class="flex items-center gap-1 border-b border-neutral-700">
+		<div class="flex h-10 items-center gap-1 border-b border-neutral-700">
 			{#if mode === "timelapses"}
 				<button
 					type="button"
 					onclick={collapse}
 					title="Back to projects"
 					aria-label="Back to projects"
-					class="shrink-0 cursor-pointer px-2 py-2.5 text-neutral-400 hover:text-white"
+					class="shrink-0 cursor-pointer px-2 py-2.5 text-sm text-neutral-400 hover:text-white"
 				>
 					‹
 				</button>
