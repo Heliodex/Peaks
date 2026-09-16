@@ -253,7 +253,7 @@ function handleKeydown(event: KeyboardEvent) {
 								: project.id === expandedProjectId}
 						<div
 							role="presentation"
-							class="flex items-center {selected
+							class="flex h-9 items-center {selected
 								? 'bg-blue-600/30'
 								: ''}"
 						>
@@ -285,7 +285,7 @@ function handleKeydown(event: KeyboardEvent) {
 									onclick={() => expand(project)}
 									title="Show timelapses"
 									aria-label="Show timelapses for {project.name}"
-									class="shrink-0 cursor-pointer px-2 py-2 text-neutral-500 hover:text-white"
+									class="shrink-0 cursor-pointer px-2 py-2 text-sm text-neutral-500 hover:text-white"
 								>
 									›
 								</button>
