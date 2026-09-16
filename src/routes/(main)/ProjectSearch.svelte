@@ -286,8 +286,9 @@ function handleKeydown(event: KeyboardEvent) {
 								role="option"
 								aria-selected={selected}
 								onclick={() => openProject(project)}
-								onmouseenter={() => {
-									if (mode === "projects") projectIndex = index
+								onpointermove={() => {
+									if (mode === "projects" && projectIndex !== index)
+										projectIndex = index
 								}}
 								class="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-2 text-left text-sm"
 							>
@@ -340,7 +341,10 @@ function handleKeydown(event: KeyboardEvent) {
 								role="option"
 								aria-selected={index === activeTimelapse}
 								onclick={() => openTimelapse(entry.id)}
-								onmouseenter={() => (timelapseIndex = index)}
+								onpointermove={() => {
+									if (timelapseIndex !== index)
+										timelapseIndex = index
+								}}
 								class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm {index ===
 								activeTimelapse
 									? 'bg-blue-600/30'
