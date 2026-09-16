@@ -1,5 +1,12 @@
 <script lang="ts">
 import { prefersReducedMotion } from "svelte/motion"
+import {
+	type FlyParams,
+	fade,
+	fly,
+	type SlideParams,
+	slide,
+} from "svelte/transition"
 import type { Project } from "#lib/project-storage.js"
 import { entryFinalDuration, formatDuration } from "./review-format.js"
 
@@ -64,6 +71,17 @@ const activeTimelapse = $derived(
 // for reduced-motion users.
 const scrollBehavior = $derived(
 	prefersReducedMotion.current ? "auto" : "smooth"
+)
+
+// Appearance animations for the timelapse pane and its breadcrumb. Both become
+// instant for reduced-motion users.
+const breadcrumbTransition = $derived<SlideParams>(
+	prefersReducedMotion.current
+		? { duration: 0 }
+		: { duration: 150, axis: "x" }
+)
+const paneTransition = $derived<FlyParams>(
+	prefersReducedMotion.current ? { duration: 0 } : { x: 16, duration: 200 }
 )
 
 function scrollProjectIntoView(node: HTMLDivElement) {
@@ -195,21 +213,26 @@ function handleKeydown(event: KeyboardEvent) {
 	>
 		<div class="flex h-10 items-center gap-1 border-b border-neutral-700">
 			{#if mode === "timelapses"}
-				<button
-					type="button"
-					onclick={collapse}
-					title="Back to projects"
-					aria-label="Back to projects"
-					class="shrink-0 cursor-pointer px-2 py-2.5 text-sm text-neutral-400 hover:text-white"
+				<div
+					class="flex items-center gap-1"
+					transition:slide={breadcrumbTransition}
 				>
-					‹
-				</button>
-				<span
-					class="max-w-[9rem] shrink-0 truncate text-sm font-medium text-blue-400"
-					title={expandedProject?.name}
-				>
-					{expandedProject?.name}
-				</span>
+					<button
+						type="button"
+						onclick={collapse}
+						title="Back to projects"
+						aria-label="Back to projects"
+						class="shrink-0 cursor-pointer px-2 py-2.5 text-sm text-neutral-400 hover:text-white"
+					>
+						‹
+					</button>
+					<span
+						class="max-w-[9rem] shrink-0 truncate text-sm font-medium text-blue-400"
+						title={expandedProject?.name}
+					>
+						{expandedProject?.name}
+					</span>
+				</div>
 			{/if}
 			<input
 				type="text"
@@ -236,7 +259,8 @@ function handleKeydown(event: KeyboardEvent) {
 
 		<div class="flex min-h-0">
 			<div
-				class="flex min-h-0 flex-col {mode === "timelapses"
+				class="flex min-h-0 flex-col overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none {mode ===
+				"timelapses"
 					? "w-2/5 shrink-0 border-r border-neutral-700"
 					: "w-full"}"
 			>
@@ -300,7 +324,10 @@ function handleKeydown(event: KeyboardEvent) {
 			</div>
 
 			{#if mode === "timelapses"}
-				<div class="flex min-h-0 flex-1 flex-col">
+				<div
+					class="flex min-h-0 flex-1 flex-col overflow-hidden"
+					transition:fly={paneTransition}
+				>
 					<div
 						class="min-h-0 overflow-y-auto py-1"
 						role="listbox"
