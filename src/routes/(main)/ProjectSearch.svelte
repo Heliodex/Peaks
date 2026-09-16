@@ -1,4 +1,5 @@
 <script lang="ts">
+import { prefersReducedMotion } from "svelte/motion"
 import type { Project } from "#lib/project-storage.js"
 import { entryFinalDuration, formatDuration } from "./review-format.js"
 
@@ -59,15 +60,26 @@ const activeTimelapse = $derived(
 
 // Keep the highlighted row in view as it moves — attachments re-run when the
 // state they read changes. Since the index wraps, this also scrolls to the top
-// or bottom when the selection crosses an end of the list.
+// or bottom when the selection crosses an end of the list. Motion is skipped
+// for reduced-motion users.
+const scrollBehavior = $derived(
+	prefersReducedMotion.current ? "auto" : "smooth"
+)
+
 function scrollProjectIntoView(node: HTMLDivElement) {
 	if (mode !== "projects" || filteredProjects.length === 0) return
-	node.children[activeProject]?.scrollIntoView({ block: "nearest" })
+	node.children[activeProject]?.scrollIntoView({
+		block: "nearest",
+		behavior: scrollBehavior,
+	})
 }
 
 function scrollTimelapseIntoView(node: HTMLDivElement) {
 	if (mode !== "timelapses" || filteredTimelapses.length === 0) return
-	node.children[activeTimelapse]?.scrollIntoView({ block: "nearest" })
+	node.children[activeTimelapse]?.scrollIntoView({
+		block: "nearest",
+		behavior: scrollBehavior,
+	})
 }
 
 // The search field, so collapsing (or expanding) can put the caret back in it
