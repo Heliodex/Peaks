@@ -447,16 +447,27 @@ function formatIdList(ids: string[]): string {
 	return ids.map(id => `"${id}"`).join(", ")
 }
 
+/** Toggle fullscreen playback of the open timelapse's video. */
+function toggleFullscreen() {
+	const el = videoEl
+	if (!el) return
+	if (document.fullscreenElement) {
+		void document.exitFullscreen().catch(() => {})
+	} else {
+		void el.requestFullscreen().catch(() => {})
+	}
+}
+
 /**
- * Tab and Shift+Tab cycle through the open project's timelapses — forwards and
- * backwards respectively, wrapping around at either end. With none open,
- * forwards opens the first entry and backwards the last. Ignored while a
- * modifier is held (so browser shortcuts still work) and while typing in a form
- * field or contenteditable element, so focus can leave inputs natively.
+ * F toggles fullscreen for the open timelapse's video. Tab and Shift+Tab cycle
+ * through the open project's timelapses — forwards and backwards respectively,
+ * wrapping around at either end. With none open, forwards opens the first entry
+ * and backwards the last. Both are ignored while a modifier is held (so browser
+ * shortcuts still work) and while typing in a form field or contenteditable
+ * element, so focus can leave inputs natively.
  */
 function onKeyDown(event: KeyboardEvent) {
-	if (event.key !== "Tab" || event.defaultPrevented) return
-	if (event.metaKey || event.ctrlKey || event.altKey) return
+	if (event.defaultPrevented) return
 
 	const target = event.target as HTMLElement | null
 	if (
@@ -466,6 +477,17 @@ function onKeyDown(event: KeyboardEvent) {
 	) {
 		return
 	}
+
+	if (event.key.toLowerCase() === "f") {
+		if (event.metaKey || event.ctrlKey || event.altKey) return
+		if (!videoEl) return
+		event.preventDefault()
+		toggleFullscreen()
+		return
+	}
+
+	if (event.key !== "Tab") return
+	if (event.metaKey || event.ctrlKey || event.altKey) return
 
 	const entries = projectEntries
 	if (entries.length === 0) return
