@@ -197,6 +197,9 @@ let projectLoaded = $state(false)
 // Whether the Ctrl+K project search dialog is open.
 let searchOpen = $state(false)
 
+// A project whose name field should take focus, set right after creating one.
+let pendingNameFocus = $state<string | null>(null)
+
 // Review preferences (timeline layout, …). Loaded once from local storage and
 // persisted on change; never mirrored into the URL.
 let justifyTimeline = $state(true)
@@ -592,6 +595,7 @@ function selectProject(id: string) {
 function createNewProject() {
 	const project = createProject(uniqueProjectName(projects))
 	projects = [...projects, project]
+	pendingNameFocus = project.id
 	selectProject(project.id)
 }
 
@@ -961,6 +965,7 @@ $effect(() => {
 	<ProjectPane
 		{projects}
 		{currentProjectId}
+		focusNameId={pendingNameFocus}
 		{projectName}
 		{projectEntries}
 		{submittedId}
@@ -974,6 +979,7 @@ $effect(() => {
 		onSelectProject={selectProject}
 		onCreateProject={createNewProject}
 		onRemoveProject={removeProject}
+		onNameFocused={() => (pendingNameFocus = null)}
 	/>
 
 	{@render resizeHandle("resize-handle-right", startRightResize)}

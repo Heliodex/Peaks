@@ -12,6 +12,7 @@ import type { ProjectTotals } from "./review-types.js"
 let {
 	projects = [],
 	currentProjectId = "",
+	focusNameId = null,
 	projectName = "",
 	projectEntries = [],
 	submittedId,
@@ -25,9 +26,12 @@ let {
 	onSelectProject,
 	onCreateProject,
 	onRemoveProject,
+	onNameFocused,
 }: {
 	projects: Project[]
 	currentProjectId: string
+	/** Project whose name field should take focus, set right after creating one. */
+	focusNameId?: string | null
 	projectName: string
 	projectEntries: ProjectTimelapse[]
 	submittedId: string
@@ -42,9 +46,23 @@ let {
 	onSelectProject: (id: string) => void
 	onCreateProject: () => void
 	onRemoveProject: (id: string) => void
+	onNameFocused: () => void
 } = $props()
 
 let draggingId = $state<string | null>(null)
+
+/**
+ * Focus the name field when its project was just created, selecting the
+ * placeholder name so it can be typed over. Attachments re-run when the state
+ * they read changes, so this fires as the new input mounts (or as the request
+ * arrives) and clears the request through `onNameFocused`.
+ */
+function focusCreatedName(node: HTMLInputElement) {
+	if (!focusNameId || focusNameId !== currentProjectId) return
+	node.focus()
+	node.select()
+	onNameFocused()
+}
 
 /**
  * Move the entry at `from` so it lands at `insert`. Only asks the parent to
@@ -167,6 +185,7 @@ async function pasteAndLoad() {
 						type="text"
 						value={projectName}
 						onchange={e => onRenameProject(e.currentTarget.value)}
+						{@attach focusCreatedName}
 						placeholder={DEFAULT_PROJECT_NAME}
 						title={project.name}
 						aria-label="Project name"
