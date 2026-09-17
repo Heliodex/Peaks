@@ -44,6 +44,14 @@ const MAX_SAMPLES = 300
 // Fallback sample spacing when the video's frame rate is unknown.
 const FALLBACK_STEP = 0.5
 
+// A load or seek failure is usually transient — a dropped range request or a
+// decode hiccup — so a sample is retried on a fresh media element before being
+// skipped. These bounds keep a genuinely broken source from spinning forever.
+const MAX_SAMPLE_RETRIES = 3
+const MAX_CONSECUTIVE_FAILURES = 5
+const RETRY_BACKOFF_MS = 250
+const SEEK_TIMEOUT_MS = 15000
+
 /**
  * Times to sample. With a known frame rate every sample lands on a whole frame
  * boundary and is spaced by whole frames, so the idle ranges derived from them
@@ -150,6 +158,12 @@ export function mergeIdleRanges(intervals: IdleRange[]): IdleRange[] {
 
 /**
  * Sample the video and return the ranges where consecutive samples are visually identical. `onProgress` fires after each sample with the fraction scanned; `onRanges` fires with partial results as new idle spans appear.
+ *
+ * Loads, seeks and decodes can fail intermittently (dropped range requests,
+ * transient decode errors). Rather than aborting the whole scan on the first
+ * failure, a sample is retried on a freshly created media element; if it still
+ * can't be read the sample is skipped so the rest of the scan — and any idle
+ * ranges already found — survive.
  */
 export function analyzeIdle(
 	src: string,
@@ -161,22 +175,107 @@ export function analyzeIdle(
 		onRanges?: (ranges: IdleRange[]) => void
 	} = {}
 ): IdleAnalysisJob {
-	const video = document.createElement("video")
-	video.muted = true
-	video.preload = "auto"
-	video.src = lapseProxyUrl(src)
+	const url = lapseProxyUrl(src)
 
 	const canvas = document.createElement("canvas")
 	canvas.width = SAMPLE_WIDTH
 	canvas.height = SAMPLE_HEIGHT
 
 	let cancelled = false
+	// The media element currently in use. It's recreated after a failure, so
+	// it can't be captured once and reused for the whole scan.
+	let video: HTMLVideoElement | null = null
+
+	/**
+	 * Read the element through a function: it's assigned inside nested
+	 * closures, which TypeScript's control-flow analysis doesn't track.
+	 */
+	function currentVideo(): HTMLVideoElement | null {
+		return video
+	}
+
+	function createVideo(): HTMLVideoElement {
+		const el = document.createElement("video")
+		el.muted = true
+		el.preload = "auto"
+		el.src = url
+		return el
+	}
+
+	/** Abort and forget the current element, clearing any failed state. */
+	function discardVideo() {
+		const el = currentVideo()
+		if (!el) return
+		el.removeAttribute("src")
+		el.load()
+		video = null
+	}
+
+	/** Resolve once `el` has a decoded frame, or reject on error. */
+	function waitForData(el: HTMLVideoElement): Promise<void> {
+		return new Promise((resolve, reject) => {
+			const cleanup = () => {
+				el.removeEventListener("loadeddata", onLoaded)
+				el.removeEventListener("error", onError)
+			}
+			const onLoaded = () => {
+				cleanup()
+				resolve()
+			}
+			const onError = () => {
+				cleanup()
+				reject(new Error("Failed to load video"))
+			}
+			el.addEventListener("loadeddata", onLoaded)
+			el.addEventListener("error", onError)
+		})
+	}
+
+	function delay(ms: number): Promise<void> {
+		return new Promise(resolve => setTimeout(resolve, ms))
+	}
+
+	/** A loaded element, retrying on fresh elements after transient failures. */
+	async function ensureVideo(): Promise<HTMLVideoElement> {
+		const existing = currentVideo()
+		if (existing) return existing
+		for (let attempt = 0; ; attempt++) {
+			if (cancelled) throw new Error("Idle scan cancelled")
+			const el = createVideo()
+			try {
+				await waitForData(el)
+				video = el
+				return el
+			} catch (error) {
+				el.removeAttribute("src")
+				el.load()
+				if (cancelled || attempt >= MAX_SAMPLE_RETRIES) throw error
+				await delay(RETRY_BACKOFF_MS * (attempt + 1))
+			}
+		}
+	}
+
+	/** Seek to `target`, recreating the element after a failed attempt. */
+	async function seekForSample(target: number): Promise<HTMLVideoElement> {
+		for (let attempt = 0; ; attempt++) {
+			if (cancelled) throw new Error("Idle scan cancelled")
+			const el = await ensureVideo()
+			try {
+				await seekVideo(el, target, SEEK_TIMEOUT_MS)
+				return el
+			} catch (error) {
+				discardVideo()
+				if (cancelled || attempt >= MAX_SAMPLE_RETRIES) throw error
+				await delay(RETRY_BACKOFF_MS * (attempt + 1))
+			}
+		}
+	}
 
 	const promise = (async () => {
-		await new Promise<void>((resolve, reject) => {
-			video.onloadeddata = () => resolve()
-			video.onerror = () => reject(new Error("Failed to load video"))
-		})
+		// Fail fast if the source can't be read at all; individual samples can
+		// still be skipped once the element is loaded.
+		await ensureVideo()
+
 		const ctx = canvas.getContext("2d", { willReadFrequently: true })
 		if (!ctx) throw new Error("No canvas context")
 
@@ -186,22 +285,41 @@ export function analyzeIdle(
 		let previousTarget = -1
 		let previousIdle = false
 		let reportedCount = 0
+		let consecutiveFailures = 0
 
 		for (let i = 0; i < times.length; i++) {
 			if (cancelled) break
+			const current = currentVideo()
 			const limit =
-				Number.isFinite(video.duration) && video.duration > 0
-					? video.duration
+				current &&
+				Number.isFinite(current.duration) &&
+				current.duration > 0
+					? current.duration
 					: duration
 			const target = Math.min(times[i], Math.max(0, limit - 0.001))
-			await seekVideo(video, target)
-			ctx.drawImage(video, 0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT)
-			const sample = ctx.getImageData(
-				0,
-				0,
-				SAMPLE_WIDTH,
-				SAMPLE_HEIGHT
-			).data
+
+			let sample: Uint8ClampedArray
+			try {
+				const el = await seekForSample(target)
+				ctx.drawImage(el, 0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT)
+				sample = ctx.getImageData(
+					0,
+					0,
+					SAMPLE_WIDTH,
+					SAMPLE_HEIGHT
+				).data
+			} catch {
+				// Even a fresh element couldn't produce this frame. Drop the
+				// baseline so the next comparison isn't made across the gap,
+				// and give up if the source stays unreadable.
+				consecutiveFailures++
+				previous = null
+				previousTarget = -1
+				callbacks.onProgress?.((i + 1) / times.length)
+				if (consecutiveFailures > MAX_CONSECUTIVE_FAILURES) break
+				continue
+			}
+			consecutiveFailures = 0
 
 			// Without a known frame rate the trailing sample is clamped to the
 			// video's end, where end-of-media seek flakiness can make it match
@@ -242,17 +360,13 @@ export function analyzeIdle(
 
 	const settled = promise
 		.catch(() => [] as IdleRange[])
-		.finally(() => {
-			video.removeAttribute("src")
-			video.load()
-		})
+		.finally(() => discardVideo())
 
 	return {
 		promise: settled,
 		cancel: () => {
 			cancelled = true
-			video.removeAttribute("src")
-			video.load()
+			discardVideo()
 		},
 	}
 }

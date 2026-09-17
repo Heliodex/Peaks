@@ -30,12 +30,17 @@ export async function GET({ url, request }: RequestEvent) {
 
 	const range = request.headers.get("range")
 	// Pass through validators so a revalidation can be answered with a cheap 304
-	// instead of streaming the whole file again.
+	// instead of streaming the whole file again. Never do this for range
+	// requests, though: a server may answer a conditional range request with a
+	// 304 and no body, which a media element can't decode. Range requests always
+	// need the actual bytes.
 	const conditional: Record<string, string> = {}
-	const ifNoneMatch = request.headers.get("if-none-match")
-	if (ifNoneMatch) conditional["If-None-Match"] = ifNoneMatch
-	const ifModifiedSince = request.headers.get("if-modified-since")
-	if (ifModifiedSince) conditional["If-Modified-Since"] = ifModifiedSince
+	if (!range) {
+		const ifNoneMatch = request.headers.get("if-none-match")
+		if (ifNoneMatch) conditional["If-None-Match"] = ifNoneMatch
+		const ifModifiedSince = request.headers.get("if-modified-since")
+		if (ifModifiedSince) conditional["If-Modified-Since"] = ifModifiedSince
+	}
 
 	const upstream = await fetch(parsed, {
 		headers: {
