@@ -31,7 +31,7 @@ None of this should conflict with the formatting or linting rules of Biome.
 - Avoid `any` types
 - Prefer union types over enums
 - Prefer `type` over `interface` except when extending another type, in which prefer `interface x extends y { ... }` over `type x = y & { ... }`
-	- This also applies when an interface is in a namespace
+	- Interfaces are preferred inside namespaces in .d.ts files
 
 ## Svelte
 
