@@ -269,7 +269,7 @@ function onPointerUp(event: PointerEvent) {
 		style:width="{percentOf(view.end - view.start, duration)}%"
 	>
 		<div
-			class="pointer-events-none absolute inset-0 border-x-2 border-sky-400 bg-sky-400/30"
+			class="pointer-events-none absolute inset-0 border-x-2 border-primary-400 bg-primary-400/30"
 		></div>
 
 		<div
@@ -277,7 +277,7 @@ function onPointerUp(event: PointerEvent) {
 			class="absolute inset-y-0 left-0 flex w-2 cursor-ew-resize items-center justify-center"
 			role="presentation"
 		>
-			<span class="h-5 w-1 bg-sky-400 shadow"></span>
+			<span class="h-5 w-1 bg-primary-400 shadow"></span>
 		</div>
 
 		<div
@@ -285,7 +285,7 @@ function onPointerUp(event: PointerEvent) {
 			class="absolute inset-y-0 right-0 flex w-2 cursor-ew-resize items-center justify-center"
 			role="presentation"
 		>
-			<span class="h-5 w-1 bg-sky-400 shadow"></span>
+			<span class="h-5 w-1 bg-primary-400 shadow"></span>
 		</div>
 	</div>
 
