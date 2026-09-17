@@ -3,9 +3,9 @@
 @theme {
 	/* Accent palette. Point all three shades at any Tailwind colour family
 	   to re-theme the app, e.g. swap the `blue`s below for `violet`. */
-	--color-primary-400: var(--color-blue-400);
-	--color-primary-500: var(--color-blue-500);
-	--color-primary-600: var(--color-blue-600);
+	--color-primary-400: var(--color-emerald-400);
+	--color-primary-500: var(--color-emerald-500);
+	--color-primary-600: var(--color-emerald-600);
 }
 
 * {
