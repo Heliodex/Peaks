@@ -227,7 +227,7 @@ function handleKeydown(event: KeyboardEvent) {
 						‹
 					</button>
 					<span
-						class="max-w-[9rem] shrink-0 truncate text-sm font-medium text-blue-400"
+						class="max-w-[9rem] shrink-0 truncate text-sm font-medium text-primary-400"
 						title={expandedProject?.name}
 					>
 						{expandedProject?.name}
@@ -278,7 +278,7 @@ function handleKeydown(event: KeyboardEvent) {
 						<div
 							role="presentation"
 							class="flex h-9 items-center {selected
-								? 'bg-blue-600/30'
+								? 'bg-primary-600/30'
 								: ''}"
 						>
 							<button
@@ -295,7 +295,7 @@ function handleKeydown(event: KeyboardEvent) {
 								<span
 									class="truncate {project.id ===
 									currentProjectId
-										? 'font-medium text-blue-400'
+										? 'font-medium text-primary-400'
 										: ''}"
 								>
 									{project.name}
@@ -347,12 +347,12 @@ function handleKeydown(event: KeyboardEvent) {
 								}}
 								class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm {index ===
 								activeTimelapse
-									? 'bg-blue-600/30'
+									? 'bg-primary-600/30'
 									: ''}"
 							>
 								<span
 									class="truncate {entry.id === currentTimelapseId
-										? 'font-medium text-blue-400'
+										? 'font-medium text-primary-400'
 										: ''}"
 								>
 									{entry.name || entry.id}

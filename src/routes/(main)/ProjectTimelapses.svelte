@@ -63,7 +63,7 @@ $effect(() => {
 					type="button"
 					onclick={() => onLoad(entry.id)}
 					title={entry.name || entry.id}
-					class="group flex w-full cursor-pointer flex-col overflow-hidden rounded border border-neutral-600 text-left hover:border-blue-500"
+					class="group flex w-full cursor-pointer flex-col overflow-hidden rounded border border-neutral-600 text-left hover:border-primary-500"
 				>
 					<div
 						class="aspect-video w-full overflow-hidden bg-neutral-800"

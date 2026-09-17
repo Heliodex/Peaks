@@ -50,7 +50,7 @@ let tab = $state<Tab>("data")
 			onclick={() => (tab = "data")}
 			class="-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm {tab ===
 			'data'
-				? 'border-blue-500 font-medium text-blue-400'
+				? 'border-primary-500 font-medium text-primary-400'
 				: 'border-transparent text-neutral-400 hover:text-neutral-200'}"
 		>
 			Timelapse data
@@ -62,7 +62,7 @@ let tab = $state<Tab>("data")
 			onclick={() => (tab = "settings")}
 			class="-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm {tab ===
 			'settings'
-				? 'border-blue-500 font-medium text-blue-400'
+				? 'border-primary-500 font-medium text-primary-400'
 				: 'border-transparent text-neutral-400 hover:text-neutral-200'}"
 		>
 			Settings

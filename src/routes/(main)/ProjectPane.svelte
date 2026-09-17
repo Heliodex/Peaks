@@ -189,7 +189,7 @@ async function pasteAndLoad() {
 						placeholder={DEFAULT_PROJECT_NAME}
 						title={project.name}
 						aria-label="Project name"
-						class="min-w-0 flex-1 border border-neutral-500 px-1 py-0.5 font-medium text-blue-400"
+						class="min-w-0 flex-1 border border-neutral-500 px-1 py-0.5 font-medium text-primary-400"
 					>
 				{:else}
 					<button
@@ -268,7 +268,7 @@ async function pasteAndLoad() {
 					<div class="flex min-w-0 flex-1 flex-col">
 						{#if entry.id === submittedId}
 							<span
-								class="w-full truncate font-medium text-blue-400"
+								class="w-full truncate font-medium text-primary-400"
 								title={entry.name || entry.id}
 								aria-current="true"
 							>

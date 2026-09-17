@@ -230,7 +230,7 @@ function removeSelection(id: string) {
 					checked={ignoreIdle}
 					onchange={e =>
 						onToggleIgnoreIdle(e.currentTarget.checked)}
-					class="h-3.5 w-3.5 accent-blue-500"
+					class="h-3.5 w-3.5 accent-primary-500"
 				>
 				Ignore idle time
 			</label>
@@ -247,7 +247,7 @@ function removeSelection(id: string) {
 			type="button"
 			onclick={onRecalculateIdle}
 			disabled={idleAnalyzing}
-			class="border border-neutral-500 px-1.5 py-0.5 text-neutral-500 hover:border-blue-500 hover:text-blue-400 disabled:opacity-50"
+			class="border border-neutral-500 px-1.5 py-0.5 text-neutral-500 hover:border-primary-500 hover:text-primary-400 disabled:opacity-50"
 		>
 			{idleAnalyzing ? "Recalculating…" : "Recalculate idle time"}
 		</button>
@@ -266,7 +266,7 @@ function removeSelection(id: string) {
 					)}
 				title="Higher values treat more frames as idle"
 				aria-label="Idle detection sensitivity"
-				class="w-24 accent-blue-500"
+				class="w-24 accent-primary-500"
 			>
 			<span class="w-12 tabular-nums">{idleThreshold}</span>
 		</label>
@@ -275,7 +275,7 @@ function removeSelection(id: string) {
 			onclick={onResetIdleThreshold}
 			disabled={idleThreshold === DEFAULT_IDLE_THRESHOLD}
 			title="Reset to the standard sensitivity"
-			class="border border-neutral-500 px-1.5 py-0.5 text-neutral-500 hover:border-blue-500 hover:text-blue-400 disabled:opacity-50"
+			class="border border-neutral-500 px-1.5 py-0.5 text-neutral-500 hover:border-primary-500 hover:text-primary-400 disabled:opacity-50"
 		>
 			Reset
 		</button>

@@ -24,7 +24,7 @@ import { lapseLogin } from "../(main)/api.remote.js"
 		<form {...lapseLogin} class="w-full pt-4">
 			<button
 				type="submit"
-				class="w-full bg-linear-to-r from-emerald-500 to-green-500 px-4 py-2 font-medium text-white transition hover:from-emerald-600 hover:to-green-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-400 active:translate-0.5"
+				class="w-full bg-linear-to-r from-emerald-500 to-green-500 px-4 py-2 font-medium text-white transition hover:from-emerald-600 hover:to-green-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-400 active:translate-0.5"
 			>
 				Log in with Lapse
 			</button>

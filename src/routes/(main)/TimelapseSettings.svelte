@@ -15,7 +15,7 @@ let {
 			type="checkbox"
 			checked={justifyTimeline}
 			onchange={e => onToggleJustifyTimeline(e.currentTarget.checked)}
-			class="h-4 w-4 accent-blue-500"
+			class="h-4 w-4 accent-primary-500"
 		>
 	</div>
 	<span class="flex flex-col gap-0.5">

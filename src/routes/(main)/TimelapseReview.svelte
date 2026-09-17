@@ -961,7 +961,7 @@ $effect(() => {
 
 {#snippet resizeHandle(modifier: string, onpointerdown: (event: PointerEvent) => void)}
 	<div
-		class="resize-handle {modifier} hidden transition-colors hover:bg-blue-500/40 lg:block"
+		class="resize-handle {modifier} hidden transition-colors hover:bg-primary-500/40 lg:block"
 		{onpointerdown}
 		role="presentation"
 	></div>
