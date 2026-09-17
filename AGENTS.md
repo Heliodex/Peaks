@@ -44,7 +44,8 @@ None of this should conflict with the formatting or linting rules of Biome.
 	- If reactivity is required, use $derived()
 	- See https://svelte.dev/docs/svelte/declaration-tags/llms.txt and https://svelte.dev/docs/svelte/@const/llms.txt
 - If writing getter and setter functions, see if they can be better served by a reactive class, with $state() fields or get property() & set property() functions
-- If something is only intended to run once, use onMount() instead of $effect()
+- If something is only intended to run once, prefer onMount() over $effect()
+	- Prefer onDestroy() over $effect(() => (() => { ... })())
 
 ## CSS
 
