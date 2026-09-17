@@ -1,4 +1,7 @@
-# Code style
+# Code style guidelines
+
+- Replace em-dashes (—) with en-dashes (–) in text or comments
+- Replace en-dashes (–) with hyphens (-) in numerical or temporal ranges
 
 ## JS
 
@@ -14,14 +17,19 @@
 - Prefer `for (const x of y) ...` over `y.forEach(x => ...)`
 - Prefer `const` over `let`
 	- Avoid `var`
-- Use `===` and `!==` over `==` and `!=`
+- Use `===` and `!==` over `==` and `!=` except when comparing with null
 - Use Object.freeze() to make objects immutable where possible
 - Omit `void` before function calls, unless this function call is a IIFE
+- Declare only 1 variable per declaration statement, avoid `const x = 1, y = 2, z = 3`
+
+None of this should conflict with the formatting or linting rules of Biome.
 
 ## TS
 
 - Use return types on functions
 - Avoid `any` types
+- Prefer union types over enums
+- Prefer `type` over `interface` except when extending another type, in which prefer `interface x extends y { ... }` over `type x = y & { ... }`
 
 ## Svelte
 
@@ -35,9 +43,18 @@
 	- See https://svelte.dev/docs/svelte/declaration-tags/llms.txt and https://svelte.dev/docs/svelte/@const/llms.txt
 - If writing getter and setter functions, see if they can be better served by a reactive class, with $state() fields or get property() & set property() functions
 
-# CSS
+## CSS
 
+- Avoid `!important` where possible
+	- Avoid the equivalent `!` suffix in Tailwind classes
 - Avoid margins where possible
 	- Replace with padding or gaps where spacing is needed
 	- Replace with flex or grid for centreing
 	- If needing negative margins for funky tricks, OK
+- Use canonical Tailwind classes, like `w-36` instead of `w-[9rem]`
+- In the rare case where something is more concise in standard CSS than in Tailwind, write it in standard CSS
+
+## Comments
+
+- Do not hard-wrap. Never split a sentence over multiple lines
+	- If the new line is after a semicolon or is a new sentence, OK
