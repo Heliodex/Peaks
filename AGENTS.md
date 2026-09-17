@@ -22,6 +22,7 @@
 - Use Object.freeze() to make objects immutable where possible
 - Omit `void` before function calls, unless this function call is a IIFE
 - Declare only 1 variable per declaration statement, avoid `const x = 1, y = 2, z = 3`
+- When making large functions that return objects with many functions, consider if this would be more natural as a class with methods instead
 
 None of this should conflict with the formatting or linting rules of Biome.
 
