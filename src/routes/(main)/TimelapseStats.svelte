@@ -12,8 +12,16 @@ import {
 	IDLE_THRESHOLD_SCALE,
 	type IdleRange,
 } from "#lib/idle-time.js"
-import { formatClock, type TimelineSelection } from "#lib/timeline.js"
-import { formatCreatedAt, formatDuration } from "./review-format.js"
+import {
+	formatClock,
+	formatHours,
+	type TimelineSelection,
+} from "#lib/timeline.js"
+import {
+	formatCreatedAt,
+	formatDuration,
+	formatTimeSince,
+} from "./review-format.js"
 import type { ReviewTimelapse } from "./review-types.js"
 
 let {
@@ -100,6 +108,9 @@ function removeSelection(id: string) {
 			<dd class="pt-1 font-medium">
 				{formatDuration(timelapse.duration)}
 			</dd>
+			<p class="pt-0.5 text-xs text-neutral-500">
+				{formatHours(timelapse.duration)}
+			</p>
 		</div>
 		<div class="border border-neutral-500 p-3">
 			<dt class="text-xs uppercase tracking-wide text-neutral-500">
@@ -108,6 +119,9 @@ function removeSelection(id: string) {
 			<dd class="pt-1 font-medium">
 				{formatDuration(actualDuration)}
 			</dd>
+			<p class="pt-0.5 text-xs text-neutral-500">
+				{formatHours(actualDuration)}
+			</p>
 			{#if idleAnalyzing && !ignoreIdle}
 				<p class="pt-0.5 text-xs text-amber-600">
 					Analyzing idle frames…
@@ -134,6 +148,9 @@ function removeSelection(id: string) {
 			<dd class="pt-1 font-medium">
 				{formatCreatedAt(timelapse.createdAt)}
 			</dd>
+			<p class="pt-0.5 text-xs text-neutral-500">
+				{formatTimeSince(timelapse.createdAt)}
+			</p>
 		</div>
 		<div class="border border-neutral-500 p-3">
 			<dt class="text-xs uppercase tracking-wide text-neutral-500">

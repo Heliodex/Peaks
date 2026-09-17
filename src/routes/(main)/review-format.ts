@@ -25,6 +25,35 @@ export function formatCreatedAt(timestamp: number): string {
 	})
 }
 
+/** Units used to express an elapsed time, largest first. */
+const TIME_SINCE_UNITS = [
+	["year", 365 * 24 * 60 * 60],
+	["month", 30 * 24 * 60 * 60],
+	["week", 7 * 24 * 60 * 60],
+	["day", 24 * 60 * 60],
+	["hour", 60 * 60],
+	["minute", 60],
+	["second", 1],
+] as const
+
+/** How long ago a Lapse creation timestamp was, as a human-readable phrase. */
+export function formatTimeSince(timestamp: number, now = Date.now()): string {
+	if (!Number.isFinite(timestamp) || timestamp <= 0) return "Unknown"
+	// Lapse returns a Unix timestamp; accept either seconds or milliseconds.
+	const ms = timestamp < 1e12 ? timestamp * 1000 : timestamp
+	// Clock skew can put a timestamp slightly in the future; treat it as "now".
+	const elapsed = Math.max(0, Math.round((now - ms) / 1000))
+	const formatter = new Intl.RelativeTimeFormat(undefined, {
+		numeric: "auto",
+	})
+	for (const [unit, unitSeconds] of TIME_SINCE_UNITS) {
+		if (elapsed >= unitSeconds) {
+			return formatter.format(-Math.floor(elapsed / unitSeconds), unit)
+		}
+	}
+	return formatter.format(0, "second")
+}
+
 /** Total recorded seconds removed by a set of annotation reasons. */
 export function annotationTotal(annotations: AnnotationDeflation[]): number {
 	return annotations.reduce((sum, annotation) => sum + annotation.duration, 0)
