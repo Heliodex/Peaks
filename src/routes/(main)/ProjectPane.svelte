@@ -404,16 +404,33 @@ async function pasteAndLoad() {
 <style>
 /*
  * Row actions (delete a project, remove a timelapse) stay out of the way until
- * the row is hovered or a control inside it takes keyboard focus. They're only
- * hidden on devices that can hover, so touch users always see them.
+ * the row is hovered or a control inside it takes keyboard focus. While hidden
+ * they collapse to nothing (and cancel the row's gap) so the row's text can use
+ * the full width. They're only hidden on devices that can hover, so touch users
+ * always see them.
  */
 .row-action {
-	transition: opacity 120ms;
+	transition:
+		width 120ms ease,
+		padding 120ms ease,
+		border-left-width 120ms ease,
+		border-right-width 120ms ease,
+		margin 120ms ease,
+		opacity 120ms ease;
 }
 
 @media (hover: hover) {
 	.project-row .row-action,
 	.entry-row .row-action {
+		width: 0;
+		/* Pull the collapsed button over the row's gap. */
+		margin-left: -0.5rem;
+		padding-left: 0;
+		padding-right: 0;
+		/* Keep the top/bottom border so the row height stays constant. */
+		border-left-width: 0;
+		border-right-width: 0;
+		overflow: hidden;
 		opacity: 0;
 		pointer-events: none;
 	}
@@ -422,6 +439,12 @@ async function pasteAndLoad() {
 	.project-row:focus-within .row-action,
 	.entry-row:hover .row-action,
 	.entry-row:focus-within .row-action {
+		width: 1.5rem;
+		margin-left: 0;
+		padding-left: 0.375rem;
+		padding-right: 0.375rem;
+		border-left-width: 1px;
+		border-right-width: 1px;
 		opacity: 1;
 		pointer-events: auto;
 	}
