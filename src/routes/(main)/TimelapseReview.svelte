@@ -29,7 +29,6 @@ import {
 } from "#lib/settings-storage.js"
 import { decodeShare, encodeShare, type ShareState } from "#lib/share.js"
 import {
-	clamp,
 	formatClock,
 	formatHours,
 	type TimelineSelection,
@@ -40,6 +39,7 @@ import { getTimelapse } from "./api.remote.js"
 import ProjectPane from "./ProjectPane.svelte"
 import ProjectSearch from "./ProjectSearch.svelte"
 import ProjectTimelapses from "./ProjectTimelapses.svelte"
+import { createPaneLayout } from "./pane-layout.svelte.js"
 import ReviewDetails from "./ReviewDetails.svelte"
 import { entryFinalDuration } from "./review-format.js"
 import type { ReviewTimelapse } from "./review-types.js"
@@ -88,98 +88,7 @@ let idleRevision = $state(0)
 // Kept as its own state (rather than read back from `page.url`) so the description always reflects what we encoded, even before the address bar catches up.
 let encodedState = $state("")
 
-// Pane sizes in pixels, driven by the drag handles on each pane's inner border.
-// Each pane's minimum equals its default, so panes can only grow.
-const DEFAULT_LEFT_WIDTH = 320
-const DEFAULT_RIGHT_WIDTH = 288
-const DEFAULT_TIMELINE_HEIGHT = 184
-const MIN_CENTER_WIDTH = 320
-const MIN_CENTER_HEIGHT = 200
-let leftWidth = $state(DEFAULT_LEFT_WIDTH)
-let rightWidth = $state(DEFAULT_RIGHT_WIDTH)
-let timelineHeight = $state(DEFAULT_TIMELINE_HEIGHT)
-// The bottom row only takes up space once a timeline is actually shown, so the landing page doesn't reserve an empty strip.
-const timelineRowHeight = $derived(videoEl ? `${timelineHeight}px` : "0px")
-
-/**
- * Run a window-level pointer drag, reporting the total movement from the start.
- * Tracking on the window keeps the resize alive when the pointer leaves the narrow handle.
- */
-function trackResize(
-	event: PointerEvent,
-	onMove: (dx: number, dy: number) => void,
-	cursor: string
-) {
-	event.preventDefault()
-	const startX = event.clientX
-	const startY = event.clientY
-	const previousCursor = document.body.style.cursor
-	const previousUserSelect = document.body.style.userSelect
-	document.body.style.cursor = cursor
-	document.body.style.userSelect = "none"
-
-	const handleMove = (moveEvent: PointerEvent) => {
-		onMove(moveEvent.clientX - startX, moveEvent.clientY - startY)
-	}
-	const stop = () => {
-		window.removeEventListener("pointermove", handleMove)
-		window.removeEventListener("pointerup", stop)
-		window.removeEventListener("pointercancel", stop)
-		document.body.style.cursor = previousCursor
-		document.body.style.userSelect = previousUserSelect
-	}
-	window.addEventListener("pointermove", handleMove)
-	window.addEventListener("pointerup", stop)
-	window.addEventListener("pointercancel", stop)
-}
-
-/** Drag the stats pane's right (inner) border. */
-function startLeftResize(event: PointerEvent) {
-	const start = leftWidth
-	const max = Math.max(
-		DEFAULT_LEFT_WIDTH,
-		window.innerWidth - rightWidth - MIN_CENTER_WIDTH
-	)
-	trackResize(
-		event,
-		dx => {
-			leftWidth = clamp(start + dx, DEFAULT_LEFT_WIDTH, max)
-		},
-		"col-resize"
-	)
-}
-
-/** Drag the project pane's left (inner) border. */
-function startRightResize(event: PointerEvent) {
-	const start = rightWidth
-	const max = Math.max(
-		DEFAULT_RIGHT_WIDTH,
-		window.innerWidth - leftWidth - MIN_CENTER_WIDTH
-	)
-	trackResize(
-		event,
-		dx => {
-			rightWidth = clamp(start - dx, DEFAULT_RIGHT_WIDTH, max)
-		},
-		"col-resize"
-	)
-}
-
-/** Drag the timeline's top (inner) border. */
-function startTimelineResize(event: PointerEvent) {
-	const start = timelineHeight
-	const max = Math.max(
-		DEFAULT_TIMELINE_HEIGHT,
-		window.innerHeight - MIN_CENTER_HEIGHT - 120
-	)
-	trackResize(
-		event,
-		(_dx, dy) => {
-			timelineHeight = clamp(start - dy, DEFAULT_TIMELINE_HEIGHT, max)
-		},
-		"row-resize"
-	)
-}
+const panes = createPaneLayout(() => Boolean(videoEl))
 
 /** Shareable link for the current review: the encoded state is the path. */
 const shareUrl = $derived(encodedState ? `${SITE_ORIGIN}/${encodedState}` : "")
@@ -340,23 +249,16 @@ $effect(() => {
 	}
 })
 
-/**
- * Open timelapses by id.
- * The input may hold several space/comma-separated ids: each new one is resolved first so invalid ids are reported in the Project pane instead of being added and then disappearing.
- * Every id that resolves is added to the project and the first of them opens.
- * The URL carries the project state, so the current project is encoded with that timelapse open (using its saved selections) and the app navigates to `/{state}` rather than a bare `/{id}`.
- */
-async function loadId(value: string) {
-	const ids = [...new Set(value.split(/[\s,]+/).filter(Boolean))]
-	if (ids.length === 0) return
-	const current = submittedId
-	if (ids.length === 1 && ids[0] === current) return
-	loadError = null
-	// Ids already in the project were validated when added (and the metadata effect re-checks on open), so only new ids need resolving.
-	// Everything resolves in parallel; pasted order is restored afterwards.
-	const known = new Set(
-		$state.snapshot(projectEntries).map(entry => entry.id)
-	)
+/** Resolve each new id against Lapse, grouping them into valid, missing and unchecked. */
+async function resolveIds(
+	ids: string[],
+	current: string,
+	known: Set<string>
+): Promise<{
+	valid: { id: string; meta: ReviewTimelapse | null }[]
+	missing: string[]
+	unchecked: string[]
+}> {
 	const valid: { id: string; meta: ReviewTimelapse | null }[] = []
 	const missing: string[] = []
 	const unchecked: string[] = []
@@ -375,12 +277,17 @@ async function loadId(value: string) {
 			}
 		})
 	)
+	return { valid, missing, unchecked }
+}
+
+/** Comparator that restores the order ids appeared in the pasted input. */
+function inputOrderComparator(ids: string[]) {
 	const order = new Map(ids.map((id, index) => [id, index] as const))
-	const byInputOrder = (a: string, b: string) =>
-		(order.get(a) ?? 0) - (order.get(b) ?? 0)
-	valid.sort((a, b) => byInputOrder(a.id, b.id))
-	missing.sort(byInputOrder)
-	unchecked.sort(byInputOrder)
+	return (a: string, b: string) => (order.get(a) ?? 0) - (order.get(b) ?? 0)
+}
+
+/** Human-readable errors for ids that couldn't be resolved. */
+function idProblems(missing: string[], unchecked: string[]): string[] {
 	const problems: string[] = []
 	if (missing.length > 0) {
 		problems.push(
@@ -392,15 +299,13 @@ async function loadId(value: string) {
 			`Couldn't check ID${unchecked.length > 1 ? "s" : ""} ${formatIdList(unchecked)}. Please try again.`
 		)
 	}
-	if (valid.length === 0) {
-		// Nothing resolved, so there is nothing to open; just report.
-		loadError = problems.join(" ")
-		return
-	}
-	if (problems.length > 0) loadError = problems.join(" ")
-	const open = valid[0]
-	// Add the new timelapses to the open project straight away, so they show up (and travel in the encoded URL) even before the project sync fills in their review data.
-	// Names and durations are already known, so seed those.
+	return problems
+}
+
+/** Add newly resolved timelapses to the open project, seeding their names and durations. */
+function seedResolvedEntries(
+	valid: { id: string; meta: ReviewTimelapse | null }[]
+): ProjectTimelapse[] {
 	const entries = $state.snapshot(projectEntries)
 	let added = false
 	for (const { id, meta } of valid) {
@@ -417,6 +322,42 @@ async function loadId(value: string) {
 	if (added) {
 		updateCurrentProject(project => ({ ...project, timelapses: entries }))
 	}
+	return entries
+}
+
+/**
+ * Open timelapses by id.
+ * The input may hold several space/comma-separated ids: each new one is resolved first so invalid ids are reported in the Project pane instead of being added and then disappearing.
+ * Every id that resolves is added to the project and the first of them opens.
+ * The URL carries the project state, so the current project is encoded with that timelapse open (using its saved selections) and the app navigates to `/{state}` rather than a bare `/{id}`.
+ */
+async function loadId(value: string) {
+	const ids = [...new Set(value.split(/[\s,]+/).filter(Boolean))]
+	if (ids.length === 0) return
+	const current = submittedId
+	if (ids.length === 1 && ids[0] === current) return
+	loadError = null
+	// Ids already in the project were validated when added (and the metadata effect re-checks on open), so only new ids need resolving.
+	// Everything resolves in parallel; pasted order is restored afterwards.
+	const known = new Set(
+		$state.snapshot(projectEntries).map(entry => entry.id)
+	)
+	const { valid, missing, unchecked } = await resolveIds(ids, current, known)
+	const byInputOrder = inputOrderComparator(ids)
+	valid.sort((a, b) => byInputOrder(a.id, b.id))
+	missing.sort(byInputOrder)
+	unchecked.sort(byInputOrder)
+	const problems = idProblems(missing, unchecked)
+	if (valid.length === 0) {
+		// Nothing resolved, so there is nothing to open; just report.
+		loadError = problems.join(" ")
+		return
+	}
+	if (problems.length > 0) loadError = problems.join(" ")
+	const open = valid[0]
+	// Add the new timelapses to the open project straight away, so they show up (and travel in the encoded URL) even before the project sync fills in their review data.
+	// Names and durations are already known, so seed those.
+	const entries = seedResolvedEntries(valid)
 	const encoded = await encodeShare({
 		projectId: activeProjectId,
 		selections: loadSelections(open.id),
@@ -848,17 +789,17 @@ $effect(() => {
 		})
 })
 
-// The project is the single home for every timelapse: opening one adds it (or refreshes its review data), and edits keep its entry in sync.
-$effect(() => {
-	const id = submittedId
-	const meta = currentMeta
-	const idle = idleDuration
-	// Read the raw selection/idle state so reason-only edits still refresh the stored description and breakdown, even when the totals don't change.
-	const ranges = $state.snapshot(activeIdleRanges)
-	const currentSelections = $state.snapshot(selections)
-	const annotations = deflationByReason(currentSelections, ranges)
-	const detected = $state.snapshot(idleRanges)
-	if (!id || !loaded || !meta || meta.id !== id) return
+/**
+ * Build the project entry for a resolved timelapse, or null when the stored entry already matches.
+ */
+function updatedEntry(
+	id: string,
+	meta: { id: string; name?: string; duration: number },
+	idle: number,
+	ranges: IdleRange[],
+	currentSelections: TimelineSelection[],
+	detected: IdleRange[]
+): { index: number; entry: ProjectTimelapse } | null {
 	const index = projectEntries.findIndex(entry => entry.id === id)
 	const existing = index === -1 ? undefined : projectEntries[index]
 	// Only cache ranges once a scan has finished (or when reusing a previous cache), so a scan interrupted by navigation can't persist partial results that would then never be recalculated.
@@ -867,6 +808,7 @@ $effect(() => {
 		: idleAnalyzed
 			? detected
 			: existing?.idleRanges
+	const annotations = deflationByReason(currentSelections, ranges)
 	const name = meta.name?.trim() ?? ""
 	const { duration } = meta
 	const description = describeTimelapse({
@@ -886,19 +828,45 @@ $effect(() => {
 		existing.description === description &&
 		sameIdleRanges(existing.idleRanges, cachedRanges)
 	) {
-		return
+		return null
 	}
-	const entry: ProjectTimelapse = {
+	return {
+		index,
+		entry: {
+			id,
+			name,
+			duration,
+			idleDuration: idle,
+			annotations,
+			ignoreIdle,
+			idleThreshold,
+			description,
+			...(cachedRanges !== undefined ? { idleRanges: cachedRanges } : {}),
+		},
+	}
+}
+
+// The project is the single home for every timelapse: opening one adds it (or refreshes its review data), and edits keep its entry in sync.
+$effect(() => {
+	const id = submittedId
+	const meta = currentMeta
+	const idle = idleDuration
+	// Read the raw selection/idle state so reason-only edits still refresh the stored description and breakdown, even when the totals don't change.
+	const ranges = $state.snapshot(activeIdleRanges)
+	const currentSelections = $state.snapshot(selections)
+	const detected = $state.snapshot(idleRanges)
+	if (!id || !loaded || !meta || meta.id !== id) return
+
+	const result = updatedEntry(
 		id,
-		name,
-		duration,
-		idleDuration: idle,
-		annotations,
-		ignoreIdle,
-		idleThreshold,
-		description,
-		...(cachedRanges !== undefined ? { idleRanges: cachedRanges } : {}),
-	}
+		meta,
+		idle,
+		ranges,
+		currentSelections,
+		detected
+	)
+	if (!result) return
+	const { index, entry } = result
 	updateCurrentProject(project => ({
 		...project,
 		timelapses:
@@ -931,7 +899,7 @@ $effect(() => {
 	class={["dashboard", justifyTimeline
 		? "timeline-justified"
 		: "timeline-centred"]}
-	style="--left-width: {leftWidth}px; --right-width: {rightWidth}px; --timeline-height: {timelineRowHeight};"
+	style="--left-width: {panes.leftWidth}px; --right-width: {panes.rightWidth}px; --timeline-height: {panes.timelineRowHeight};"
 >
 	<ProjectPane
 		{projects}
@@ -953,7 +921,7 @@ $effect(() => {
 		onNameFocused={() => (pendingNameFocus = null)}
 	/>
 
-	{@render resizeHandle("resize-handle-right", startRightResize)}
+	{@render resizeHandle("resize-handle-right", panes.startRightResize)}
 
 	<ReviewDetails
 		timelapse={currentTimelapse}
@@ -970,7 +938,7 @@ $effect(() => {
 		onToggleJustifyTimeline={value => (justifyTimeline = value)}
 	/>
 
-	{@render resizeHandle("resize-handle-left", startLeftResize)}
+	{@render resizeHandle("resize-handle-left", panes.startLeftResize)}
 
 	{#if submittedId}
 		{#key submittedId}
@@ -1015,7 +983,7 @@ $effect(() => {
 							{idleThreshold}
 						/>
 
-						{@render resizeHandle("resize-handle-timeline", startTimelineResize)}
+						{@render resizeHandle("resize-handle-timeline", panes.startTimelineResize)}
 					{/if}
 				{:else}
 					{@render centeredState(

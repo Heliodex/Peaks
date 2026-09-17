@@ -68,8 +68,92 @@ const frameCache = createObjectUrlCache<CachedFrame[]>({
 	urls: frames => frames.map(frame => frame.url),
 })
 
-function framesFor(source: string): CachedFrame[] {
-	return frameCache.get(source) ?? []
+const framesFor = (source: string): CachedFrame[] =>
+	frameCache.get(source) ?? []
+
+/** Keep the `limit` frames nearest `center`, preserving order for the final sort. */
+function trimFramesNear(
+	candidates: CachedFrame[],
+	center: number,
+	limit: number
+): CachedFrame[] {
+	return [...candidates]
+		.sort((a, b) => Math.abs(a.time - center) - Math.abs(b.time - center))
+		.slice(0, limit)
+}
+
+/** Revoke the object URLs of frames that `kept` dropped. */
+function revokeDropped(candidates: CachedFrame[], kept: CachedFrame[]) {
+	const keptSet = new Set(kept)
+	for (const frame of candidates) {
+		if (!keptSet.has(frame)) URL.revokeObjectURL(frame.url)
+	}
+}
+
+/** Whether a frame within `tolerance` of `time` is already cached. */
+const isTimeCached = (
+	source: string,
+	time: number,
+	tolerance: number
+): boolean =>
+	framesFor(source).some(frame => Math.abs(frame.time - time) <= tolerance)
+
+/** Position the cached frame closest to each grid point of `step` across `view`. */
+function layoutFrames(
+	frames: CachedFrame[],
+	view: ViewWindow,
+	step: number
+): LayoutFrame[] {
+	const maxDistance = step / 2
+	const picks: CachedFrame[] = []
+	const first = Math.floor(view.start / step)
+	const last = Math.floor(view.end / step)
+	for (let k = first; k <= last; k++) {
+		const target = k * step
+		let best: CachedFrame | null = null
+		let bestDistance = Number.POSITIVE_INFINITY
+		for (const frame of frames) {
+			const distance = Math.abs(frame.time - target)
+			if (distance < bestDistance) {
+				bestDistance = distance
+				best = frame
+			}
+		}
+		if (best && bestDistance <= maxDistance && !picks.includes(best)) {
+			picks.push(best)
+		}
+	}
+	picks.sort((a, b) => a.time - b.time)
+	return picks.map((frame, i) => {
+		const next = picks[i + 1]
+		const left = percentWithin(frame.time, view)
+		const right = next ? percentWithin(next.time, view) : 100
+		return {
+			time: frame.time,
+			url: frame.url,
+			fresh: frame.fresh,
+			left,
+			width: Math.max(0, right - left),
+		}
+	})
+}
+
+/** The grid times across `[start, end]` that aren't already cached. */
+function queueCaptureTimes(
+	start: number,
+	end: number,
+	step: number,
+	duration: number,
+	isCached: (time: number) => boolean
+): number[] {
+	const times: number[] = []
+	const first = Math.floor(start / step)
+	const last = Math.floor(end / step)
+	for (let k = first; k <= last; k++) {
+		const time = clamp(k * step, 0, duration)
+		if (!isCached(time)) times.push(time)
+	}
+	return times
 }
 
 /**
@@ -101,37 +185,29 @@ async function hydrate(source: string) {
 			return
 		}
 		const kept = merged.slice(0, FRAME_CACHE_LIMIT)
-		const keptSet = new Set(kept)
-		for (const frame of merged) {
-			if (!keptSet.has(frame)) URL.revokeObjectURL(frame.url)
-		}
+		revokeDropped(merged, kept)
 		frameCache.set(source, kept)
 	} finally {
 		hydrating.delete(source)
 	}
 }
 
-export function createFrameStrip(options: FrameStripOptions): FrameStrip {
-	const { src, duration, frameRate, view } = options
+type CapturePool = {
+	/** Get (or lazily create) the pool's capturer at `index`. */
+	capturer: (index: number) => FrameCapturer
+	/** Dispose every pooled capturer. */
+	dispose: () => void
+}
 
-	let queue: number[] = []
-	let capturing = false
-	let tolerance = 0.05
-	// The source the capture pool should currently point at, and the source its video elements were actually created for.
-	let targetSrc = ""
+/**
+ * Manage the pool of hidden videos that capture frames, recreating it whenever the target source changes.
+ */
+function createCapturePool(targetSrc: () => string): CapturePool {
 	let poolSrc = ""
 	let capturers: FrameCapturer[] = []
-	let settleTimers: ReturnType<typeof setTimeout>[] = []
 
-	// Capturing is network-bound, so a small pool of hidden videos working in parallel fills the strip. Kept deliberately small (and shared with the navigator) to limit how many video elements load at once.
-	const POOL_SIZE = 2
-
-	/**
-	 * Ensure the pool matches `targetSrc`, creating each hidden video on demand.
-	 * Disposes stale elements when the source changes.
-	 */
-	function getCapturer(index: number): FrameCapturer {
-		const url = targetSrc
+	const capturer = (index: number): FrameCapturer => {
+		const url = targetSrc()
 		if (poolSrc !== url) {
 			for (const item of capturers) item.dispose()
 			capturers = []
@@ -145,11 +221,30 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		return item
 	}
 
-	function isCached(source: string, time: number): boolean {
-		return framesFor(source).some(
-			frame => Math.abs(frame.time - time) <= tolerance
-		)
+	const dispose = () => {
+		for (const item of capturers) item.dispose()
+		capturers = []
 	}
+
+	return { capturer, dispose }
+}
+
+export function createFrameStrip(options: FrameStripOptions): FrameStrip {
+	const { src, duration, frameRate, view } = options
+
+	let queue: number[] = []
+	let capturing = false
+	let tolerance = 0.05
+	// The source the capture pool should currently point at.
+	let targetSrc = ""
+	let settleTimers: ReturnType<typeof setTimeout>[] = []
+
+	// Capturing is network-bound, so a small pool of hidden videos working in parallel fills the strip. Kept deliberately small (and shared with the navigator) to limit how many video elements load at once.
+	const POOL_SIZE = 2
+	const pool = createCapturePool(() => targetSrc)
+
+	const isCached = (source: string, time: number): boolean =>
+		isTimeCached(source, time, tolerance)
 
 	function addFrame(time: number, captured: CapturedFrame) {
 		const source = targetSrc
@@ -161,13 +256,11 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		if (candidates.length > FRAME_CACHE_LIMIT) {
 			// Keep the thumbnails nearest the visible window.
 			const { start, end } = view()
-			const center = (start + end) / 2
-			next = [...candidates]
-				.sort(
-					(a, b) =>
-						Math.abs(a.time - center) - Math.abs(b.time - center)
-				)
-				.slice(0, FRAME_CACHE_LIMIT)
+			next = trimFramesNear(
+				candidates,
+				(start + end) / 2,
+				FRAME_CACHE_LIMIT
+			)
 		}
 		// Revoke object URLs for any frames dropped by the trim.
 		if (next !== candidates) {
@@ -222,10 +315,9 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 			try {
 				const fps = frameRate()
 				const epsilon = Math.min(0.05, (fps > 0 ? 1 / fps : 0.05) / 2)
-				const captured = await getCapturer(index).captureAt(
-					time,
-					epsilon
-				)
+				const captured = await pool
+					.capturer(index)
+					.captureAt(time, epsilon)
 				addFrame(time, captured)
 			} catch {
 				// Leave a gap for any frame we couldn't capture.
@@ -241,15 +333,9 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		targetSrc = url
 		const step = frameStepFor(span, frameRate(), FRAME_COUNT)
 		tolerance = step / 2
-
-		const next: number[] = []
-		const first = Math.floor(start / step)
-		const last = Math.floor(end / step)
-		for (let k = first; k <= last; k++) {
-			const time = clamp(k * step, 0, duration())
-			if (!isCached(url, time)) next.push(time)
-		}
-		queue = next
+		queue = queueCaptureTimes(start, end, step, duration(), time =>
+			isCached(url, time)
+		)
 		void runQueue()
 	}
 
@@ -258,43 +344,8 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		const span = current.end - current.start
 		if (span <= 0) return []
 
-		const frames = framesFor(src())
 		const step = frameStepFor(span, frameRate(), FRAME_COUNT)
-		const maxDistance = step / 2
-		const picks: CachedFrame[] = []
-
-		const first = Math.floor(current.start / step)
-		const last = Math.floor(current.end / step)
-		for (let k = first; k <= last; k++) {
-			const target = k * step
-			let best: CachedFrame | null = null
-			let bestDistance = Number.POSITIVE_INFINITY
-			for (const frame of frames) {
-				const distance = Math.abs(frame.time - target)
-				if (distance < bestDistance) {
-					bestDistance = distance
-					best = frame
-				}
-			}
-			if (best && bestDistance <= maxDistance && !picks.includes(best)) {
-				picks.push(best)
-			}
-		}
-
-		picks.sort((a, b) => a.time - b.time)
-
-		return picks.map((frame, i) => {
-			const next = picks[i + 1]
-			const left = percentWithin(frame.time, current)
-			const right = next ? percentWithin(next.time, current) : 100
-			return {
-				time: frame.time,
-				url: frame.url,
-				fresh: frame.fresh,
-				left,
-				width: Math.max(0, right - left),
-			}
-		})
+		return layoutFrames(framesFor(src()), current, step)
 	})
 
 	// Fill in thumbnails for the visible window, debounced so panning and zooming don't kick off captures on every pointer move. Cached frames stay visible meanwhile, so the strip slides smoothly.
@@ -312,7 +363,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		// Start buffering the first capturer immediately so the initial frames aren't network-bound. Hydration from persistent storage merges in alongside; a source with nothing cached captures as it always did.
 		// `untrack` keeps adding frames from re-running this effect.
 		if (untrack(() => framesFor(url).length) === 0) {
-			void getCapturer(0)
+			void pool.capturer(0)
 		}
 
 		const timer = setTimeout(() => {
@@ -326,8 +377,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		return () => {
 			for (const timer of settleTimers) clearTimeout(timer)
 			settleTimers = []
-			for (const item of capturers) item.dispose()
-			capturers = []
+			pool.dispose()
 		}
 	})
 
@@ -340,7 +390,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		const url = src()
 		if (url && targetSrc !== url) targetSrc = url
 		const index = captureIndex++ % POOL_SIZE
-		return getCapturer(index).captureAt(time, epsilon)
+		return pool.capturer(index).captureAt(time, epsilon)
 	}
 
 	return {

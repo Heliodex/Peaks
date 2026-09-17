@@ -39,9 +39,8 @@ export function detectFrameRate(src: string): Promise<number> {
 	return promise
 }
 
-async function probeFrameRate(src: string): Promise<number> {
-	if (typeof document === "undefined") return 0
-
+/** Create the hidden element the probe plays through. */
+function createProbeVideo(src: string): ProbeVideo {
 	const video = document.createElement("video") as ProbeVideo
 	video.muted = true
 	video.playsInline = true
@@ -50,6 +49,73 @@ async function probeFrameRate(src: string): Promise<number> {
 		"position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none"
 	video.src = src
 	document.body.appendChild(video)
+	return video
+}
+
+/**
+ * Measure through `requestVideoFrameCallback`, counting presented frames against media time until enough have elapsed.
+ * Returns `false` when the browser doesn't support it, leaving the caller to fall back to polling.
+ */
+function measureWithFrameCallbacks(
+	video: ProbeVideo,
+	finish: (fps: number) => void
+): boolean {
+	const requestFrame = video.requestVideoFrameCallback
+	if (typeof requestFrame !== "function") return false
+
+	let firstFrames = 0
+	let firstTime = 0
+	let sampled = false
+	const onFrame: FrameCallback = (_now, metadata) => {
+		if (!sampled) {
+			sampled = true
+			firstFrames = metadata.presentedFrames
+			firstTime = metadata.mediaTime
+		} else {
+			const frames = metadata.presentedFrames - firstFrames
+			const elapsed = metadata.mediaTime - firstTime
+			if (frames >= MIN_FRAMES && elapsed > 0) {
+				finish(frames / elapsed)
+				return
+			}
+		}
+		requestFrame.call(video, onFrame)
+	}
+	requestFrame.call(video, onFrame)
+	void video.play().catch(() => finish(0))
+	return true
+}
+
+/** Fallback measurement for browsers without `requestVideoFrameCallback`, polling the playback quality counters. */
+function measureWithPolling(
+	video: ProbeVideo,
+	finish: (fps: number) => void
+): () => void {
+	let interval: ReturnType<typeof setInterval> | undefined
+	void video
+		.play()
+		.then(() => {
+			const start = video.getVideoPlaybackQuality()
+			const startFrames = start.totalVideoFrames
+			const startTime = video.currentTime
+			interval = setInterval(() => {
+				const quality = video.getVideoPlaybackQuality()
+				const frames = quality.totalVideoFrames - startFrames
+				const elapsed = video.currentTime - startTime
+				if (frames >= MIN_FRAMES && elapsed > 0) {
+					clearInterval(interval)
+					finish(frames / elapsed)
+				}
+			}, 100)
+		})
+		.catch(() => finish(0))
+	return () => clearInterval(interval)
+}
+
+async function probeFrameRate(src: string): Promise<number> {
+	if (typeof document === "undefined") return 0
+
+	const video = createProbeVideo(src)
 
 	return new Promise<number>(resolve => {
 		let settled = false
@@ -71,50 +137,8 @@ async function probeFrameRate(src: string): Promise<number> {
 		video.onerror = () => finish(0)
 
 		video.onloadeddata = () => {
-			const requestFrame = video.requestVideoFrameCallback
-			if (typeof requestFrame === "function") {
-				let firstFrames = 0
-				let firstTime = 0
-				let sampled = false
-				const onFrame: FrameCallback = (_now, metadata) => {
-					if (!sampled) {
-						sampled = true
-						firstFrames = metadata.presentedFrames
-						firstTime = metadata.mediaTime
-					} else {
-						const frames = metadata.presentedFrames - firstFrames
-						const elapsed = metadata.mediaTime - firstTime
-						if (frames >= MIN_FRAMES && elapsed > 0) {
-							finish(frames / elapsed)
-							return
-						}
-					}
-					requestFrame.call(video, onFrame)
-				}
-				requestFrame.call(video, onFrame)
-				void video.play().catch(() => finish(0))
-			} else {
-				// Fallback for browsers without requestVideoFrameCallback.
-				void video
-					.play()
-					.then(() => {
-						const start = video.getVideoPlaybackQuality()
-						const startFrames = start.totalVideoFrames
-						const startTime = video.currentTime
-						const interval = setInterval(() => {
-							const quality = video.getVideoPlaybackQuality()
-							const frames =
-								quality.totalVideoFrames - startFrames
-							const elapsed = video.currentTime - startTime
-							if (frames >= MIN_FRAMES && elapsed > 0) {
-								clearInterval(interval)
-								finish(frames / elapsed)
-							}
-						}, 100)
-						stopPolling = () => clearInterval(interval)
-					})
-					.catch(() => finish(0))
-			}
+			if (measureWithFrameCallbacks(video, finish)) return
+			stopPolling = measureWithPolling(video, finish)
 		}
 	})
 }

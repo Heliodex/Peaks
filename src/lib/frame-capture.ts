@@ -31,6 +31,23 @@ function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
 	})
 }
 
+/** A reusable canvas that scales a video frame to `width` and encodes it as a JPEG blob. */
+function createFrameEncoder(width: number, quality: number) {
+	let canvas: HTMLCanvasElement | null = null
+	return async (el: HTMLVideoElement): Promise<Blob> => {
+		if (!canvas) canvas = document.createElement("canvas")
+		canvas.width = width
+		canvas.height = Math.max(
+			1,
+			Math.round((width * el.videoHeight) / (el.videoWidth || 1))
+		)
+		const ctx = canvas.getContext("2d")
+		if (!ctx) throw new Error("No canvas context")
+		ctx.drawImage(el, 0, 0, canvas.width, canvas.height)
+		return toBlob(canvas, quality)
+	}
+}
+
 // Give up on a seek that never settles, so one stalled frame can't block a capturer that's shared between the timeline strip and the navigator.
 const SEEK_TIMEOUT_MS = 10000
 
@@ -49,7 +66,8 @@ export function createFrameCapturer(
 	// Same-origin proxy keeps the canvas untainted without the CDN sending CORS headers
 	video.src = lapseProxyUrl(src)
 
-	let canvas: HTMLCanvasElement | null = null
+	const encodeFrame = createFrameEncoder(width, quality)
+
 	const ready = new Promise<HTMLVideoElement>((resolve, reject) => {
 		video.onloadeddata = () => resolve(video)
 		video.onerror = () => reject(new Error("Failed to load video"))
@@ -71,17 +89,7 @@ export function createFrameCapturer(
 			Math.min(time, (el.duration || time) - epsilon)
 		)
 		await seekVideo(el, target, SEEK_TIMEOUT_MS)
-
-		if (!canvas) canvas = document.createElement("canvas")
-		canvas.width = width
-		canvas.height = Math.max(
-			1,
-			Math.round((width * el.videoHeight) / (el.videoWidth || 1))
-		)
-		const ctx = canvas.getContext("2d")
-		if (!ctx) throw new Error("No canvas context")
-		ctx.drawImage(el, 0, 0, canvas.width, canvas.height)
-		const blob = await toBlob(canvas, quality)
+		const blob = await encodeFrame(el)
 		return { blob, url: URL.createObjectURL(blob) }
 	}
 

@@ -142,6 +142,195 @@ export function mergeIdleRanges(intervals: IdleRange[]): IdleRange[] {
 	return merged
 }
 
+type IdleCallbacks = {
+	onProgress?: (progress: number) => void
+	onRanges?: (ranges: IdleRange[]) => void
+}
+
+const delay = (ms: number): Promise<void> =>
+	new Promise(resolve => setTimeout(resolve, ms))
+
+/** Resolve once `el` has a decoded frame, or reject on error. */
+const waitForData = (el: HTMLVideoElement): Promise<void> =>
+	new Promise((resolve, reject) => {
+		const cleanup = () => {
+			el.removeEventListener("loadeddata", onLoaded)
+			el.removeEventListener("error", onError)
+		}
+		const onLoaded = () => {
+			cleanup()
+			resolve()
+		}
+		const onError = () => {
+			cleanup()
+			reject(new Error("Failed to load video"))
+		}
+		el.addEventListener("loadeddata", onLoaded)
+		el.addEventListener("error", onError)
+	})
+
+type VideoSampler = {
+	/** Media duration reported by the loaded element, if known. */
+	duration: () => number | null
+	ensure: () => Promise<HTMLVideoElement>
+	seek: (target: number) => Promise<HTMLVideoElement>
+	discard: () => void
+}
+
+/**
+ * Manage the hidden video element the idle scan reads from, recreating it on a fresh element after transient load or seek failures.
+ */
+function createVideoSampler(
+	url: string,
+	isCancelled: () => boolean
+): VideoSampler {
+	let video: HTMLVideoElement | null = null
+
+	const create = (): HTMLVideoElement => {
+		const el = document.createElement("video")
+		el.muted = true
+		el.preload = "auto"
+		el.src = url
+		return el
+	}
+
+	const discard = () => {
+		const el = video
+		if (!el) return
+		el.removeAttribute("src")
+		el.load()
+		video = null
+	}
+
+	const ensure = async (): Promise<HTMLVideoElement> => {
+		if (video) return video
+		for (let attempt = 0; ; attempt++) {
+			if (isCancelled()) throw new Error("Idle scan cancelled")
+			const el = create()
+			try {
+				await waitForData(el)
+				video = el
+				return el
+			} catch (error) {
+				el.removeAttribute("src")
+				el.load()
+				if (isCancelled() || attempt >= MAX_SAMPLE_RETRIES) throw error
+				await delay(RETRY_BACKOFF_MS * (attempt + 1))
+			}
+		}
+	}
+
+	const seek = async (target: number): Promise<HTMLVideoElement> => {
+		for (let attempt = 0; ; attempt++) {
+			if (isCancelled()) throw new Error("Idle scan cancelled")
+			const el = await ensure()
+			try {
+				await seekVideo(el, target, SEEK_TIMEOUT_MS)
+				return el
+			} catch (error) {
+				discard()
+				if (isCancelled() || attempt >= MAX_SAMPLE_RETRIES) throw error
+				await delay(RETRY_BACKOFF_MS * (attempt + 1))
+			}
+		}
+	}
+
+	const duration = (): number | null => {
+		const el = video
+		if (!el || !Number.isFinite(el.duration) || el.duration <= 0)
+			return null
+		return el.duration
+	}
+
+	return { duration, ensure, seek, discard }
+}
+
+/** Read a frame at `target` into a fresh pixel buffer. */
+async function captureSample(
+	ctx: CanvasRenderingContext2D,
+	sampler: VideoSampler,
+	target: number
+): Promise<Uint8ClampedArray> {
+	const el = await sampler.seek(target)
+	ctx.drawImage(el, 0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT)
+	return ctx.getImageData(0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT).data
+}
+
+/**
+ * Walk the sample times, comparing each frame with its predecessor and collecting the ranges where consecutive samples match.
+ */
+async function scanIdleFrames(
+	ctx: CanvasRenderingContext2D,
+	sampler: VideoSampler,
+	times: number[],
+	duration: number,
+	frameRate: number,
+	threshold: number,
+	isCancelled: () => boolean,
+	callbacks: IdleCallbacks
+): Promise<IdleRange[]> {
+	// A run of identical frames is idle from the *second* capture onward: the first capture of a scene is the normal frame, and it's the unchanged repeat that marks time away. With a known frame rate, shift each idle interval one frame later so it covers the repeated frame rather than the original. Without a frame rate there are no frame ticks to align to, so the sampled boundaries stand.
+	const frameDuration = frameRate > 0 ? 1 / frameRate : 0
+	const intervals: IdleRange[] = []
+	let previous: Uint8ClampedArray | null = null
+	let previousTarget = -1
+	let previousIdle = false
+	let reportedCount = 0
+	let consecutiveFailures = 0
+
+	for (let i = 0; i < times.length; i++) {
+		if (isCancelled()) break
+		const limit = sampler.duration() ?? duration
+		const target = Math.min(times[i], Math.max(0, limit - 0.001))
+
+		let sample: Uint8ClampedArray
+		try {
+			sample = await captureSample(ctx, sampler, target)
+		} catch {
+			// Even a fresh element couldn't produce this frame. Drop the baseline so the next comparison isn't made across the gap, and give up if the source stays unreadable.
+			consecutiveFailures++
+			previous = null
+			previousTarget = -1
+			callbacks.onProgress?.((i + 1) / times.length)
+			if (consecutiveFailures > MAX_CONSECUTIVE_FAILURES) break
+			continue
+		}
+		consecutiveFailures = 0
+
+		// Without a known frame rate the trailing sample is clamped to the video's end, where end-of-media seek flakiness can make it match its predecessor even when the frames differ, so only let it extend an idle run the previous pair already established. With a frame rate, samples are exact frame boundaries and `spansFrameBoundary` already rejects any same-frame pair.
+		const isFinal = i === times.length - 1
+		const phantomTrailingPair =
+			isFinal && frameRate <= 0 && times.length >= 3 && !previousIdle
+		if (
+			previous !== null &&
+			!phantomTrailingPair &&
+			spansFrameBoundary(previousTarget, target, frameRate) &&
+			frameDifference(previous, sample) <= threshold
+		) {
+			intervals.push({
+				start: times[i - 1] + frameDuration,
+				end: times[i] + frameDuration,
+			})
+			previousIdle = true
+		} else {
+			previousIdle = false
+		}
+		previous = sample
+		previousTarget = target
+		callbacks.onProgress?.((i + 1) / times.length)
+
+		// Only push partial ranges when a new idle span appears, so the idle overlays aren't rebuilt on every single sampled frame.
+		const live = mergeIdleRanges(intervals)
+		const done = i === times.length - 1
+		if (done || live.length !== reportedCount) {
+			reportedCount = live.length
+			callbacks.onRanges?.(live)
+		}
+	}
+
+	return mergeIdleRanges(intervals)
+}
+
 /**
  * Sample the video and return the ranges where consecutive samples are visually identical. `onProgress` fires after each sample with the fraction scanned; `onRanges` fires with partial results as new idle spans appear.
  *
@@ -152,197 +341,44 @@ export function analyzeIdle(
 	duration: number,
 	frameRate: number,
 	threshold: number,
-	callbacks: {
-		onProgress?: (progress: number) => void
-		onRanges?: (ranges: IdleRange[]) => void
-	} = {}
+	callbacks: IdleCallbacks = {}
 ): IdleAnalysisJob {
-	const url = lapseProxyUrl(src)
-
 	const canvas = document.createElement("canvas")
 	canvas.width = SAMPLE_WIDTH
 	canvas.height = SAMPLE_HEIGHT
 
 	let cancelled = false
-	// The media element currently in use. It's recreated after a failure, so it can't be captured once and reused for the whole scan.
-	let video: HTMLVideoElement | null = null
-
-	/**
-	 * Read the element through a function: it's assigned inside nested closures, which TypeScript's control-flow analysis doesn't track.
-	 */
-	function currentVideo(): HTMLVideoElement | null {
-		return video
-	}
-
-	function createVideo(): HTMLVideoElement {
-		const el = document.createElement("video")
-		el.muted = true
-		el.preload = "auto"
-		el.src = url
-		return el
-	}
-
-	/** Abort and forget the current element, clearing any failed state. */
-	function discardVideo() {
-		const el = currentVideo()
-		if (!el) return
-		el.removeAttribute("src")
-		el.load()
-		video = null
-	}
-
-	/** Resolve once `el` has a decoded frame, or reject on error. */
-	function waitForData(el: HTMLVideoElement): Promise<void> {
-		return new Promise((resolve, reject) => {
-			const cleanup = () => {
-				el.removeEventListener("loadeddata", onLoaded)
-				el.removeEventListener("error", onError)
-			}
-			const onLoaded = () => {
-				cleanup()
-				resolve()
-			}
-			const onError = () => {
-				cleanup()
-				reject(new Error("Failed to load video"))
-			}
-			el.addEventListener("loadeddata", onLoaded)
-			el.addEventListener("error", onError)
-		})
-	}
-
-	function delay(ms: number): Promise<void> {
-		return new Promise(resolve => setTimeout(resolve, ms))
-	}
-
-	/** A loaded element, retrying on fresh elements after transient failures. */
-	async function ensureVideo(): Promise<HTMLVideoElement> {
-		const existing = currentVideo()
-		if (existing) return existing
-		for (let attempt = 0; ; attempt++) {
-			if (cancelled) throw new Error("Idle scan cancelled")
-			const el = createVideo()
-			try {
-				await waitForData(el)
-				video = el
-				return el
-			} catch (error) {
-				el.removeAttribute("src")
-				el.load()
-				if (cancelled || attempt >= MAX_SAMPLE_RETRIES) throw error
-				await delay(RETRY_BACKOFF_MS * (attempt + 1))
-			}
-		}
-	}
-
-	/** Seek to `target`, recreating the element after a failed attempt. */
-	async function seekForSample(target: number): Promise<HTMLVideoElement> {
-		for (let attempt = 0; ; attempt++) {
-			if (cancelled) throw new Error("Idle scan cancelled")
-			const el = await ensureVideo()
-			try {
-				await seekVideo(el, target, SEEK_TIMEOUT_MS)
-				return el
-			} catch (error) {
-				discardVideo()
-				if (cancelled || attempt >= MAX_SAMPLE_RETRIES) throw error
-				await delay(RETRY_BACKOFF_MS * (attempt + 1))
-			}
-		}
-	}
+	const isCancelled = () => cancelled
+	const sampler = createVideoSampler(lapseProxyUrl(src), isCancelled)
 
 	const promise = (async () => {
 		// Fail fast if the source can't be read at all; individual samples can still be skipped once the element is loaded.
-		await ensureVideo()
+		await sampler.ensure()
 
 		const ctx = canvas.getContext("2d", { willReadFrequently: true })
 		if (!ctx) throw new Error("No canvas context")
 
-		const times = idleSampleTimes(duration, frameRate)
-		// A run of identical frames is idle from the *second* capture onward: the first capture of a scene is the normal frame, and it's the unchanged repeat that marks time away. With a known frame rate, shift each idle interval one frame later so it covers the repeated frame rather than the original. Without a frame rate there are no frame ticks to align to, so the sampled boundaries stand.
-		const frameDuration = frameRate > 0 ? 1 / frameRate : 0
-		const intervals: IdleRange[] = []
-		let previous: Uint8ClampedArray | null = null
-		let previousTarget = -1
-		let previousIdle = false
-		let reportedCount = 0
-		let consecutiveFailures = 0
-
-		for (let i = 0; i < times.length; i++) {
-			if (cancelled) break
-			const current = currentVideo()
-			const limit =
-				current &&
-				Number.isFinite(current.duration) &&
-				current.duration > 0
-					? current.duration
-					: duration
-			const target = Math.min(times[i], Math.max(0, limit - 0.001))
-
-			let sample: Uint8ClampedArray
-			try {
-				const el = await seekForSample(target)
-				ctx.drawImage(el, 0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT)
-				sample = ctx.getImageData(
-					0,
-					0,
-					SAMPLE_WIDTH,
-					SAMPLE_HEIGHT
-				).data
-			} catch {
-				// Even a fresh element couldn't produce this frame. Drop the baseline so the next comparison isn't made across the gap, and give up if the source stays unreadable.
-				consecutiveFailures++
-				previous = null
-				previousTarget = -1
-				callbacks.onProgress?.((i + 1) / times.length)
-				if (consecutiveFailures > MAX_CONSECUTIVE_FAILURES) break
-				continue
-			}
-			consecutiveFailures = 0
-
-			// Without a known frame rate the trailing sample is clamped to the video's end, where end-of-media seek flakiness can make it match its predecessor even when the frames differ, so only let it extend an idle run the previous pair already established. With a frame rate, samples are exact frame boundaries and `spansFrameBoundary` already rejects any same-frame pair.
-			const isFinal = i === times.length - 1
-			const phantomTrailingPair =
-				isFinal && frameRate <= 0 && times.length >= 3 && !previousIdle
-			if (
-				previous !== null &&
-				!phantomTrailingPair &&
-				spansFrameBoundary(previousTarget, target, frameRate) &&
-				frameDifference(previous, sample) <= threshold
-			) {
-				intervals.push({
-					start: times[i - 1] + frameDuration,
-					end: times[i] + frameDuration,
-				})
-				previousIdle = true
-			} else {
-				previousIdle = false
-			}
-			previous = sample
-			previousTarget = target
-			callbacks.onProgress?.((i + 1) / times.length)
-
-			// Only push partial ranges when a new idle span appears, so the idle overlays aren't rebuilt on every single sampled frame.
-			const live = mergeIdleRanges(intervals)
-			const done = i === times.length - 1
-			if (done || live.length !== reportedCount) {
-				reportedCount = live.length
-				callbacks.onRanges?.(live)
-			}
-		}
-
-		return mergeIdleRanges(intervals)
+		return scanIdleFrames(
+			ctx,
+			sampler,
+			idleSampleTimes(duration, frameRate),
+			duration,
+			frameRate,
+			threshold,
+			isCancelled,
+			callbacks
+		)
 	})()
 
 	const settled = promise
 		.catch(() => [] as IdleRange[])
-		.finally(() => discardVideo())
+		.finally(() => sampler.discard())
 
 	return {
 		promise: settled,
 		cancel: () => {
 			cancelled = true
-			discardVideo()
+			sampler.discard()
 		},
 	}
 }

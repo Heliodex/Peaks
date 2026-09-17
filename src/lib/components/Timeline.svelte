@@ -14,7 +14,9 @@ import {
 	type ViewWindow,
 } from "#lib/timeline.js"
 import { createFrameStrip } from "#lib/timeline-frames.svelte.js"
+import TimelineFrames from "./TimelineFrames.svelte"
 import TimelineNavigator from "./TimelineNavigator.svelte"
+import TimelineTicks from "./TimelineTicks.svelte"
 
 type DragState =
 	| {
@@ -209,13 +211,8 @@ function frameTime(index: number): number {
 	return view.start + (viewSpan * index) / (FRAME_COUNT - 1)
 }
 
-$effect(() => {
-	const el = video
-	if (!el || !timelapse.playbackUrl) return
-
-	// A fresh element always starts paused; clear any state left from a previously bound one so the playhead eases rather than jumping.
-	playing = false
-
+/** Bind playback listeners to `el`, returning the cleanup that removes them. */
+function bindVideoEvents(el: HTMLVideoElement): () => void {
 	const onLoaded = () => {
 		const next =
 			Number.isFinite(el.duration) && el.duration > 0 ? el.duration : 0
@@ -273,6 +270,15 @@ $effect(() => {
 		el.removeEventListener("pause", onPause)
 		el.removeEventListener("ended", onPause)
 	}
+}
+
+$effect(() => {
+	const el = video
+	if (!el || !timelapse.playbackUrl) return
+
+	// A fresh element always starts paused; clear any state left from a previously bound one so the playhead eases rather than jumping.
+	playing = false
+	return bindVideoEvents(el)
 })
 
 // Measure the video's frame rate once so dragging can snap to real frames, and so the idle scan samples whole frames.
@@ -433,81 +439,71 @@ function isCreating(id: string): boolean {
 	return drag?.kind === "create" && drag.id === id
 }
 
-function onPointerDown(event: PointerEvent) {
-	const track = event.currentTarget as HTMLElement
+function startPan(event: PointerEvent, track: HTMLElement) {
+	event.preventDefault()
+	pan = { startX: event.clientX, startView: view.start, span: viewSpan }
+	track.setPointerCapture(event.pointerId)
+}
 
-	// Right-drag pans the visible window.
-	if (event.button === 2) {
-		event.preventDefault()
-		pan = { startX: event.clientX, startView: view.start, span: viewSpan }
-		track.setPointerCapture(event.pointerId)
-		return
-	}
-	if (event.button !== 0) return
+/** Begin resizing a selection's edge. Returns whether a drag actually started. */
+function startResize(
+	event: PointerEvent,
+	track: HTMLElement,
+	resizeEl: HTMLElement
+): boolean {
+	const id = resizeEl.dataset.selectionId
+	const selection = selections.find(s => s.id === id)
+	if (!id || !selection) return false
 
-	const target = event.target as HTMLElement
-
-	// The delete button handles its own click.
-	if (target.closest("[data-delete]")) return
-
-	const resizeEl = target.closest<HTMLElement>("[data-resize]")
-	if (resizeEl) {
-		const id = resizeEl.dataset.selectionId
-		const selection = selections.find(s => s.id === id)
-		if (!id || !selection) return
-
-		const { left, right } = neighborBounds(
-			id,
-			selection.start,
-			selection.end
-		)
-		const minLength = minSelectionLength(track)
-		if (resizeEl.dataset.resize === "start") {
-			drag = {
-				kind: "resize-start",
-				id,
-				min: left,
-				max: Math.max(left, selection.end - minLength),
-			}
-		} else {
-			drag = {
-				kind: "resize-end",
-				id,
-				min: Math.min(right, selection.start + minLength),
-				max: right,
-			}
-		}
-		track.setPointerCapture(event.pointerId)
-		event.preventDefault()
-		return
-	}
-
-	const selectionEl = target.closest<HTMLElement>("[data-selection-id]")
-	if (selectionEl) {
-		const id = selectionEl.dataset.selectionId
-		const selection = selections.find(s => s.id === id)
-		if (!id || !selection) return
-
-		const length = selection.end - selection.start
-		const { left, right } = neighborBounds(
-			id,
-			selection.start,
-			selection.end
-		)
+	const { left, right } = neighborBounds(id, selection.start, selection.end)
+	const minLength = minSelectionLength(track)
+	if (resizeEl.dataset.resize === "start") {
 		drag = {
-			kind: "move",
+			kind: "resize-start",
 			id,
-			offset: pointerToTime(event.clientX, track) - selection.start,
-			length,
 			min: left,
-			max: Math.max(left, right - length),
+			max: Math.max(left, selection.end - minLength),
 		}
-		track.setPointerCapture(event.pointerId)
-		event.preventDefault()
-		return
+	} else {
+		drag = {
+			kind: "resize-end",
+			id,
+			min: Math.min(right, selection.start + minLength),
+			max: right,
+		}
 	}
+	track.setPointerCapture(event.pointerId)
+	event.preventDefault()
+	return true
+}
 
-	// Empty space: start drawing a brand new selection inside the nearest gap.
+/** Begin moving a whole selection. Returns whether a drag actually started. */
+function startMove(
+	event: PointerEvent,
+	track: HTMLElement,
+	selectionEl: HTMLElement
+): boolean {
+	const id = selectionEl.dataset.selectionId
+	const selection = selections.find(s => s.id === id)
+	if (!id || !selection) return false
+
+	const length = selection.end - selection.start
+	const { left, right } = neighborBounds(id, selection.start, selection.end)
+	drag = {
+		kind: "move",
+		id,
+		offset: pointerToTime(event.clientX, track) - selection.start,
+		length,
+		min: left,
+		max: Math.max(left, right - length),
+	}
+	track.setPointerCapture(event.pointerId)
+	event.preventDefault()
+	return true
+}
+
+/** Start drawing a brand new selection inside the nearest gap. */
+function startCreate(event: PointerEvent, track: HTMLElement) {
 	const anchor = clamp(
 		snapToFrame(pointerToTime(event.clientX, track), frameRate),
 		0,
@@ -531,67 +527,91 @@ function onPointerDown(event: PointerEvent) {
 	event.preventDefault()
 }
 
+function onPointerDown(event: PointerEvent) {
+	const track = event.currentTarget as HTMLElement
+
+	// Right-drag pans the visible window.
+	if (event.button === 2) return startPan(event, track)
+	if (event.button !== 0) return
+
+	const target = event.target as HTMLElement
+
+	// The delete button handles its own click.
+	if (target.closest("[data-delete]")) return
+
+	const resizeEl = target.closest<HTMLElement>("[data-resize]")
+	if (resizeEl && startResize(event, track, resizeEl)) return
+
+	const selectionEl = target.closest<HTMLElement>("[data-selection-id]")
+	if (selectionEl && startMove(event, track, selectionEl)) return
+
+	// Empty space: start drawing a brand new selection inside the nearest gap.
+	startCreate(event, track)
+}
+
+/** Scrub the visible window for an in-progress pan. */
+function updatePan(event: PointerEvent, track: HTMLElement) {
+	if (!pan) return
+	const rect = track.getBoundingClientRect()
+	if (rect.width <= 0) return
+	const delta = ((event.clientX - pan.startX) / rect.width) * pan.span
+	const start = clamp(
+		snapToFrame(pan.startView - delta, frameRate),
+		0,
+		Math.max(0, duration - pan.span)
+	)
+	setView({ start, end: start + pan.span })
+}
+
+/** Apply an in-progress selection drag at `time`. */
+function updateDrag(
+	state: NonNullable<DragState>,
+	time: number,
+	event: PointerEvent
+) {
+	if (state.kind === "create") {
+		const end = clamp(snapToFrame(time, frameRate), state.min, state.max)
+		state.moved =
+			state.moved ||
+			Math.abs(event.clientX - state.anchorX) >= DRAG_THRESHOLD_PX
+		updateSelection(state.id, {
+			start: Math.min(state.anchor, end),
+			end: Math.max(state.anchor, end),
+		})
+		// Seek to the moving edge so the frame being selected is visible.
+		seekTo(end)
+		return
+	}
+	if (state.kind === "move") {
+		const start = clamp(
+			snapToFrame(time - state.offset, frameRate),
+			state.min,
+			state.max
+		)
+		updateSelection(state.id, { start, end: start + state.length })
+		return
+	}
+	const edge = clamp(snapToFrame(time, frameRate), state.min, state.max)
+	updateSelection(
+		state.id,
+		state.kind === "resize-start" ? { start: edge } : { end: edge }
+	)
+	// Seek to the exact new boundary so the frame is visible while resizing.
+	seekTo(edge)
+}
+
 function onPointerMove(event: PointerEvent) {
 	const track = event.currentTarget as HTMLElement
 
 	if (pan) {
-		const rect = track.getBoundingClientRect()
-		if (rect.width > 0) {
-			const delta = ((event.clientX - pan.startX) / rect.width) * pan.span
-			const start = clamp(
-				snapToFrame(pan.startView - delta, frameRate),
-				0,
-				Math.max(0, duration - pan.span)
-			)
-			setView({ start, end: start + pan.span })
-		}
+		updatePan(event, track)
 		return
 	}
 
 	const state = drag
 
 	if (state) {
-		const time = pointerToTime(event.clientX, track)
-		if (state.kind === "create") {
-			const end = clamp(
-				snapToFrame(time, frameRate),
-				state.min,
-				state.max
-			)
-			state.moved =
-				state.moved ||
-				Math.abs(event.clientX - state.anchorX) >= DRAG_THRESHOLD_PX
-			updateSelection(state.id, {
-				start: Math.min(state.anchor, end),
-				end: Math.max(state.anchor, end),
-			})
-			// Seek to the moving edge so the frame being selected is visible.
-			seekTo(end)
-		} else if (state.kind === "move") {
-			const start = clamp(
-				snapToFrame(time - state.offset, frameRate),
-				state.min,
-				state.max
-			)
-			updateSelection(state.id, { start, end: start + state.length })
-		} else if (state.kind === "resize-start") {
-			const start = clamp(
-				snapToFrame(time, frameRate),
-				state.min,
-				state.max
-			)
-			updateSelection(state.id, { start })
-			// Seek to the exact new boundary so the frame is visible while resizing.
-			seekTo(start)
-		} else {
-			const end = clamp(
-				snapToFrame(time, frameRate),
-				state.min,
-				state.max
-			)
-			updateSelection(state.id, { end })
-			seekTo(end)
-		}
+		updateDrag(state, pointerToTime(event.clientX, track), event)
 		return
 	}
 
@@ -721,33 +741,11 @@ function onKeyDown(event: KeyboardEvent) {
 			role="presentation"
 		>
 			<!-- Frame previews: cached thumbnails positioned by absolute time so they slide and scale with the view -->
-			<div
-				class="pointer-events-none absolute inset-0 overflow-hidden bg-neutral-800"
-			>
-				{#each layoutFrames as frame (frame.time)}
-					<img
-						src={frame.url}
-						alt=""
-						class="absolute inset-y-0 h-full object-cover"
-						class:frame-in={frame.fresh}
-						style:left="{frame.left}%"
-						style:width="{frame.width}%"
-						draggable="false"
-					>
-				{/each}
-
-				{#if layoutFrames.length === 0}
-					<div class="flex h-full w-full">
-						{#each Array(FRAME_COUNT) as _, i (i)}
-							<div
-								class="flex h-full min-w-0 flex-1 items-center justify-center border-r border-white/10 text-[10px] text-neutral-500 last:border-r-0"
-							>
-								{formatClock(frameTime(i))}
-							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
+			<TimelineFrames
+				frames={layoutFrames}
+				frameCount={FRAME_COUNT}
+				{frameTime}
+			/>
 
 			<!-- Idle stretches where the picture never changes (time spent AFK) -->
 			{#each visibleIdleRanges as range (range.start)}
@@ -837,25 +835,7 @@ function onKeyDown(event: KeyboardEvent) {
 			{/if}
 		</div>
 
-		<div class="w-full shrink-0 pt-1">
-			<div
-				class="relative flex justify-between text-xs text-neutral-500 z-1"
-			>
-				<span class="bg-black pr-2">{formatClock(view.start)}</span>
-				<span class="bg-black pl-2">{formatClock(view.end)}</span>
-			</div>
-			<div
-				class="relative h-3 w-full overflow-hidden -top-3"
-				bind:clientWidth={tickTrackWidth}
-			>
-				{#each frameTicks as tick (tick)}
-					<div
-						class="absolute top-0 h-2 w-px -translate-x-1/2 bg-neutral-500"
-						style:left="{percentWithin(tick, view)}%"
-					></div>
-				{/each}
-			</div>
-		</div>
+		<TimelineTicks {view} ticks={frameTicks} bind:tickTrackWidth />
 
 		<TimelineNavigator
 			{duration}
@@ -873,18 +853,3 @@ function onKeyDown(event: KeyboardEvent) {
 		/>
 	</div>
 {/if}
-
-<style>
-@keyframes frame-in {
-	from {
-		opacity: 0;
-	}
-	to {
-		opacity: 1;
-	}
-}
-
-.frame-in {
-	animation: frame-in 150ms ease-out;
-}
-</style>

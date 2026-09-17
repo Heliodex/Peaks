@@ -165,8 +165,38 @@ function parseIdleRanges(value: unknown): IdleRange[] | undefined {
 		.filter((range): range is IdleRange => Boolean(range))
 }
 
+/** Recompute a project entry's derived idle duration, annotation breakdown and description from its raw inputs. */
+function buildProjectEntry(
+	id: string,
+	name: string,
+	duration: number,
+	ignore: boolean,
+	idleRanges: IdleRange[] | undefined,
+	idleThreshold: number,
+	selections: TimelineSelection[]
+): ProjectTimelapse {
+	// Idle only counts towards the maths when it isn't being ignored.
+	const effectiveRanges = ignore ? [] : (idleRanges ?? [])
+	return {
+		id,
+		name,
+		duration,
+		idleDuration: idleRecordedSeconds(effectiveRanges),
+		annotations: deflationByReason(selections, effectiveRanges),
+		ignoreIdle: ignore,
+		idleThreshold,
+		description: describeTimelapse({
+			id,
+			duration,
+			idleRanges: effectiveRanges,
+			selections,
+		}),
+		...(idleRanges !== undefined ? { idleRanges } : {}),
+	}
+}
+
 /**
- * Rebuild a project entry from its raw review inputs, recomputing the derived idle duration, annotation breakdown and description that used to be shipped. Returns the entry alongside the raw selections it was derived from, so the caller can persist them for reopening the timelapse later.
+ * Rebuild a project entry from its raw review inputs. Returns the entry alongside the raw selections it was derived from, so the caller can persist them for reopening the timelapse later.
  */
 function parseProjectEntry(
 	value: unknown,
@@ -198,25 +228,16 @@ function parseProjectEntry(
 	const idleThreshold = nearestIdleThreshold(
 		typeof rawThreshold === "number" ? rawThreshold : Number.NaN
 	)
-	// Idle only counts towards the maths when it isn't being ignored.
-	const effectiveRanges = ignore ? [] : (idleRanges ?? [])
 	return {
-		entry: {
+		entry: buildProjectEntry(
 			id,
 			name,
 			duration,
-			idleDuration: idleRecordedSeconds(effectiveRanges),
-			annotations: deflationByReason(selections, effectiveRanges),
-			ignoreIdle: ignore,
+			ignore,
+			idleRanges,
 			idleThreshold,
-			description: describeTimelapse({
-				id,
-				duration,
-				idleRanges: effectiveRanges,
-				selections,
-			}),
-			...(idleRanges !== undefined ? { idleRanges } : {}),
-		},
+			selections
+		),
 		selections,
 	}
 }

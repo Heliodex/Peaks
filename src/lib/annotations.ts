@@ -280,6 +280,57 @@ function mergeSpans(spans: { start: number; end: number }[]): {
 }
 
 /**
+ * The "spent idle" sentence shared by manual idle annotations and detected ranges, or null when there is no idle time.
+ */
+function idleDescription(
+	idleRanges: IdleRange[],
+	selections: TimelineSelection[]
+): string | null {
+	const manualIdle = selections.filter(
+		selection => selection.reason === "idle"
+	)
+	if (idleRanges.length === 0 && manualIdle.length === 0) return null
+
+	const idleTotal = idleRecordedSeconds(idleRanges)
+	const manualStretch =
+		manualIdle.reduce(
+			(sum, selection) => sum + nonIdleDuration(selection, idleRanges),
+			0
+		) * PLAYBACK_TO_RECORDED
+	const idleReason = ANNOTATION_REASONS.find(reason => reason.id === "idle")
+	return `${formatClock(idleTotal + manualStretch)} spent idle: ${formatSpans(mergeSpans([...idleRanges, ...manualIdle]))} (${idleReason?.deflationLabel ?? "removed"}).`
+}
+
+/**
+ * One sentence per annotation reason that removed time, skipping idle (described separately).
+ */
+function reasonDescriptions(
+	selections: TimelineSelection[],
+	idleRanges: IdleRange[]
+): string[] {
+	const descriptions: string[] = []
+	for (const reason of ANNOTATION_REASONS) {
+		if (reason.id === "idle") continue
+		const matches = selections.filter(
+			selection => selection.reason === reason.id
+		)
+		if (matches.length === 0) continue
+
+		// The description shows the stretch's full length plus its deflation fraction, rather than the deflated amount alone.
+		const stretch =
+			matches.reduce(
+				(sum, selection) =>
+					sum + nonIdleDuration(selection, idleRanges),
+				0
+			) * PLAYBACK_TO_RECORDED
+		descriptions.push(
+			`${formatClock(stretch)} ${reason.summaryLabel}: ${formatSpans(matches)} (${reason.deflationLabel}).`
+		)
+	}
+	return descriptions
+}
+
+/**
  * Build a plain-text summary of a timelapse: its original length, the idle stretches, and each annotated reason with the time it deflates.
  */
 export function describeTimelapse({
@@ -296,45 +347,14 @@ export function describeTimelapse({
 	const parts = [`${id} – Original time ${formatClock(duration)}.`]
 
 	const idleTotal = idleRecordedSeconds(idleRanges)
-	// Manual "idle" annotations and automatic idle detection both remove time for being idle, so they share one description section instead of producing two "{x} spent idle" sentences.
-	const idleReason = ANNOTATION_REASONS.find(reason => reason.id === "idle")
-	const manualIdle = selections.filter(
-		selection => selection.reason === "idle"
-	)
-	const manualIdleStretch =
-		manualIdle.reduce(
-			(sum, selection) => sum + nonIdleDuration(selection, idleRanges),
-			0
-		) * PLAYBACK_TO_RECORDED
-
-	if (idleRanges.length > 0 || manualIdle.length > 0) {
-		parts.push(
-			`${formatClock(idleTotal + manualIdleStretch)} spent idle: ${formatSpans(mergeSpans([...idleRanges, ...manualIdle]))} (${idleReason?.deflationLabel ?? "removed"}).`
-		)
-	}
+	const idleSentence = idleDescription(idleRanges, selections)
+	if (idleSentence) parts.push(idleSentence)
 
 	const deflatedTotal = selections.reduce(
 		(sum, selection) => sum + selectionDeflation(selection, idleRanges),
 		0
 	)
-	for (const reason of ANNOTATION_REASONS) {
-		if (reason.id === "idle") continue
-		const matches = selections.filter(
-			selection => selection.reason === reason.id
-		)
-		if (matches.length === 0) continue
-
-		// The description shows the stretch's full length plus its deflation fraction, rather than the deflated amount alone.
-		const stretch =
-			matches.reduce(
-				(sum, selection) =>
-					sum + nonIdleDuration(selection, idleRanges),
-				0
-			) * PLAYBACK_TO_RECORDED
-		parts.push(
-			`${formatClock(stretch)} ${reason.summaryLabel}: ${formatSpans(matches)} (${reason.deflationLabel}).`
-		)
-	}
+	parts.push(...reasonDescriptions(selections, idleRanges))
 
 	if (idleTotal + deflatedTotal > 0) {
 		const finalDuration = Math.max(0, duration - idleTotal - deflatedTotal)
