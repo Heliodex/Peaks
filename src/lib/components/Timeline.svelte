@@ -17,30 +17,7 @@ import { createFrameStrip } from "#lib/timeline-frames.svelte.js"
 import TimelineFrames from "./TimelineFrames.svelte"
 import TimelineNavigator from "./TimelineNavigator.svelte"
 import TimelineTicks from "./TimelineTicks.svelte"
-
-type DragState =
-	| {
-			kind: "create"
-			id: string
-			anchor: number
-			anchorX: number
-			min: number
-			max: number
-			moved: boolean
-	  }
-	| {
-			kind: "move"
-			id: string
-			offset: number
-			length: number
-			min: number
-			max: number
-	  }
-	| { kind: "resize-start"; id: string; min: number; max: number }
-	| { kind: "resize-end"; id: string; min: number; max: number }
-	| null
-
-type PanState = { startX: number; startView: number; span: number } | null
+import { createSelectionEditor } from "./timeline-selection.svelte.js"
 
 let {
 	timelapse,
@@ -66,10 +43,6 @@ let {
 } = $props()
 
 const FRAME_COUNT = 12
-// Pointer travel (px) required before a press counts as a drag rather than a click
-const DRAG_THRESHOLD_PX = 4
-// Minimum on-screen width (px) of a selection so its handles stay usable
-const MIN_SELECTION_PX = 4
 // Seconds to skip when the left/right arrow keys are pressed
 const ARROW_SEEK_SECONDS = 5
 // Assumed frame rate for single-frame stepping if detection hasn't finished
@@ -91,7 +64,6 @@ let playing = $state(false)
 // Latest requested seek target while one is already in flight (see flushPendingSeek).
 let pendingSeek: number | null = null
 let hoverTime = $state<number | null>(null)
-let hoveredSelectionId = $state<string | null>(null)
 const duration = $derived(videoDuration)
 // Idle regions to draw: hidden while the reviewer overrides idle detection.
 const visibleIdleRanges = $derived(effectiveIdleRanges(ignoreIdle, idleRanges))
@@ -138,9 +110,17 @@ const frameStrip = createFrameStrip({
 	view: () => view,
 })
 
-let drag = $state<DragState>(null)
-let pan = $state<PanState>(null)
-let nextId = 0
+const editor = createSelectionEditor({
+	selections: () => selections,
+	setSelections: value => (selections = value),
+	duration: () => duration,
+	frameRate: () => frameRate,
+	view: () => view,
+	viewSpan: () => viewSpan,
+	pointerToTime,
+	seekTo,
+	setView,
+})
 
 // Scan the video for stretches where the picture never changes (time spent AFK) and publish them to the parent so it can report an "actual" duration. Cached ranges are reused until the parent bumps `idleRevision`.
 const idle = createIdleAnalysis({
@@ -196,15 +176,6 @@ $effect(() => {
 		instant: prefersReducedMotion.current,
 	})
 })
-
-function makeId(): string {
-	// `selections` lives in the parent and can outlive this component instance, while `nextId` resets on remount – so skip any ids already in use.
-	let id = `selection-${++nextId}`
-	while (selections.some(selection => selection.id === id)) {
-		id = `selection-${++nextId}`
-	}
-	return id
-}
 
 /** The absolute time represented by a frame slot in the current window. */
 function frameTime(index: number): number {
@@ -329,38 +300,6 @@ function seekTo(seconds: number) {
 	flushPendingSeek()
 }
 
-/**
- * The open space directly left and right of an interval, ignoring `id`.
- * Used to keep selections from overlapping while creating, moving or resizing.
- */
-function neighborBounds(id: string, start: number, end: number) {
-	let left = 0
-	let right = duration
-	for (const other of selections) {
-		if (other.id === id) continue
-		if (other.end <= start) left = Math.max(left, other.end)
-		else if (other.start >= end) right = Math.min(right, other.start)
-	}
-	return { left, right }
-}
-
-function updateSelection(
-	id: string,
-	patch: Partial<Omit<TimelineSelection, "id">>
-) {
-	selections = selections.map(other =>
-		other.id === id ? { ...other, ...patch } : other
-	)
-}
-
-function minSelectionLength(track: HTMLElement): number {
-	const rect = track.getBoundingClientRect()
-	if (rect.width <= 0 || viewSpan <= 0) return 0
-	const pixelMin = (MIN_SELECTION_PX / rect.width) * viewSpan
-	const frameMin = frameRate > 0 ? 1 / frameRate : 0
-	return Math.max(pixelMin, frameMin)
-}
-
 /** Smallest allowed visible span (maximum scroll zoom-in), capped at the video. */
 function minViewSpan(): number {
 	if (duration <= 0) return 0
@@ -373,7 +312,7 @@ function minViewSpan(): number {
 
 /** Scroll to zoom in/out, keeping the time under the cursor fixed. */
 function onWheel(event: WheelEvent) {
-	if (duration <= 0 || viewSpan <= 0 || drag || pan) return
+	if (duration <= 0 || viewSpan <= 0 || editor.drag || editor.pan) return
 	const track = event.currentTarget as HTMLElement
 	const rect = track.getBoundingClientRect()
 	if (rect.width <= 0) return
@@ -428,232 +367,23 @@ function timelineGestures(node: HTMLElement) {
 	}
 }
 
-// Class for the hover-only controls (handles + delete button).
-// They stay visible while their selection is the one being dragged.
-function controlsClass(id: string): string {
-	return drag?.id === id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-}
-
-/** Whether this selection is the one currently being drawn from scratch. */
-function isCreating(id: string): boolean {
-	return drag?.kind === "create" && drag.id === id
-}
-
-function startPan(event: PointerEvent, track: HTMLElement) {
-	event.preventDefault()
-	pan = { startX: event.clientX, startView: view.start, span: viewSpan }
-	track.setPointerCapture(event.pointerId)
-}
-
-/** Begin resizing a selection's edge. Returns whether a drag actually started. */
-function startResize(
-	event: PointerEvent,
-	track: HTMLElement,
-	resizeEl: HTMLElement
-): boolean {
-	const id = resizeEl.dataset.selectionId
-	const selection = selections.find(s => s.id === id)
-	if (!id || !selection) return false
-
-	const { left, right } = neighborBounds(id, selection.start, selection.end)
-	const minLength = minSelectionLength(track)
-	if (resizeEl.dataset.resize === "start") {
-		drag = {
-			kind: "resize-start",
-			id,
-			min: left,
-			max: Math.max(left, selection.end - minLength),
-		}
-	} else {
-		drag = {
-			kind: "resize-end",
-			id,
-			min: Math.min(right, selection.start + minLength),
-			max: right,
-		}
-	}
-	track.setPointerCapture(event.pointerId)
-	event.preventDefault()
-	return true
-}
-
-/** Begin moving a whole selection. Returns whether a drag actually started. */
-function startMove(
-	event: PointerEvent,
-	track: HTMLElement,
-	selectionEl: HTMLElement
-): boolean {
-	const id = selectionEl.dataset.selectionId
-	const selection = selections.find(s => s.id === id)
-	if (!id || !selection) return false
-
-	const length = selection.end - selection.start
-	const { left, right } = neighborBounds(id, selection.start, selection.end)
-	drag = {
-		kind: "move",
-		id,
-		offset: pointerToTime(event.clientX, track) - selection.start,
-		length,
-		min: left,
-		max: Math.max(left, right - length),
-	}
-	track.setPointerCapture(event.pointerId)
-	event.preventDefault()
-	return true
-}
-
-/** Start drawing a brand new selection inside the nearest gap. */
-function startCreate(event: PointerEvent, track: HTMLElement) {
-	const anchor = clamp(
-		snapToFrame(pointerToTime(event.clientX, track), frameRate),
-		0,
-		duration
-	)
-	const { left, right } = neighborBounds("", anchor, anchor)
-	if (right - left <= 0) return
-
-	const id = makeId()
-	selections = [...selections, { id, start: anchor, end: anchor }]
-	drag = {
-		kind: "create",
-		id,
-		anchor,
-		anchorX: event.clientX,
-		min: left,
-		max: right,
-		moved: false,
-	}
-	track.setPointerCapture(event.pointerId)
-	event.preventDefault()
-}
-
-function onPointerDown(event: PointerEvent) {
-	const track = event.currentTarget as HTMLElement
-
-	// Right-drag pans the visible window.
-	if (event.button === 2) return startPan(event, track)
-	if (event.button !== 0) return
-
-	const target = event.target as HTMLElement
-
-	// The delete button handles its own click.
-	if (target.closest("[data-delete]")) return
-
-	const resizeEl = target.closest<HTMLElement>("[data-resize]")
-	if (resizeEl && startResize(event, track, resizeEl)) return
-
-	const selectionEl = target.closest<HTMLElement>("[data-selection-id]")
-	if (selectionEl && startMove(event, track, selectionEl)) return
-
-	// Empty space: start drawing a brand new selection inside the nearest gap.
-	startCreate(event, track)
-}
-
-/** Scrub the visible window for an in-progress pan. */
-function updatePan(event: PointerEvent, track: HTMLElement) {
-	if (!pan) return
-	const rect = track.getBoundingClientRect()
-	if (rect.width <= 0) return
-	const delta = ((event.clientX - pan.startX) / rect.width) * pan.span
-	const start = clamp(
-		snapToFrame(pan.startView - delta, frameRate),
-		0,
-		Math.max(0, duration - pan.span)
-	)
-	setView({ start, end: start + pan.span })
-}
-
-/** Apply an in-progress selection drag at `time`. */
-function updateDrag(
-	state: NonNullable<DragState>,
-	time: number,
-	event: PointerEvent
-) {
-	if (state.kind === "create") {
-		const end = clamp(snapToFrame(time, frameRate), state.min, state.max)
-		state.moved =
-			state.moved ||
-			Math.abs(event.clientX - state.anchorX) >= DRAG_THRESHOLD_PX
-		updateSelection(state.id, {
-			start: Math.min(state.anchor, end),
-			end: Math.max(state.anchor, end),
-		})
-		// Seek to the moving edge so the frame being selected is visible.
-		seekTo(end)
-		return
-	}
-	if (state.kind === "move") {
-		const start = clamp(
-			snapToFrame(time - state.offset, frameRate),
-			state.min,
-			state.max
-		)
-		updateSelection(state.id, { start, end: start + state.length })
-		return
-	}
-	const edge = clamp(snapToFrame(time, frameRate), state.min, state.max)
-	updateSelection(
-		state.id,
-		state.kind === "resize-start" ? { start: edge } : { end: edge }
-	)
-	// Seek to the exact new boundary so the frame is visible while resizing.
-	seekTo(edge)
-}
-
 function onPointerMove(event: PointerEvent) {
 	const track = event.currentTarget as HTMLElement
-
-	if (pan) {
-		updatePan(event, track)
-		return
-	}
-
-	const state = drag
-
-	if (state) {
-		updateDrag(state, pointerToTime(event.clientX, track), event)
-		return
-	}
+	if (editor.movePointer(event)) return
 
 	// Hovering: preview-scrub and remember which selection is under the pointer.
 	const selectionEl = (event.target as HTMLElement).closest<HTMLElement>(
 		"[data-selection-id]"
 	)
-	hoveredSelectionId = selectionEl?.dataset.selectionId ?? null
+	editor.hoveredSelectionId = selectionEl?.dataset.selectionId ?? null
 	hoverTime = pointerToTime(event.clientX, track)
 	seekTo(hoverTime)
 }
 
-function onPointerUp(event: PointerEvent) {
-	const track = event.currentTarget as HTMLElement
-	const state = drag
-	drag = null
-	pan = null
-
-	if (track.hasPointerCapture(event.pointerId)) {
-		track.releasePointerCapture(event.pointerId)
-	}
-	if (!state) return
-
-	if (state.kind === "create") {
-		const created = selections.find(s => s.id === state.id)
-		// An un-dragged press (or an empty range) is discarded like a click.
-		if (!state.moved || !created || created.end - created.start <= 0) {
-			selections = selections.filter(s => s.id !== state.id)
-		}
-	}
-}
-
 function onPointerLeave() {
-	if (drag || pan) return
+	if (editor.drag || editor.pan) return
 	hoverTime = null
-	hoveredSelectionId = null
-}
-
-function deleteSelection(id: string, event: MouseEvent) {
-	event.stopPropagation()
-	selections = selections.filter(s => s.id !== id)
-	if (hoveredSelectionId === id) hoveredSelectionId = null
+	editor.hoveredSelectionId = null
 }
 
 /**
@@ -715,7 +445,7 @@ function onKeyDown(event: KeyboardEvent) {
 	<div
 		data-resize={side}
 		data-selection-id={sel.id}
-		class={["absolute inset-y-0", side === "start" ? "-left-1" : "-right-1", "flex w-2 cursor-ew-resize items-center justify-center transition-opacity", controlsClass(sel.id)]}
+		class={["absolute inset-y-0", side === "start" ? "-left-1" : "-right-1", "flex w-2 cursor-ew-resize items-center justify-center transition-opacity", editor.controlsClass(sel.id)]}
 		role="presentation"
 	>
 		<span class="h-6 w-1 {handleClass} shadow"></span>
@@ -726,16 +456,16 @@ function onKeyDown(event: KeyboardEvent) {
 	{const layoutFrames = $derived(frameStrip.layout)}
 	<div class="flex min-h-0 w-full flex-1 flex-col pt-3">
 		<div
-			class={["relative min-h-0 w-full flex-1 touch-none border border-neutral-500 select-none", drag?.kind ===
+			class={["relative min-h-0 w-full flex-1 touch-none border border-neutral-500 select-none", editor.drag?.kind ===
 				"create"
 					? "cursor-text"
-					: pan
+					: editor.pan
 						? "cursor-grabbing"
 						: '']}
-			onpointerdown={onPointerDown}
+			onpointerdown={editor.onPointerDown}
 			onpointermove={onPointerMove}
-			onpointerup={onPointerUp}
-			onpointercancel={onPointerUp}
+			onpointerup={editor.onPointerUp}
+			onpointercancel={editor.onPointerUp}
 			onpointerleave={onPointerLeave}
 			{@attach timelineGestures}
 			role="presentation"
@@ -768,7 +498,7 @@ function onKeyDown(event: KeyboardEvent) {
 				{const color = $derived(selectionColors(sel.reason))}
 				{#if visibleEnd > visibleStart}
 					<div
-						class="group absolute inset-y-0 {isCreating(sel.id)
+						class="group absolute inset-y-0 {editor.isCreating(sel.id)
 							? 'cursor-text'
 							: 'cursor-grab active:cursor-grabbing'}"
 						data-selection-id={sel.id}
@@ -792,8 +522,8 @@ function onKeyDown(event: KeyboardEvent) {
 							type="button"
 							data-delete={sel.id}
 							aria-label="Delete selection"
-							onclick={e => deleteSelection(sel.id, e)}
-							class="absolute -top-3 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border bg-white text-xs leading-none shadow transition-opacity {color.button} {controlsClass(
+							onclick={e => editor.deleteSelection(sel.id, e)}
+							class="absolute -top-3 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border bg-white text-xs leading-none shadow transition-opacity {color.button} {editor.controlsClass(
 								sel.id
 							)}"
 						>
@@ -821,7 +551,7 @@ function onKeyDown(event: KeyboardEvent) {
 				{/if}
 			{/if}
 
-			{#if hoverTime !== null && hoveredSelectionId === null}
+			{#if hoverTime !== null && editor.hoveredSelectionId === null}
 				<div
 					class="pointer-events-none absolute top-1 bg-black/80 px-1.5 py-0.5 text-xs text-white"
 					class:mr-1={hoverTooltipFlip}

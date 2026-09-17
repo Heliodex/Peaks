@@ -3,7 +3,7 @@
 //
 // The cache is shared across component instances (keyed by the video source) so switching away from a project and back reuses its thumbnails instead of re-decoding the video and hitting the proxy again.
 
-import { untrack } from "svelte"
+import { onDestroy, untrack } from "svelte"
 import { SvelteSet } from "svelte/reactivity"
 import {
 	type CapturedFrame,
@@ -373,12 +373,10 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 	})
 
 	// Release resources when the component is destroyed.
-	$effect(() => {
-		return () => {
-			for (const timer of settleTimers) clearTimeout(timer)
-			settleTimers = []
-			pool.dispose()
-		}
+	onDestroy(() => {
+		for (const timer of settleTimers) clearTimeout(timer)
+		settleTimers = []
+		pool.dispose()
 	})
 
 	let captureIndex = 0
