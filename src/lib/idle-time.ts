@@ -280,6 +280,13 @@ export function analyzeIdle(
 		if (!ctx) throw new Error("No canvas context")
 
 		const times = idleSampleTimes(duration, frameRate)
+		// A run of identical frames is idle from the *second* capture onward:
+		// the first capture of a scene is the normal frame, and it's the
+		// unchanged repeat that marks time away. With a known frame rate, shift
+		// each idle interval one frame later so it covers the repeated frame
+		// rather than the original. Without a frame rate there are no frame
+		// ticks to align to, so the sampled boundaries stand.
+		const frameDuration = frameRate > 0 ? 1 / frameRate : 0
 		const intervals: IdleRange[] = []
 		let previous: Uint8ClampedArray | null = null
 		let previousTarget = -1
@@ -336,7 +343,10 @@ export function analyzeIdle(
 				spansFrameBoundary(previousTarget, target, frameRate) &&
 				frameDifference(previous, sample) <= threshold
 			) {
-				intervals.push({ start: times[i - 1], end: times[i] })
+				intervals.push({
+					start: times[i - 1] + frameDuration,
+					end: times[i] + frameDuration,
+				})
 				previousIdle = true
 			} else {
 				previousIdle = false
