@@ -59,10 +59,9 @@ function decodePathParam(pathname: string): string {
 }
 
 /**
- * Encoded project state taken from the `/{state}` path (empty on the `/home`
- * landing). The open timelapse id is carried inside that state, so it no
- * longer needs to live in the URL separately. Shallow writes update
- * `page.shallow.url` rather than `page.url`, so prefer it when present.
+ * Encoded project state taken from the `/{state}` path (empty on the `/home` landing).
+ * The open timelapse id is carried inside that state, so it no longer needs to live in the URL separately.
+ * Shallow writes update `page.shallow.url` rather than `page.url`, so prefer it when present.
  */
 const routeParam = $derived(
 	page.params.id !== undefined
@@ -73,8 +72,8 @@ const routeParam = $derived(
 /** Open timelapse id decoded from the path (empty on the `/home` landing). */
 let submittedId = $state("")
 
-// Validation failure from the last attempt to add a timelapse by id. Shown in
-// the Project pane so a bad id is reported instead of flashing and vanishing.
+// Validation failure from the last attempt to add a timelapse by id.
+// Shown in the Project pane so a bad id is reported instead of flashing and vanishing.
 let loadError = $state<string | null>(null)
 
 let videoEl = $state<HTMLVideoElement>()
@@ -85,9 +84,8 @@ let idleAnalyzing = $state(false)
 let idleAnalyzed = $state(false)
 // Bumped to request a fresh idle scan; negative means "use the cached ranges".
 let idleRevision = $state(0)
-// Encoded project state currently represented by the review. Kept as its own
-// state (rather than read back from `page.url`) so the description always
-// reflects what we encoded, even before the address bar catches up.
+// Encoded project state currently represented by the review.
+// Kept as its own state (rather than read back from `page.url`) so the description always reflects what we encoded, even before the address bar catches up.
 let encodedState = $state("")
 
 // Pane sizes in pixels, driven by the drag handles on each pane's inner border.
@@ -100,14 +98,12 @@ const MIN_CENTER_HEIGHT = 200
 let leftWidth = $state(DEFAULT_LEFT_WIDTH)
 let rightWidth = $state(DEFAULT_RIGHT_WIDTH)
 let timelineHeight = $state(DEFAULT_TIMELINE_HEIGHT)
-// The bottom row only takes up space once a timeline is actually shown, so the
-// landing page doesn't reserve an empty strip.
+// The bottom row only takes up space once a timeline is actually shown, so the landing page doesn't reserve an empty strip.
 const timelineRowHeight = $derived(videoEl ? `${timelineHeight}px` : "0px")
 
 /**
- * Run a window-level pointer drag, reporting the total movement from the
- * start. Tracking on the window keeps the resize alive when the pointer
- * leaves the narrow handle.
+ * Run a window-level pointer drag, reporting the total movement from the start.
+ * Tracking on the window keeps the resize alive when the pointer leaves the narrow handle.
  */
 function trackResize(
 	event: PointerEvent,
@@ -188,8 +184,7 @@ function startTimelineResize(event: PointerEvent) {
 /** Shareable link for the current review: the encoded state is the path. */
 const shareUrl = $derived(encodedState ? `${SITE_ORIGIN}/${encodedState}` : "")
 
-// Every project lives in local storage; `currentProjectId` names the one open
-// in the panel, which is also the only one mirrored into the URL.
+// Every project lives in local storage; `currentProjectId` names the one open in the panel, which is also the only one mirrored into the URL.
 let projects = $state<Project[]>([])
 let currentProjectId = $state("")
 let projectLoaded = $state(false)
@@ -200,8 +195,8 @@ let searchOpen = $state(false)
 // A project whose name field should take focus, set right after creating one.
 let pendingNameFocus = $state<string | null>(null)
 
-// Review preferences (timeline layout, …). Loaded once from local storage and
-// persisted on change; never mirrored into the URL.
+// Review preferences (timeline layout, …).
+// Loaded once from local storage and persisted on change; never mirrored into the URL.
 let justifyTimeline = $state(true)
 let settingsLoaded = $state(false)
 
@@ -216,33 +211,31 @@ const projectEntries = $derived(currentProject?.timelapses ?? [])
 const activeProjectId = $derived(currentProject?.id ?? currentProjectId)
 
 /**
- * Whether idle time is ignored for the open timelapse. It lives on the project
- * entry (the single source of truth for timelapse state), defaulting to off.
+ * Whether idle time is ignored for the open timelapse.
+ * It lives on the project entry (the single source of truth for timelapse state), defaulting to off.
  */
 const ignoreIdle = $derived(
 	projectEntries.find(entry => entry.id === submittedId)?.ignoreIdle ?? false
 )
 
 /**
- * Frame-difference threshold for the open timelapse's idle scan. Like
- * `ignoreIdle` it lives on the project entry, defaulting to the standard
- * sensitivity when unset.
+ * Frame-difference threshold for the open timelapse's idle scan.
+ * Like `ignoreIdle` it lives on the project entry, defaulting to the standard sensitivity when unset.
  */
 const idleThreshold = $derived(
 	projectEntries.find(entry => entry.id === submittedId)?.idleThreshold ??
 		DEFAULT_IDLE_THRESHOLD
 )
-// Metadata for the open timelapse, resolved from Lapse so it can be added to
-// the project automatically. The id is kept alongside it so a late-resolving
-// fetch can never be applied to a different timelapse.
+// Metadata for the open timelapse, resolved from Lapse so it can be added to the project automatically.
+// The id is kept alongside it so a late-resolving fetch can never be applied to a different timelapse.
 let currentMeta = $state<{
 	id: string
 	name?: string
 	duration: number
 } | null>(null)
 
-// The fully resolved timelapse for the info panel. The center panes await the
-// same cached query, but the panel renders even before (or without) one.
+// The fully resolved timelapse for the info panel.
+// The center panes await the same cached query, but the panel renders even before (or without) one.
 let currentTimelapse = $state<ReviewTimelapse | null>(null)
 
 /** Whether two annotation breakdowns carry the same reasons and durations. */
@@ -284,20 +277,15 @@ const idleDuration = $derived(idleRecordedSeconds(activeIdleRanges))
 let urlToken = 0
 let urlTimer: ReturnType<typeof setTimeout> | undefined
 
-// Load the state named by the path: it holds an encoded project state whose
-// `openId` is the open timelapse. A path that doesn't decode is treated as
-// stale or corrupt: the review stays closed and the URL sync rewrites the path
-// from the locally stored project. Resets idle analysis because the underlying
-// video changes.
+// Load the state named by the path: it holds an encoded project state whose `openId` is the open timelapse.
+// A path that doesn't decode is treated as stale or corrupt: the review stays closed and the URL sync rewrites the path from the locally stored project.
+// Resets idle analysis because the underlying video changes.
 let loadToken = 0
 let loaded = $state(false)
 $effect(() => {
 	const param = routeParam
-	// Our own shallow URL writes already match the in-memory review, so skip
-	// decoding them (reading `encodedState` untracked keeps it from retriggering
-	// this effect). Comparing against the *current* state — rather than a value
-	// we wrote earlier — means a genuine navigation that happens to encode to
-	// the same string still loads.
+	// Our own shallow URL writes already match the in-memory review, so skip decoding them (reading `encodedState` untracked keeps it from retriggering this effect).
+	// Comparing against the *current* state – rather than a value we wrote earlier – means a genuine navigation that happens to encode to the same string still loads.
 	if (param && param === untrack(() => encodedState)) return
 	const token = ++loadToken
 	loaded = false
@@ -319,9 +307,8 @@ $effect(() => {
 			selections = decoded.selections
 			importSharedProject(decoded)
 		} else {
-			// Not an encoded project state. Leave the review closed rather than
-			// latching onto the slug, and let the URL sync rewrite the path from
-			// the locally stored project so a stale or corrupt link recovers.
+			// Not an encoded project state.
+			// Leave the review closed rather than latching onto the slug, and let the URL sync rewrite the path from the locally stored project so a stale or corrupt link recovers.
 			submittedId = ""
 			selections = []
 		}
@@ -330,9 +317,8 @@ $effect(() => {
 })
 
 /**
- * Seed the open timelapse's idle ranges from the project's cache when a scan
- * has run before, so reopening a timelapse doesn't re-analyze its video. A
- * negative revision tells the timeline to reuse the cache instead of scanning.
+ * Seed the open timelapse's idle ranges from the project's cache when a scan has run before, so reopening a timelapse doesn't re-analyze its video.
+ * A negative revision tells the timeline to reuse the cache instead of scanning.
  */
 let idleSeededFor = ""
 $effect(() => {
@@ -355,13 +341,10 @@ $effect(() => {
 })
 
 /**
- * Open timelapses by id. The input may hold several space/comma-separated ids:
- * each new one is resolved first so invalid ids are reported in the Project
- * pane instead of being added and then disappearing. Every id that resolves is
- * added to the project and the first of them opens. The URL carries the
- * project state, so the current project is encoded with that timelapse open
- * (using its saved selections) and the app navigates to `/{state}` rather
- * than a bare `/{id}`.
+ * Open timelapses by id.
+ * The input may hold several space/comma-separated ids: each new one is resolved first so invalid ids are reported in the Project pane instead of being added and then disappearing.
+ * Every id that resolves is added to the project and the first of them opens.
+ * The URL carries the project state, so the current project is encoded with that timelapse open (using its saved selections) and the app navigates to `/{state}` rather than a bare `/{id}`.
  */
 async function loadId(value: string) {
 	const ids = [...new Set(value.split(/[\s,]+/).filter(Boolean))]
@@ -369,9 +352,8 @@ async function loadId(value: string) {
 	const current = submittedId
 	if (ids.length === 1 && ids[0] === current) return
 	loadError = null
-	// Ids already in the project were validated when added (and the metadata
-	// effect re-checks on open), so only new ids need resolving. Everything
-	// resolves in parallel; pasted order is restored afterwards.
+	// Ids already in the project were validated when added (and the metadata effect re-checks on open), so only new ids need resolving.
+	// Everything resolves in parallel; pasted order is restored afterwards.
 	const known = new Set(
 		$state.snapshot(projectEntries).map(entry => entry.id)
 	)
@@ -417,9 +399,8 @@ async function loadId(value: string) {
 	}
 	if (problems.length > 0) loadError = problems.join(" ")
 	const open = valid[0]
-	// Add the new timelapses to the open project straight away, so they show
-	// up (and travel in the encoded URL) even before the project sync fills in
-	// their review data. Names and durations are already known, so seed those.
+	// Add the new timelapses to the open project straight away, so they show up (and travel in the encoded URL) even before the project sync fills in their review data.
+	// Names and durations are already known, so seed those.
 	const entries = $state.snapshot(projectEntries)
 	let added = false
 	for (const { id, meta } of valid) {
@@ -443,8 +424,7 @@ async function loadId(value: string) {
 		project: entries,
 		openId: open.id,
 	})
-	// Drop any debounced write queued while we were encoding so it can't race
-	// this explicit navigation to the new state.
+	// Drop any debounced write queued while we were encoding so it can't race this explicit navigation to the new state.
 	clearTimeout(urlTimer)
 	void goto(`/${encoded}`)
 }
@@ -466,15 +446,11 @@ function toggleFullscreen() {
 }
 
 /**
- * Ctrl+K (or Cmd+K) toggles the project search dialog — from anywhere,
- * including while a field is focused, so the shortcut can both open and close
- * it. F toggles fullscreen for the open timelapse's video, and N creates a new
- * project (with its name field focused). Tab and Shift+Tab cycle through the
- * open project's timelapses — forwards and backwards respectively, wrapping
- * around at either end. With none open, forwards opens the first entry and
- * backwards the last. These are ignored while a modifier is held (so browser
- * shortcuts still work) and while typing in a form field or contenteditable
- * element, so focus can leave inputs natively.
+ * Ctrl+K (or Cmd+K) toggles the project search dialog – from anywhere, including while a field is focused, so the shortcut can both open and close it.
+ * F toggles fullscreen for the open timelapse's video, and N creates a new project (with its name field focused).
+ * Tab and Shift+Tab cycle through the open project's timelapses – forwards and backwards respectively, wrapping around at either end.
+ * With none open, forwards opens the first entry and backwards the last.
+ * These are ignored while a modifier is held (so browser shortcuts still work) and while typing in a form field or contenteditable element, so focus can leave inputs natively.
  */
 function onKeyDown(event: KeyboardEvent) {
 	if (event.defaultPrevented) return
@@ -517,8 +493,7 @@ function onKeyDown(event: KeyboardEvent) {
 
 	const current = entries.findIndex(entry => entry.id === submittedId)
 	const step = event.shiftKey ? -1 : 1
-	// Wrapping keeps the cycle self-contained; with none open, step towards the
-	// appropriate end of the list instead.
+	// Wrapping keeps the cycle self-contained; with none open, step towards the appropriate end of the list instead.
 	const next =
 		current === -1
 			? event.shiftKey
@@ -569,8 +544,8 @@ function reorderCurrentProject(timelapses: ProjectTimelapse[]) {
 }
 
 /**
- * Close the open timelapse, if any. Switching projects calls this so the next
- * project doesn't adopt a timelapse that belongs to the previous one.
+ * Close the open timelapse, if any.
+ * Switching projects calls this so the next project doesn't adopt a timelapse that belongs to the previous one.
  */
 function closeTimelapse() {
 	if (!submittedId) return
@@ -599,10 +574,7 @@ function selectProject(id: string) {
 	currentProjectId = id
 }
 
-/**
- * Open a specific project's timelapse from the search dialog: make its project
- * current first (so the timelapse is loaded into the right one), then load it.
- */
+/** Open a specific project's timelapse from the search dialog: make its project current first (so the timelapse is loaded into the right one), then load it. */
 function openTimelapseFromSearch(projectId: string, timelapseId: string) {
 	selectProject(projectId)
 	void loadId(timelapseId)
@@ -633,11 +605,7 @@ function removeProject(id: string) {
 	currentProjectId = remaining[0].id
 }
 
-/**
- * Encode the review and project state, publish it to the description
- * immediately, and (debounced) mirror it into the path so the whole session
- * can be shared.
- */
+/** Encode the review and project state, publish it to the description immediately, and (debounced) mirror it into the path so the whole session can be shared. */
 async function syncShareUrl(state: {
 	projectId: string
 	id: string
@@ -653,8 +621,7 @@ async function syncShareUrl(state: {
 		project: state.project,
 		openId: state.id,
 	})
-	// Bail if a newer encode started, or the open timelapse changed underneath
-	// us (otherwise a stale payload could land on the wrong review).
+	// Bail if a newer encode started, or the open timelapse changed underneath us (otherwise a stale payload could land on the wrong review).
 	if (token !== urlToken || state.id !== submittedId) return
 	encodedState = encoded
 	const target = `/${encoded}`
@@ -667,11 +634,9 @@ async function syncShareUrl(state: {
 }
 
 /**
- * Mirror the encoded state into the path. Guards ensure a debounced update from
- * a previously open timelapse can only rewrite the URL of the *current* route —
- * it can never navigate back to (or re-apply the project snapshot of) a
- * different timelapse. The load effect recognises the write because it matches
- * the state currently held in `encodedState`.
+ * Mirror the encoded state into the path.
+ * Guards ensure a debounced update from a previously open timelapse can only rewrite the URL of the *current* route – it can never navigate back to (or re-apply the project snapshot of) a different timelapse.
+ * The load effect recognises the write because it matches the state currently held in `encodedState`.
  */
 async function applyShareUrl(id: string, target: string) {
 	if (id !== submittedId) return
@@ -687,8 +652,8 @@ $effect(() => {
 	saveSelections(id, value)
 })
 
-// Mirror the review — the open project and, when one is open, the timelapse —
-// into the URL. Only the current project is encoded; the rest stay in storage.
+// Mirror the review – the open project and, when one is open, the timelapse – into the URL.
+// Only the current project is encoded; the rest stay in storage.
 $effect(() => {
 	const id = submittedId
 	const value = $state.snapshot(selections)
@@ -706,8 +671,7 @@ $effect(() => {
 	return () => clearTimeout(urlTimer)
 })
 
-// Load the workspace's projects once on the client; local storage isn't
-// available during SSR, so this must not run in the initial render.
+// Load the workspace's projects once on the client; local storage isn't available during SSR, so this must not run in the initial render.
 $effect(() => {
 	const store = loadProjects()
 	projects = store.projects
@@ -725,8 +689,7 @@ $effect(() => {
 	saveProjects(store)
 })
 
-// Load review preferences once on the client; local storage isn't available
-// during SSR, so this must not run in the initial render.
+// Load review preferences once on the client; local storage isn't available during SSR, so this must not run in the initial render.
 $effect(() => {
 	justifyTimeline = loadSettings().justifyTimeline
 	settingsLoaded = true
@@ -768,8 +731,8 @@ function setIgnoreIdle(value: boolean) {
 }
 
 /**
- * Set the idle-detection threshold for the open timelapse. Changing it
- * invalidates the cached scan, so a fresh one starts with the new sensitivity.
+ * Set the idle-detection threshold for the open timelapse.
+ * Changing it invalidates the cached scan, so a fresh one starts with the new sensitivity.
  */
 function setIdleThreshold(value: number) {
 	const index = projectEntries.findIndex(entry => entry.id === submittedId)
@@ -829,17 +792,12 @@ const projectTotals = $derived.by(() => {
 	}
 })
 
-/**
- * The project's description: every timelapse's review text in order (without
- * their individual share links), a summary of the project totals, and finally
- * a share link for the whole project.
- */
+/** The project's description: every timelapse's review text in order (without their individual share links), a summary of the project totals, and finally a share link for the whole project. */
 const projectDescription = $derived.by(() => {
 	if (projectEntries.length === 0) return ""
 	const parts = projectEntries.map(entry => entry.description)
 	const total = `${formatClock(projectTotals.final)} (${formatHours(projectTotals.final)})`
-	// With nothing deducted, original and final time are the same, so the
-	// breakdown would just repeat itself.
+	// With nothing deducted, original and final time are the same, so the breakdown would just repeat itself.
 	parts.push(
 		projectTotals.deducted === 0
 			? `Total time ${total}.`
@@ -851,8 +809,8 @@ const projectDescription = $derived.by(() => {
 	return parts.join("\n\n")
 })
 
-// Resolve the open timelapse's metadata from Lapse so it can be represented in
-// the project. The query is cached, so this dedupes with the template's await.
+// Resolve the open timelapse's metadata from Lapse so it can be represented in the project.
+// The query is cached, so this dedupes with the template's await.
 $effect(() => {
 	const id = submittedId
 	currentMeta = null
@@ -890,14 +848,12 @@ $effect(() => {
 		})
 })
 
-// The project is the single home for every timelapse: opening one adds it (or
-// refreshes its review data), and edits keep its entry in sync.
+// The project is the single home for every timelapse: opening one adds it (or refreshes its review data), and edits keep its entry in sync.
 $effect(() => {
 	const id = submittedId
 	const meta = currentMeta
 	const idle = idleDuration
-	// Read the raw selection/idle state so reason-only edits still refresh the
-	// stored description and breakdown, even when the totals don't change.
+	// Read the raw selection/idle state so reason-only edits still refresh the stored description and breakdown, even when the totals don't change.
 	const ranges = $state.snapshot(activeIdleRanges)
 	const currentSelections = $state.snapshot(selections)
 	const annotations = deflationByReason(currentSelections, ranges)
@@ -905,9 +861,7 @@ $effect(() => {
 	if (!id || !loaded || !meta || meta.id !== id) return
 	const index = projectEntries.findIndex(entry => entry.id === id)
 	const existing = index === -1 ? undefined : projectEntries[index]
-	// Only cache ranges once a scan has finished (or when reusing a previous
-	// cache), so a scan interrupted by navigation can't persist partial results
-	// that would then never be recalculated.
+	// Only cache ranges once a scan has finished (or when reusing a previous cache), so a scan interrupted by navigation can't persist partial results that would then never be recalculated.
 	const cachedRanges = idleAnalyzing
 		? existing?.idleRanges
 		: idleAnalyzed

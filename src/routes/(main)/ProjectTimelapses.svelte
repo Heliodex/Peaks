@@ -14,9 +14,7 @@ let {
 	onLoad: (id: string) => void
 } = $props()
 
-// Card motion, matching the sidebar's 180ms shifts. Scoped `|local` below so
-// switching to a timelapse (which unmounts the whole grid) doesn't wait for
-// every card to animate out. Disabled for reduced-motion users.
+// Card motion, matching the sidebar's 180ms shifts. Scoped `|local` below so switching to a timelapse (which unmounts the whole grid) doesn't wait for every card to animate out. Disabled for reduced-motion users.
 const cardTransition = $derived(
 	prefersReducedMotion.current
 		? { duration: 0 }
@@ -26,13 +24,11 @@ const cardShift = $derived(
 	prefersReducedMotion.current ? { duration: 0 } : { duration: 180 }
 )
 
-// Thumbnail URLs for the current entries. They resolve after the grid has
-// rendered, so titles and times show immediately and images fill in.
+// Thumbnail URLs for the current entries. They resolve after the grid has rendered, so titles and times show immediately and images fill in.
 let thumbnails = $state<Record<string, string | null>>({})
 
 $effect(() => {
-	// Sorted and de-duplicated so merely reordering the project doesn't
-	// invalidate the query's argument-keyed cache.
+	// Sorted and de-duplicated so merely reordering the project doesn't invalidate the query's argument-keyed cache.
 	const ids = [...new Set(entries.map(entry => entry.id))].sort()
 	if (ids.length === 0) {
 		thumbnails = {}

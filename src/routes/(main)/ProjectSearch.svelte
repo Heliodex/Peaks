@@ -26,8 +26,8 @@ let {
 	onClose: () => void
 } = $props()
 
-// Which list the arrow keys and the search field act on. The timelapse pane
-// only appears once a project has been expanded with the right arrow.
+// Which list the arrow keys and the search field act on.
+// The timelapse pane only appears once a project has been expanded with the right arrow.
 let mode = $state<"projects" | "timelapses">("projects")
 let projectQuery = $state("")
 let timelapseQuery = $state("")
@@ -56,8 +56,7 @@ const filteredTimelapses = $derived.by(() => {
 	)
 })
 
-// Each highlight is clamped on read, so filtering can never leave it pointing
-// past the end of a list that just shrank.
+// Each highlight is clamped on read, so filtering can never leave it pointing past the end of a list that just shrank.
 const activeProject = $derived(
 	Math.min(projectIndex, Math.max(0, filteredProjects.length - 1))
 )
@@ -65,16 +64,15 @@ const activeTimelapse = $derived(
 	Math.min(timelapseIndex, Math.max(0, filteredTimelapses.length - 1))
 )
 
-// Keep the highlighted row in view as it moves — attachments re-run when the
-// state they read changes. Since the index wraps, this also scrolls to the top
-// or bottom when the selection crosses an end of the list. Motion is skipped
-// for reduced-motion users.
+// Keep the highlighted row in view as it moves – attachments re-run when the state they read changes.
+// Since the index wraps, this also scrolls to the top or bottom when the selection crosses an end of the list.
+// Motion is skipped for reduced-motion users.
 const scrollBehavior = $derived(
 	prefersReducedMotion.current ? "auto" : "smooth"
 )
 
-// Appearance animations for the timelapse pane and its breadcrumb. Both become
-// instant for reduced-motion users.
+// Appearance animations for the timelapse pane and its breadcrumb.
+// Both become instant for reduced-motion users.
 const breadcrumbTransition = $derived<SlideParams>(
 	prefersReducedMotion.current
 		? { duration: 0 }
@@ -100,8 +98,7 @@ function scrollTimelapseIntoView(node: HTMLDivElement) {
 	})
 }
 
-// The search field, so collapsing (or expanding) can put the caret back in it
-// after a click moves focus to a row button.
+// The search field, so collapsing (or expanding) can put the caret back in it after a click moves focus to a row button.
 let inputEl: HTMLInputElement | null = null
 
 /** Focus the search field as soon as it mounts. */
@@ -227,7 +224,7 @@ function handleKeydown(event: KeyboardEvent) {
 						‹
 					</button>
 					<span
-						class="max-w-[9rem] shrink-0 truncate text-sm font-medium text-primary-400"
+						class="max-w-36 shrink-0 truncate text-sm font-medium text-primary-400"
 						title={expandedProject?.name}
 					>
 						{expandedProject?.name}

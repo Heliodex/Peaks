@@ -37,7 +37,7 @@ type LapseProfile = {
 export const getLapseData = query(async () => {
 	const { user } = await authorise()
 
-	// Only public profile fields are returned to the client — never the access/refresh tokens
+	// Only public profile fields are returned to the client – never the access/refresh tokens
 	const [result] = await db.query<LapseProfile[][]>(
 		"SELECT VALUE lapseData FROM $user",
 		{ user: user.id }
@@ -95,9 +95,7 @@ export const getTimelapse = query(type("string"), async timelapseId => {
 })
 
 /**
- * Thumbnail URLs for a batch of timelapses, keyed by id. Ids that can't be
- * resolved (deleted, or a failed request) map to `null` so the grid can fall
- * back to a placeholder. One query per batch keeps the overview cheap.
+ * Thumbnail URLs for a batch of timelapses, keyed by id. Ids that can't be resolved (deleted, or a failed request) map to `null` so the grid can fall back to a placeholder. One query per batch keeps the overview cheap.
  */
 export const getTimelapseThumbnails = query(
 	type("string[]"),

@@ -52,10 +52,8 @@ let {
 let draggingId = $state<string | null>(null)
 
 /**
- * Focus the name field when its project was just created, selecting the
- * placeholder name so it can be typed over. Attachments re-run when the state
- * they read changes, so this fires as the new input mounts (or as the request
- * arrives) and clears the request through `onNameFocused`.
+ * Focus the name field when its project was just created, selecting the placeholder name so it can be typed over.
+ * Attachments re-run when the state they read changes, so this fires as the new input mounts (or as the request arrives) and clears the request through `onNameFocused`.
  */
 function focusCreatedName(node: HTMLInputElement) {
 	if (!focusNameId || focusNameId !== currentProjectId) return
@@ -65,9 +63,9 @@ function focusCreatedName(node: HTMLInputElement) {
 }
 
 /**
- * Move the entry at `from` so it lands at `insert`. Only asks the parent to
- * update the order (its persistence effect saves it) so drag-over can call it
- * repeatedly while `animate:flip` animates each shift. Returns whether it moved.
+ * Move the entry at `from` so it lands at `insert`.
+ * Only asks the parent to update the order (its persistence effect saves it) so drag-over can call it repeatedly while `animate:flip` animates each shift.
+ * Returns whether it moved.
  */
 function moveEntryTo(from: number, insert: number): boolean {
 	if (
@@ -94,8 +92,7 @@ function moveToIndex(sourceId: string, targetIndex: number): boolean {
 	return moveEntryTo(from, insert)
 }
 
-// Reordering on every dragover would thrash the FLIP animations, so wait for
-// the current shift to settle before allowing the next one.
+// Reordering on every dragover would thrash the FLIP animations, so wait for the current shift to settle before allowing the next one.
 const REORDER_COOLDOWN = 160
 let lastReorder = 0
 
@@ -140,8 +137,8 @@ function moveEntryBy(id: string, delta: number) {
 	moveEntryTo(from, from + delta)
 }
 
-// Editable copy of the path id. Typed edits override it; when the path id
-// changes the derived value resyncs the field.
+// Editable copy of the path id.
+// Typed edits override it; when the path id changes the derived value resyncs the field.
 let timelapseId = $derived(submittedId)
 
 function loadTimelapse(event: SubmitEvent) {
@@ -403,11 +400,9 @@ async function pasteAndLoad() {
 
 <style>
 /*
- * Row actions (delete a project, remove a timelapse) stay out of the way until
- * the row is hovered or a control inside it takes keyboard focus. While hidden
- * they collapse to nothing (and cancel the row's gap) so the row's text can use
- * the full width. They're only hidden on devices that can hover, so touch users
- * always see them.
+ * Row actions (delete a project, remove a timelapse) stay out of the way until the row is hovered or a control inside it takes keyboard focus.
+ * While hidden they collapse to nothing (and cancel the row's gap) so the row's text can use the full width.
+ * They're only hidden on devices that can hover, so touch users always see them.
  */
 .row-action {
 	transition:

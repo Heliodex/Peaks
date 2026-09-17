@@ -1,6 +1,4 @@
-// Annotation reasons for timelapse selections. Each reason records how much of
-// the selected stretch should be discounted from the timelapse's actual time,
-// and the colour used to draw it on the timelines.
+// Annotation reasons for timelapse selections. Each reason records how much of the selected stretch should be discounted from the timelapse's actual time, and the colour used to draw it on the timelines.
 
 import type { IdleRange } from "./idle-time.js"
 import {
@@ -10,8 +8,7 @@ import {
 } from "./timeline.js"
 
 /**
- * Tailwind classes for a selection overlay. Written out in full (rather than
- * assembled from a colour name) so Tailwind's scanner can see every class.
+ * Tailwind classes for a selection overlay. Written out in full (rather than assembled from a colour name) so Tailwind's scanner can see every class.
  */
 const SELECTION_COLORS = {
 	neutral: {
@@ -82,8 +79,7 @@ export type AnnotationReason = {
 	/** Short phrase used in the written description, e.g. "spent researching". */
 	summaryLabel: string
 	/**
-	 * Fraction (0–1) of a selection's duration removed from the actual time:
-	 * `1` removes the whole stretch, `0` leaves it untouched.
+	 * Fraction (0-1) of a selection's duration removed from the actual time: `1` removes the whole stretch, `0` leaves it untouched.
 	 */
 	deflation: number
 	/** Parenthetical note for the description, e.g. "2/3 deflated". */
@@ -168,9 +164,7 @@ export function selectionColors(
 }
 
 /**
- * Length of a selection that isn't already covered by an idle range. Idle time
- * is removed from the actual duration separately, so annotation deflation must
- * not count it a second time.
+ * Length of a selection that isn't already covered by an idle range. Idle time is removed from the actual duration separately, so annotation deflation must not count it a second time.
  */
 export function nonIdleDuration(
 	selection: TimelineSelection,
@@ -188,8 +182,7 @@ export function nonIdleDuration(
 }
 
 /**
- * Recorded seconds a single selection removes, given its annotation reason and
- * the idle ranges already excluded from the maths.
+ * Recorded seconds a single selection removes, given its annotation reason and the idle ranges already excluded from the maths.
  */
 export function selectionDeflation(
 	selection: TimelineSelection,
@@ -231,8 +224,7 @@ export type AnnotationDeflation = {
 }
 
 /**
- * Recorded seconds removed by each annotation reason across `selections`, in
- * catalog order. Reasons that removed nothing are omitted.
+ * Recorded seconds removed by each annotation reason across `selections`, in catalog order. Reasons that removed nothing are omitted.
  */
 export function deflationByReason(
 	selections: TimelineSelection[],
@@ -251,9 +243,7 @@ export function deflationByReason(
 }
 
 /**
- * Format a run of spans as `0:07-0:08, 0:09-0:12`. Spans that read the same —
- * several short idle stretches can land within one clock second — collapse to a
- * count, e.g. `0:12 (2)`, so identical times aren't repeated in the list.
+ * Format a run of spans as `0:07-0:08, 0:09-0:12`. Spans that read the same – several short idle stretches can land within one clock second – collapse to a count, e.g. `0:12 (2)`, so identical times aren't repeated in the list.
  */
 function formatSpans(spans: { start: number; end: number }[]): string {
 	const counts = new Map<string, number>()
@@ -270,8 +260,7 @@ function formatSpans(spans: { start: number; end: number }[]): string {
 }
 
 /**
- * Combine overlapping or touching spans into one, so an automatic idle range
- * inside (or crossing) a manual idle selection reads as a single stretch.
+ * Combine overlapping or touching spans into one, so an automatic idle range inside (or crossing) a manual idle selection reads as a single stretch.
  */
 function mergeSpans(spans: { start: number; end: number }[]): {
 	start: number
@@ -291,8 +280,7 @@ function mergeSpans(spans: { start: number; end: number }[]): {
 }
 
 /**
- * Build a plain-text summary of a timelapse: its original length, the idle
- * stretches, and each annotated reason with the time it deflates.
+ * Build a plain-text summary of a timelapse: its original length, the idle stretches, and each annotated reason with the time it deflates.
  */
 export function describeTimelapse({
 	id,
@@ -308,9 +296,7 @@ export function describeTimelapse({
 	const parts = [`${id} – Original time ${formatClock(duration)}.`]
 
 	const idleTotal = idleRecordedSeconds(idleRanges)
-	// Manual "idle" annotations and automatic idle detection both remove time
-	// for being idle, so they share one description section instead of
-	// producing two "{x} spent idle" sentences.
+	// Manual "idle" annotations and automatic idle detection both remove time for being idle, so they share one description section instead of producing two "{x} spent idle" sentences.
 	const idleReason = ANNOTATION_REASONS.find(reason => reason.id === "idle")
 	const manualIdle = selections.filter(
 		selection => selection.reason === "idle"
@@ -338,8 +324,7 @@ export function describeTimelapse({
 		)
 		if (matches.length === 0) continue
 
-		// The description shows the stretch's full length plus its deflation
-		// fraction, rather than the deflated amount alone.
+		// The description shows the stretch's full length plus its deflation fraction, rather than the deflated amount alone.
 		const stretch =
 			matches.reduce(
 				(sum, selection) =>

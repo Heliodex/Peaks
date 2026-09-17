@@ -10,15 +10,12 @@ export type TimelineSelection = {
 export type ViewWindow = { start: number; end: number }
 
 /**
- * Lapse timelapses play back 60× faster than real time, so a duration measured
- * on the timeline (playback seconds) maps to 60 seconds of recorded time.
+ * Lapse timelapses play back 60× faster than real time, so a duration measured on the timeline (playback seconds) maps to 60 seconds of recorded time.
  */
 export const PLAYBACK_TO_RECORDED = 60
 
 /**
- * Maximum zoom-in, expressed as the fewest number of frames that may fill the
- * visible view. Zooming in further provides no meaningful precision benefit, so
- * this caps both the navigator window and scroll-to-zoom on the main timeline.
+ * Maximum zoom-in, expressed as the fewest number of frames that may fill the visible view. Zooming in further provides no meaningful precision benefit, so this caps both the navigator window and scroll-to-zoom on the main timeline.
  */
 export const MIN_VISIBLE_FRAMES = 30
 
@@ -60,9 +57,7 @@ export function percentOf(value: number, total: number): number {
 }
 
 /**
- * Spacing for the rendered thumbnail grid. Quantized to a power-of-two multiple
- * of a base (one video frame when known) and independent of the window start, so
- * the grid stays anchored to absolute time and doesn't reshuffle while panning.
+ * Spacing for the rendered thumbnail grid. Quantized to a power-of-two multiple of a base (one video frame when known) and independent of the window start, so the grid stays anchored to absolute time and doesn't reshuffle while panning.
  */
 export function frameStepFor(
 	span: number,

@@ -72,8 +72,7 @@ const MIN_SELECTION_PX = 4
 const ARROW_SEEK_SECONDS = 5
 // Assumed frame rate for single-frame stepping if detection hasn't finished
 const FALLBACK_FRAME_RATE = 30
-// Minimum on-screen gap (px) between frame ticks before they become too dense
-// to read; below this the tick ruler is hidden.
+// Minimum on-screen gap (px) between frame ticks before they become too dense to read; below this the tick ruler is hidden.
 const MIN_TICK_SPACING_PX = 6
 // Hard cap on rendered frame ticks as a safety net.
 const MAX_FRAME_TICKS = 240
@@ -82,12 +81,10 @@ const HOVER_TOOLTIP_FLIP_PERCENT = 95
 
 let videoDuration = $state(0)
 let frameRate = $state(0)
-// Whether frame-rate detection has settled (successfully or not), so the idle
-// scan can wait for whole-frame samples instead of falling back mid-probe.
+// Whether frame-rate detection has settled (successfully or not), so the idle scan can wait for whole-frame samples instead of falling back mid-probe.
 let frameRateReady = $state(false)
 let currentTime = $state(0)
-// Whether the video is playing, so the playhead can stay locked to it instead of
-// easing towards every frame update (see `playheadSpring`).
+// Whether the video is playing, so the playhead can stay locked to it instead of easing towards every frame update (see `playheadSpring`).
 let playing = $state(false)
 // Latest requested seek target while one is already in flight (see flushPendingSeek).
 let pendingSeek: number | null = null
@@ -125,8 +122,7 @@ const frameTicks = $derived.by(() => {
 	return ticks
 })
 
-// Position of the hover time label within the visible window, and whether it
-// should flip to the left of the cursor to stay on screen.
+// Position of the hover time label within the visible window, and whether it should flip to the left of the cursor to stay on screen.
 const hoverPercent = $derived(
 	hoverTime === null ? 0 : percentWithin(hoverTime, view)
 )
@@ -155,7 +151,7 @@ const idle = createIdleAnalysis({
 	revision: () => idleRevision,
 })
 
-// Fraction (0–1) of the idle scan completed, smoothed by a spring so the scanning progress line glides rather than jumping between samples.
+// Fraction (0-1) of the idle scan completed, smoothed by a spring so the scanning progress line glides rather than jumping between samples.
 const idleProgressSpring = new Spring(0, {
 	stiffness: 0.15,
 	damping: 0.8,
@@ -172,10 +168,8 @@ $effect(() => {
 	}
 	wasAnalyzing = analyzing
 
-	// Until the analysis has started or adopted a cache, its `ranges` are the
-	// empty initial state. Publishing that would wipe the parent's cached
-	// ranges while the frame rate — and so the adoption decision — is still
-	// pending.
+	// Until the analysis has started or adopted a cache, its `ranges` are the empty initial state.
+	// Publishing that would wipe the parent's cached ranges while the frame rate – and so the adoption decision – is still pending.
 	if (analyzing || idle.complete || idle.ranges.length > 0) {
 		idleRanges = idle.ranges
 		idleAnalyzing = analyzing
@@ -186,11 +180,9 @@ $effect(() => {
 	})
 })
 
-// Playback position shown by the cursor, eased by a spring so seeks glide into
-// place rather than jumping. While the video plays the cursor stays locked to
-// the (already frame-driven) time, so only paused seeks and scrubs are smoothed.
-// Springing the time rather than its screen position keeps the cursor aligned
-// with the frames as the view zooms under a spring of its own.
+// Playback position shown by the cursor, eased by a spring so seeks glide into place rather than jumping.
+// While the video plays the cursor stays locked to the (already frame-driven) time, so only paused seeks and scrubs are smoothed.
+// Springing the time rather than its screen position keeps the cursor aligned with the frames as the view zooms under a spring of its own.
 const playheadSpring = new Spring(0, {
 	stiffness: 0.4,
 	damping: 1,
@@ -204,8 +196,7 @@ $effect(() => {
 })
 
 function makeId(): string {
-	// `selections` lives in the parent and can outlive this component instance,
-	// while `nextId` resets on remount — so skip any ids already in use.
+	// `selections` lives in the parent and can outlive this component instance, while `nextId` resets on remount – so skip any ids already in use.
 	let id = `selection-${++nextId}`
 	while (selections.some(selection => selection.id === id)) {
 		id = `selection-${++nextId}`
@@ -222,8 +213,7 @@ $effect(() => {
 	const el = video
 	if (!el || !timelapse.playbackUrl) return
 
-	// A fresh element always starts paused; clear any state left from a
-	// previously bound one so the playhead eases rather than jumping.
+	// A fresh element always starts paused; clear any state left from a previously bound one so the playhead eases rather than jumping.
 	playing = false
 
 	const onLoaded = () => {
@@ -242,8 +232,7 @@ $effect(() => {
 		flushPendingSeek()
 	}
 
-	// Track playback with rAF so the playhead moves smoothly, while still
-	// updating immediately on seeks.
+	// Track playback with rAF so the playhead moves smoothly, while still updating immediately on seeks.
 	let rafId = 0
 	const stopRaf = () => {
 		if (rafId) {
@@ -286,8 +275,7 @@ $effect(() => {
 	}
 })
 
-// Measure the video's frame rate once so dragging can snap to real frames, and
-// so the idle scan samples whole frames.
+// Measure the video's frame rate once so dragging can snap to real frames, and so the idle scan samples whole frames.
 $effect(() => {
 	const src = timelapse.playbackUrl
 	frameRateReady = false
@@ -310,10 +298,8 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 }
 
 /**
- * Keep at most one seek in flight. Browsers queue `currentTime` writes, so
- * scrubbing an unbuffered network video would otherwise stack up slow seeks;
- * instead remember only the latest target and apply it once the current seek
- * settles.
+ * Keep at most one seek in flight.
+ * Browsers queue `currentTime` writes, so scrubbing an unbuffered network video would otherwise stack up slow seeks; instead remember only the latest target and apply it once the current seek settles.
  */
 function flushPendingSeek() {
 	const el = video
@@ -329,9 +315,8 @@ function seekTo(seconds: number) {
 	// Snap to a real frame so we don't decode to arbitrary in-between times.
 	const target = snapToFrame(seconds, frameRate)
 	currentTime = target
-	// Ignore sub-frame moves (when no seek is in flight) so slow scrubbing
-	// doesn't issue pointless seeks. While a seek is running we still record
-	// the latest target, since `el.currentTime` reflects the old request.
+	// Ignore sub-frame moves (when no seek is in flight) so slow scrubbing doesn't issue pointless seeks.
+	// While a seek is running we still record the latest target, since `el.currentTime` reflects the old request.
 	const step = frameRate > 0 ? 1 / frameRate : 0.01
 	if (!el.seeking && Math.abs(el.currentTime - target) < step / 2) return
 	pendingSeek = target
@@ -423,9 +408,8 @@ function setView(next: ViewWindow) {
 }
 
 /**
- * Attaches wheel-to-zoom and right-drag support to the track. Uses an
- * attachment so the wheel listener can be non-passive (reliably preventing page
- * scroll) and so the right-click context menu can be suppressed for panning.
+ * Attaches wheel-to-zoom and right-drag support to the track.
+ * Uses an attachment so the wheel listener can be non-passive (reliably preventing page scroll) and so the right-click context menu can be suppressed for panning.
  */
 function timelineGestures(node: HTMLElement) {
 	const handleWheel = (event: WheelEvent) => onWheel(event)
@@ -438,8 +422,8 @@ function timelineGestures(node: HTMLElement) {
 	}
 }
 
-// Class for the hover-only controls (handles + delete button). They stay
-// visible while their selection is the one being dragged.
+// Class for the hover-only controls (handles + delete button).
+// They stay visible while their selection is the one being dragged.
 function controlsClass(id: string): string {
 	return drag?.id === id ? "opacity-100" : "opacity-0 group-hover:opacity-100"
 }
@@ -736,8 +720,7 @@ function onKeyDown(event: KeyboardEvent) {
 			{@attach timelineGestures}
 			role="presentation"
 		>
-			<!-- Frame previews: cached thumbnails positioned by absolute time so
-			     they slide and scale with the view -->
+			<!-- Frame previews: cached thumbnails positioned by absolute time so they slide and scale with the view -->
 			<div
 				class="pointer-events-none absolute inset-0 overflow-hidden bg-neutral-800"
 			>

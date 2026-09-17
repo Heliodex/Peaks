@@ -1,6 +1,5 @@
-// Persists the workspace's projects — each with a name and the timelapses it
-// contains — in the browser's local storage. Only one project is current at a
-// time; the review view mirrors that one into the URL while the rest stay local.
+// Persists the workspace's projects – each with a name and the timelapses it contains – in the browser's local storage.
+// Only one project is current at a time; the review view mirrors that one into the URL while the rest stay local.
 
 import type { AnnotationDeflation } from "./annotations.js"
 import { type IdleRange, nearestIdleThreshold } from "./idle-time.js"
@@ -23,8 +22,7 @@ export type ProjectTimelapse = {
 	description: string
 	/**
 	 * Detected idle ranges (playback seconds) from the last completed scan.
-	 * Absent until one has run, so a present-but-empty array means "scanned and
-	 * genuinely idle-free" and avoids re-scanning on every open.
+	 * Absent until one has run, so a present-but-empty array means "scanned and genuinely idle-free" and avoids re-scanning on every open.
 	 */
 	idleRanges?: IdleRange[]
 }
@@ -111,8 +109,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		idleDuration,
 		annotations: parseAnnotations(annotations),
 		ignoreIdle: ignoreIdle === true,
-		// Entries stored before the threshold was adjustable — or off the
-		// selectable scale — snap to the nearest option.
+		// Entries stored before the threshold was adjustable – or off the selectable scale – snap to the nearest option.
 		idleThreshold: nearestIdleThreshold(
 			isFiniteNonNegative(idleThreshold) ? idleThreshold : Number.NaN
 		),
@@ -129,9 +126,8 @@ function parseTimelapses(value: unknown): ProjectTimelapse[] {
 }
 
 /**
- * Every printable ASCII character JSON can store in a string without escaping
- * (0x20-0x7E, minus `"` and `\`). It's wider than base64url, so each character
- * carries more entropy and ids can be shorter while staying JSON-safe.
+ * Every printable ASCII character JSON can store in a string without escaping (0x20-0x7E, minus `"` and `\`).
+ * It's wider than base64url, so each character carries more entropy and ids can be shorter while staying JSON-safe.
  */
 const ID_ALPHABET = Array.from({ length: 0x7f - 0x20 }, (_, i) =>
 	String.fromCharCode(0x20 + i)
@@ -151,13 +147,11 @@ function randomBytes(length: number): Uint8Array {
 }
 
 /**
- * Generate a short, JSON-safe id for a locally stored project. Characters are
- * drawn uniformly from `ID_ALPHABET` via rejection sampling, so a ten-character
- * id carries ~65 bits of entropy — collision-safe for a local workspace.
+ * Generate a short, JSON-safe id for a locally stored project.
+ * Characters are drawn uniformly from `ID_ALPHABET` via rejection sampling, so a ten-character id carries ~65 bits of entropy – collision-safe for a local workspace.
  */
 export function newProjectId(): string {
-	// Bytes at or above this bound can't map onto the alphabet without bias, so
-	// they're skipped and redrawn.
+	// Bytes at or above this bound can't map onto the alphabet without bias, so they're skipped and redrawn.
 	const limit = Math.floor(256 / ID_ALPHABET.length) * ID_ALPHABET.length
 
 	let id = ""

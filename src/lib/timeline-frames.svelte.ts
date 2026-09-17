@@ -1,9 +1,7 @@
 // Cached, incrementally-captured thumbnail strip for the main timeline.
 // Thumbnails are stored at absolute times and sampled onto an absolute, zoom-quantized grid, so the strip slides smoothly while panning instead of reshuffling, and denser frames captured at a higher zoom level are reused.
 //
-// The cache is shared across component instances (keyed by the video source) so
-// switching away from a project and back reuses its thumbnails instead of
-// re-decoding the video and hitting the proxy again.
+// The cache is shared across component instances (keyed by the video source) so switching away from a project and back reuses its thumbnails instead of re-decoding the video and hitting the proxy again.
 
 import { untrack } from "svelte"
 import { SvelteSet } from "svelte/reactivity"
@@ -56,18 +54,14 @@ const MAX_CACHED_SOURCES = 12
 // How long a freshly captured thumbnail fades in for
 const FADE_MS = 200
 
-// Persistent-storage namespace for these thumbnails, plus the time resolution
-// used for their keys.
+// Persistent-storage namespace for these thumbnails, plus the time resolution used for their keys.
 const THUMBNAIL_KIND = "strip"
 const TIME_KEY_SCALE = 1000
-// Sources currently being pulled back in from persistent storage, and sources
-// whose storage has already been consulted once this session.
+// Sources currently being pulled back in from persistent storage, and sources whose storage has already been consulted once this session.
 const hydrating = new SvelteSet<string>()
 const hydrated = new SvelteSet<string>()
 
-// Shared, reactive store of thumbnails per video source. Re-inserting on write
-// keeps the cache in least-recently-used order; eviction also forgets the
-// source's persisted thumbnails so storage stays in step with memory.
+// Shared, reactive store of thumbnails per video source. Re-inserting on write keeps the cache in least-recently-used order; eviction also forgets the source's persisted thumbnails so storage stays in step with memory.
 const frameCache = createObjectUrlCache<CachedFrame[]>({
 	max: MAX_CACHED_SOURCES,
 	kind: THUMBNAIL_KIND,
@@ -79,16 +73,14 @@ function framesFor(source: string): CachedFrame[] {
 }
 
 /**
- * Pull a source's persisted thumbnails into the in-memory cache. Runs while the
- * source isn't already loading; frames captured meanwhile win any collisions.
+ * Pull a source's persisted thumbnails into the in-memory cache. Runs while the source isn't already loading; frames captured meanwhile win any collisions.
  */
 async function hydrate(source: string) {
 	if (hydrated.has(source) || hydrating.has(source)) return
 	hydrating.add(source)
 	try {
 		const stored = await loadThumbnails(THUMBNAIL_KIND, source)
-		// Storage is consulted once per source per session; after this the
-		// in-memory cache is the source of truth.
+		// Storage is consulted once per source per session; after this the in-memory cache is the source of truth.
 		hydrated.add(source)
 		if (stored.length === 0) return
 		const merged = [...framesFor(source)]
@@ -125,16 +117,13 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 	let queue: number[] = []
 	let capturing = false
 	let tolerance = 0.05
-	// The source the capture pool should currently point at, and the source its
-	// video elements were actually created for.
+	// The source the capture pool should currently point at, and the source its video elements were actually created for.
 	let targetSrc = ""
 	let poolSrc = ""
 	let capturers: FrameCapturer[] = []
 	let settleTimers: ReturnType<typeof setTimeout>[] = []
 
-	// Capturing is network-bound, so a small pool of hidden videos working in
-	// parallel fills the strip. Kept deliberately small (and shared with the
-	// navigator) to limit how many video elements load at once.
+	// Capturing is network-bound, so a small pool of hidden videos working in parallel fills the strip. Kept deliberately small (and shared with the navigator) to limit how many video elements load at once.
 	const POOL_SIZE = 2
 
 	/**
@@ -195,8 +184,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 			captured.blob
 		)
 
-		// Only freshly captured frames should fade in; clear the flag shortly
-		// after so frames merely re-sampled while zooming/panning don't flash.
+		// Only freshly captured frames should fade in; clear the flag shortly after so frames merely re-sampled while zooming/panning don't flash.
 		const timer = setTimeout(() => {
 			const list = frameCache.get(source)
 			if (!list) return
@@ -315,19 +303,13 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		const current = view()
 		if (!url || !(current.end > current.start)) return
 
-		// Point the shared capture pool at the current video immediately, so
-		// other callers (the navigator) target the right source too.
+		// Point the shared capture pool at the current video immediately, so other callers (the navigator) target the right source too.
 		targetSrc = url
 
-		// Pull persisted thumbnails in alongside capture. This must be untracked:
-		// `hydrate` synchronously reads and mutates its `hydrating` guard, and
-		// tracking that would make this effect re-run each time hydration starts
-		// or finishes — an endless loop that keeps resetting the capture timer.
+		// Pull persisted thumbnails in alongside capture. This must be untracked: `hydrate` synchronously reads and mutates its `hydrating` guard, and tracking that would make this effect re-run each time hydration starts or finishes – an endless loop that keeps resetting the capture timer.
 		void untrack(() => hydrate(url))
 
-		// Start buffering the first capturer immediately so the initial frames
-		// aren't network-bound. Hydration from persistent storage merges in
-		// alongside; a source with nothing cached captures as it always did.
+		// Start buffering the first capturer immediately so the initial frames aren't network-bound. Hydration from persistent storage merges in alongside; a source with nothing cached captures as it always did.
 		// `untrack` keeps adding frames from re-running this effect.
 		if (untrack(() => framesFor(url).length) === 0) {
 			void getCapturer(0)
@@ -352,9 +334,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 	let captureIndex = 0
 
 	/**
-	 * Capture a single thumbnail from the shared pool. Callers that only need
-	 * occasional frames (the navigator) use this instead of opening their own
-	 * video element, so the whole app keeps a small number of videos in play.
+	 * Capture a single thumbnail from the shared pool. Callers that only need occasional frames (the navigator) use this instead of opening their own video element, so the whole app keeps a small number of videos in play.
 	 */
 	function captureAt(time: number, epsilon?: number): Promise<CapturedFrame> {
 		const url = src()

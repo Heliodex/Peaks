@@ -15,9 +15,7 @@ let {
 >
 	{#if timelapse.playbackUrl}
 		<!--
-			Play straight from the CDN: this element only displays video, so it
-			needs no CORS and shouldn't be streamed through our server. Only the
-			frame capturers and idle scanner (which read pixels) use /lapse-proxy.
+			Play straight from the CDN: this element only displays video, so it needs no CORS and shouldn't be streamed through our server. Only the frame capturers and idle scanner (which read pixels) use /lapse-proxy.
 		-->
 		<video
 			src={timelapse.playbackUrl}

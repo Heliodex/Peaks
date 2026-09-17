@@ -1,10 +1,9 @@
-// Persists the review's user preferences in the browser's local storage, so
-// they survive reloads without travelling in the shared URL.
+// Persists the review's user preferences in the browser's local storage, so they survive reloads without travelling in the shared URL.
 
 export type Settings = {
 	/**
-	 * Stretch the timeline across the full window. When off, it only spans the
-	 * space between the timelapse stats and projects panels.
+	 * Stretch the timeline across the full window.
+	 * When off, it only spans the space between the timelapse stats and projects panels.
 	 */
 	justifyTimeline: boolean
 }

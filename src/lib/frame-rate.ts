@@ -1,7 +1,5 @@
-// The Lapse API doesn't expose a video's encoded frame rate, so we measure it by
-// playing a hidden, muted copy for a short window and counting how many frames
-// are presented per second of media time. Only playback metadata is read, so the
-// copy can play straight from the CDN without going through /lapse-proxy.
+// The Lapse API doesn't expose a video's encoded frame rate, so we measure it by playing a hidden, muted copy for a short window and counting how many frames are presented per second of media time.
+// Only playback metadata is read, so the copy can play straight from the CDN without going through /lapse-proxy.
 
 // Stop once we've seen this many frame presentations (enough for a stable rate)
 const MIN_FRAMES = 3
@@ -14,17 +12,15 @@ type ProbeVideo = HTMLVideoElement & {
 	requestVideoFrameCallback?: (callback: FrameCallback) => number
 }
 
-// Video frame rates are stable per source, so remember successful probes and
-// reuse them instead of decoding another hidden video when a timelapse reopens.
+// Video frame rates are stable per source, so remember successful probes and reuse them instead of decoding another hidden video when a timelapse reopens.
 const frameRateCache = new Map<string, Promise<number>>()
 const MAX_CACHED_RATES = 200
 
 /**
  * Estimate a video's frame rate in frames per second, memoized per source.
  *
- * Returns `0` when the rate can't be determined, in which case callers should
- * disable frame snapping. Frame rates are returned as whole numbers, which is
- * how Lapse encodes them (e.g. 6, 24).
+ * Returns `0` when the rate can't be determined, in which case callers should disable frame snapping.
+ * Frame rates are returned as whole numbers, which is how Lapse encodes them (e.g. 6, 24).
  */
 export function detectFrameRate(src: string): Promise<number> {
 	if (typeof document === "undefined") return Promise.resolve(0)

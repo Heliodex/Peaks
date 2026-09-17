@@ -130,8 +130,7 @@ export function getLapseAuthUrl(state: string, codeChallenge: string): string {
 }
 
 /**
- * Starts the Lapse OAuth login flow: stores CSRF state + PKCE verifier
- * cookies and redirects the user to the Lapse authorisation URL.
+ * Starts the Lapse OAuth login flow: stores CSRF state + PKCE verifier cookies and redirects the user to the Lapse authorisation URL.
  */
 export async function startLapseAuth(): Promise<never> {
 	const { cookies } = getRequestEvent()
@@ -268,8 +267,7 @@ export async function fetchLapseTimelapse(
 }
 
 /**
- * Finds or creates a user from their Lapse profile, updating stored
- * profile data and tokens on every login.
+ * Finds or creates a user from their Lapse profile, updating stored profile data and tokens on every login.
  */
 export async function findOrCreateUser(
 	userInfo: LapseUserInfo,

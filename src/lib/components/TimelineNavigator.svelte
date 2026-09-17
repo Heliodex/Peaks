@@ -57,8 +57,7 @@ const NAV_FRAME_COUNT = 24
 const MAX_CACHED_NAV = 12
 // Persistent-storage namespace for overview thumbnails.
 const NAV_THUMBNAIL_KIND = "nav"
-// Overview thumbnails are stable per source, so keep them across mounts and
-// skip re-capturing when the same timelapse is reopened.
+// Overview thumbnails are stable per source, so keep them across mounts and skip re-capturing when the same timelapse is reopened.
 const navFrameCache = createObjectUrlCache<string[]>({
 	max: MAX_CACHED_NAV,
 	kind: NAV_THUMBNAIL_KIND,
@@ -83,8 +82,7 @@ $effect(() => {
 	}
 
 	let cancelled = false
-	// Frames captured by this run. If the run is cancelled before its frames
-	// are cached, their object URLs are revoked so they can't leak.
+	// Frames captured by this run. If the run is cancelled before its frames are cached, their object URLs are revoked so they can't leak.
 	let frames: string[] = []
 	let retained = false
 
@@ -103,8 +101,7 @@ $effect(() => {
 		}
 
 		navFrames = []
-		// Capture sequentially through the shared timeline pool, so the overview
-		// doesn't open a video element of its own.
+		// Capture sequentially through the shared timeline pool, so the overview doesn't open a video element of its own.
 		for (let i = 0; i < NAV_FRAME_COUNT; i++) {
 			if (cancelled) return
 			const time = (total * i) / (NAV_FRAME_COUNT - 1)

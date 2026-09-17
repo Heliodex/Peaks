@@ -1,4 +1,4 @@
-// Detects stretches of a timelapse where the picture never changes — the time the user spent away from the keyboard — so the UI can mark them and report an "actual" (non-idle) duration.
+// Detects stretches of a timelapse where the picture never changes – the time the user spent away from the keyboard – so the UI can mark them and report an "actual" (non-idle) duration.
 
 import { lapseProxyUrl } from "./lapse.js"
 import { seekVideo } from "./media.js"
@@ -15,15 +15,13 @@ const SAMPLE_WIDTH = 32
 const SAMPLE_HEIGHT = 18
 
 /**
- * Selectable idle-detection thresholds, as a roughly 1-2-5 progression so each
- * step up catches noticeably more as idle. Two samples count as the same frame
- * when their mean absolute channel difference is at or below the threshold.
+ * Selectable idle-detection thresholds, as a roughly 1-2-5 progression so each step up catches noticeably more as idle. Two samples count as the same frame when their mean absolute channel difference is at or below the threshold.
  */
 export const IDLE_THRESHOLD_SCALE: readonly number[] = [
 	0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10,
 ]
 
-/** Mean absolute channel difference (0–255) at or below which two samples count as the same frame. */
+/** Mean absolute channel difference (0-255) at or below which two samples count as the same frame. */
 export const DEFAULT_IDLE_THRESHOLD = IDLE_THRESHOLD_SCALE[0]
 
 /** The selectable threshold closest to `value`. */
@@ -44,19 +42,14 @@ const MAX_SAMPLES = 300
 // Fallback sample spacing when the video's frame rate is unknown.
 const FALLBACK_STEP = 0.5
 
-// A load or seek failure is usually transient — a dropped range request or a
-// decode hiccup — so a sample is retried on a fresh media element before being
-// skipped. These bounds keep a genuinely broken source from spinning forever.
+// A load or seek failure is usually transient – a dropped range request or a decode hiccup – so a sample is retried on a fresh media element before being skipped. These bounds keep a genuinely broken source from spinning forever.
 const MAX_SAMPLE_RETRIES = 3
 const MAX_CONSECUTIVE_FAILURES = 5
 const RETRY_BACKOFF_MS = 250
 const SEEK_TIMEOUT_MS = 15000
 
 /**
- * Times to sample. With a known frame rate every sample lands on a whole frame
- * boundary and is spaced by whole frames, so the idle ranges derived from them
- * line up with the timeline's frame ticks. Without one, samples are spaced
- * evenly by at most the fallback step. Either way the count is capped.
+ * Times to sample. With a known frame rate every sample lands on a whole frame boundary and is spaced by whole frames, so the idle ranges derived from them line up with the timeline's frame ticks. Without one, samples are spaced evenly by at most the fallback step. Either way the count is capped.
  */
 export function idleSampleTimes(duration: number, frameRate: number): number[] {
 	if (duration <= 0) return []
@@ -99,11 +92,7 @@ export function frameDifference(
 }
 
 /**
- * Whether captures at two seek targets can show different frames. Two samples
- * that land in the same frame bucket compare identical by construction and
- * would register as idle, so such pairs are skipped. The epsilon absorbs
- * floating-point error in `frame index × frame rate`. Without a known frame
- * rate, require the pair to span the fallback sample step instead.
+ * Whether captures at two seek targets can show different frames. Two samples that land in the same frame bucket compare identical by construction and would register as idle, so such pairs are skipped. The epsilon absorbs floating-point error in `frame index × frame rate`. Without a known frame rate, require the pair to span the fallback sample step instead.
  */
 function spansFrameBoundary(
 	from: number,
@@ -120,12 +109,9 @@ function spansFrameBoundary(
 }
 
 /**
- * Whether every idle-range boundary sits on a whole frame. Caches sampled
- * before frame-aligned sampling — or without a known frame rate — fail this, so
- * callers can re-scan them instead of showing ranges that miss the ticks.
+ * Whether every idle-range boundary sits on a whole frame. Caches sampled before frame-aligned sampling – or without a known frame rate – fail this, so callers can re-scan them instead of showing ranges that miss the ticks.
  *
- * Times round-trip through share links at millisecond resolution, so a boundary
- * can sit up to half a millisecond off its frame; allow for that.
+ * Times round-trip through share links at millisecond resolution, so a boundary can sit up to half a millisecond off its frame; allow for that.
  */
 export function idleRangesAreFrameAligned(
 	ranges: IdleRange[],
@@ -159,11 +145,7 @@ export function mergeIdleRanges(intervals: IdleRange[]): IdleRange[] {
 /**
  * Sample the video and return the ranges where consecutive samples are visually identical. `onProgress` fires after each sample with the fraction scanned; `onRanges` fires with partial results as new idle spans appear.
  *
- * Loads, seeks and decodes can fail intermittently (dropped range requests,
- * transient decode errors). Rather than aborting the whole scan on the first
- * failure, a sample is retried on a freshly created media element; if it still
- * can't be read the sample is skipped so the rest of the scan — and any idle
- * ranges already found — survive.
+ * Loads, seeks and decodes can fail intermittently (dropped range requests, transient decode errors). Rather than aborting the whole scan on the first failure, a sample is retried on a freshly created media element; if it still can't be read the sample is skipped so the rest of the scan – and any idle ranges already found – survive.
  */
 export function analyzeIdle(
 	src: string,
@@ -182,13 +164,11 @@ export function analyzeIdle(
 	canvas.height = SAMPLE_HEIGHT
 
 	let cancelled = false
-	// The media element currently in use. It's recreated after a failure, so
-	// it can't be captured once and reused for the whole scan.
+	// The media element currently in use. It's recreated after a failure, so it can't be captured once and reused for the whole scan.
 	let video: HTMLVideoElement | null = null
 
 	/**
-	 * Read the element through a function: it's assigned inside nested
-	 * closures, which TypeScript's control-flow analysis doesn't track.
+	 * Read the element through a function: it's assigned inside nested closures, which TypeScript's control-flow analysis doesn't track.
 	 */
 	function currentVideo(): HTMLVideoElement | null {
 		return video
@@ -272,20 +252,14 @@ export function analyzeIdle(
 	}
 
 	const promise = (async () => {
-		// Fail fast if the source can't be read at all; individual samples can
-		// still be skipped once the element is loaded.
+		// Fail fast if the source can't be read at all; individual samples can still be skipped once the element is loaded.
 		await ensureVideo()
 
 		const ctx = canvas.getContext("2d", { willReadFrequently: true })
 		if (!ctx) throw new Error("No canvas context")
 
 		const times = idleSampleTimes(duration, frameRate)
-		// A run of identical frames is idle from the *second* capture onward:
-		// the first capture of a scene is the normal frame, and it's the
-		// unchanged repeat that marks time away. With a known frame rate, shift
-		// each idle interval one frame later so it covers the repeated frame
-		// rather than the original. Without a frame rate there are no frame
-		// ticks to align to, so the sampled boundaries stand.
+		// A run of identical frames is idle from the *second* capture onward: the first capture of a scene is the normal frame, and it's the unchanged repeat that marks time away. With a known frame rate, shift each idle interval one frame later so it covers the repeated frame rather than the original. Without a frame rate there are no frame ticks to align to, so the sampled boundaries stand.
 		const frameDuration = frameRate > 0 ? 1 / frameRate : 0
 		const intervals: IdleRange[] = []
 		let previous: Uint8ClampedArray | null = null
@@ -316,9 +290,7 @@ export function analyzeIdle(
 					SAMPLE_HEIGHT
 				).data
 			} catch {
-				// Even a fresh element couldn't produce this frame. Drop the
-				// baseline so the next comparison isn't made across the gap,
-				// and give up if the source stays unreadable.
+				// Even a fresh element couldn't produce this frame. Drop the baseline so the next comparison isn't made across the gap, and give up if the source stays unreadable.
 				consecutiveFailures++
 				previous = null
 				previousTarget = -1
@@ -328,12 +300,7 @@ export function analyzeIdle(
 			}
 			consecutiveFailures = 0
 
-			// Without a known frame rate the trailing sample is clamped to the
-			// video's end, where end-of-media seek flakiness can make it match
-			// its predecessor even when the frames differ, so only let it
-			// extend an idle run the previous pair already established. With a
-			// frame rate, samples are exact frame boundaries and
-			// `spansFrameBoundary` already rejects any same-frame pair.
+			// Without a known frame rate the trailing sample is clamped to the video's end, where end-of-media seek flakiness can make it match its predecessor even when the frames differ, so only let it extend an idle run the previous pair already established. With a frame rate, samples are exact frame boundaries and `spansFrameBoundary` already rejects any same-frame pair.
 			const isFinal = i === times.length - 1
 			const phantomTrailingPair =
 				isFinal && frameRate <= 0 && times.length >= 3 && !previousIdle
@@ -355,8 +322,7 @@ export function analyzeIdle(
 			previousTarget = target
 			callbacks.onProgress?.((i + 1) / times.length)
 
-			// Only push partial ranges when a new idle span appears, so the
-			// idle overlays aren't rebuilt on every single sampled frame.
+			// Only push partial ranges when a new idle span appears, so the idle overlays aren't rebuilt on every single sampled frame.
 			const live = mergeIdleRanges(intervals)
 			const done = i === times.length - 1
 			if (done || live.length !== reportedCount) {

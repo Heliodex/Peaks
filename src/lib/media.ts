@@ -1,9 +1,8 @@
 // Small helpers for driving hidden <video> elements.
 
 /**
- * Resolve once `video.currentTime` has settled on `time`. Passing `timeoutMs`
- * rejects if the seek never settles, so a stalled seek can't block a capturer
- * that's shared between consumers.
+ * Resolve once `video.currentTime` has settled on `time`.
+ * Passing `timeoutMs` rejects if the seek never settles, so a stalled seek can't block a capturer that's shared between consumers.
  */
 export function seekVideo(
 	video: HTMLVideoElement,

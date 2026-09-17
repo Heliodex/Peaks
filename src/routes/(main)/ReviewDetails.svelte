@@ -37,7 +37,8 @@ let {
 
 type Tab = "data" | "settings"
 
-// Which tab is showing. The user details footer stays visible in both.
+// Which tab is showing.
+// The user details footer stays visible in both.
 let tab = $state<Tab>("data")
 </script>
 
@@ -75,10 +76,8 @@ let tab = $state<Tab>("data")
 	>
 		{#if tab === "data"}
 			<!--
-				Recreate the stats when a different timelapse opens. Its derived
-				values (annotations, actual time, description) can otherwise keep
-				the previous timelapse's selections after navigating until an
-				unrelated input changes.
+				Recreate the stats when a different timelapse opens.
+				Its derived values (annotations, actual time, description) can otherwise keep the previous timelapse's selections after navigating until an unrelated input changes.
 			-->
 			{#key timelapse?.id}
 				<TimelapseStats

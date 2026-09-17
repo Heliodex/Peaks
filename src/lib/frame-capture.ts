@@ -31,12 +31,12 @@ function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
 	})
 }
 
-// Give up on a seek that never settles, so one stalled frame can't block a
-// capturer that's shared between the timeline strip and the navigator.
+// Give up on a seek that never settles, so one stalled frame can't block a capturer that's shared between the timeline strip and the navigator.
 const SEEK_TIMEOUT_MS = 10000
 
 /**
- * Create a reusable frame capturer backed by one hidden, muted video element. Load it once, then call `captureAt` for as many frames as needed; call `dispose` when finished.
+ * Create a reusable frame capturer backed by one hidden, muted video element.
+ * Load it once, then call `captureAt` for as many frames as needed; call `dispose` when finished.
  */
 export function createFrameCapturer(
 	src: string,
@@ -86,9 +86,8 @@ export function createFrameCapturer(
 	}
 
 	/**
-	 * Capture a frame, serialized against other callers. The timeline strip and
-	 * the navigator overview share one capturer, so queueing here stops their
-	 * seeks from interleaving on the same video element.
+	 * Capture a frame, serialized against other callers.
+	 * The timeline strip and the navigator overview share one capturer, so queueing here stops their seeks from interleaving on the same video element.
 	 */
 	function captureAt(time: number, epsilon = 0.001): Promise<CapturedFrame> {
 		const task = queue.then(() => runCapture(time, epsilon))

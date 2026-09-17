@@ -1,13 +1,10 @@
-// Persists captured preview thumbnails (data URLs) in the Cache Storage API so
-// they survive page reloads. Every operation is best-effort: when the Cache API
-// is unavailable (an insecure context, or storage denied), it no-ops and the
-// in-memory caches behave exactly as before.
+// Persists captured preview thumbnails (data URLs) in the Cache Storage API so they survive page reloads.
+// Every operation is best-effort: when the Cache API is unavailable (an insecure context, or storage denied), it no-ops and the in-memory caches behave exactly as before.
 
 const CACHE_NAME = "peaks:thumbnails:v2"
 // A same-origin path used purely as a cache key; it never hits the server.
 const KEY_PATH = "/__peaks-thumbnails"
-// Upper bound on how many sources' thumbnails to retain per kind, so storage
-// can't creep up across sessions.
+// Upper bound on how many sources' thumbnails to retain per kind, so storage can't creep up across sessions.
 const MAX_PERSISTED_SOURCES = 12
 
 export type StoredThumbnail = { key: number; blob: Blob }
@@ -21,8 +18,7 @@ function keyFor(kind: string, source: string, key: number): string {
 	return `${KEY_PATH}?${params}`
 }
 
-// The opened cache is shared for the page's lifetime; opening it repeatedly on
-// every thumbnail write would add avoidable overhead on the capture hot path.
+// The opened cache is shared for the page's lifetime; opening it repeatedly on every thumbnail write would add avoidable overhead on the capture hot path.
 let cachePromise: Promise<Cache | null> | null = null
 
 function openCache(): Promise<Cache | null> {
@@ -112,8 +108,8 @@ export async function deleteThumbnails(
 }
 
 /**
- * Drop the oldest sources beyond the retention limit. Cache Storage lists
- * entries in insertion order, so the most recently written sources are kept.
+ * Drop the oldest sources beyond the retention limit.
+ * Cache Storage lists entries in insertion order, so the most recently written sources are kept.
  */
 export async function pruneThumbnails(): Promise<void> {
 	const cache = await openCache()
@@ -155,8 +151,7 @@ export async function pruneThumbnails(): Promise<void> {
 	}
 }
 
-// Trim anything left over from previous sessions, once per page load, but wait
-// until after first paint so pruning can't delay the initial thumbnails.
+// Trim anything left over from previous sessions, once per page load, but wait until after first paint so pruning can't delay the initial thumbnails.
 if (typeof window !== "undefined") {
 	if (typeof requestIdleCallback === "function") {
 		requestIdleCallback(() => void pruneThumbnails())

@@ -1,5 +1,4 @@
-// Proxies the Lapse CDN's video files through the server so the client can
-// read pixels for timeline previews without the CDN sending CORS headers.
+// Proxies the Lapse CDN's video files through the server so the client can read pixels for timeline previews without the CDN sending CORS headers.
 import type { RequestEvent } from "@sveltejs/kit"
 import { error } from "@sveltejs/kit"
 import { authorise } from "#lib/server/auth.js"
@@ -29,11 +28,7 @@ export async function GET({ url, request }: RequestEvent) {
 	}
 
 	const range = request.headers.get("range")
-	// Pass through validators so a revalidation can be answered with a cheap 304
-	// instead of streaming the whole file again. Never do this for range
-	// requests, though: a server may answer a conditional range request with a
-	// 304 and no body, which a media element can't decode. Range requests always
-	// need the actual bytes.
+	// Pass through validators so a revalidation can be answered with a cheap 304 instead of streaming the whole file again. Never do this for range requests, though: a server may answer a conditional range request with a 304 and no body, which a media element can't decode. Range requests always need the actual bytes.
 	const conditional: Record<string, string> = {}
 	if (!range) {
 		const ifNoneMatch = request.headers.get("if-none-match")
@@ -61,8 +56,7 @@ export async function GET({ url, request }: RequestEvent) {
 		const value = upstream.headers.get(name)
 		if (value) headers.set(name, value)
 	}
-	// Lapse media URLs are unique per timelapse and never rewritten, so a long,
-	// immutable lifetime is safe and keeps revisits from touching the network.
+	// Lapse media URLs are unique per timelapse and never rewritten, so a long, immutable lifetime is safe and keeps revisits from touching the network.
 	// `private` keeps the authenticated response out of shared caches.
 	headers.set("cache-control", "private, max-age=31536000, immutable")
 

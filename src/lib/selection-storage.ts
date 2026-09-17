@@ -1,6 +1,4 @@
-// Persists a timelapse's selections (with their annotation reasons) to the
-// browser's local storage so they can be restored when the same timelapse is
-// reopened.
+// Persists a timelapse's selections (with their annotation reasons) to the browser's local storage so they can be restored when the same timelapse is reopened.
 
 import type { TimelineSelection } from "./timeline.js"
 

@@ -1,6 +1,5 @@
 // A reactive, least-recently-used cache of object URLs keyed by media source.
-// Re-inserting an entry marks it as most recently used; overflowing the limit
-// revokes the evicted entry's object URLs and forgets its persisted thumbnails.
+// Re-inserting an entry marks it as most recently used; overflowing the limit revokes the evicted entry's object URLs and forgets its persisted thumbnails.
 
 import { SvelteMap } from "svelte/reactivity"
 import { deleteThumbnails } from "./thumbnail-store.js"

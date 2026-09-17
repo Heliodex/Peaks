@@ -1,20 +1,8 @@
-// Encodes a review session — the open timelapse's selections plus the project
-// currently open in the sidebar — into a compact, URL-safe string so it can be
-// shared or bookmarked. Times are stored as integer milliseconds and annotation
-// reasons as their stable catalog ids (never positional indexes, so reordering
-// ANNOTATION_REASONS can't remap existing links).
+// Encodes a review session – the open timelapse's selections plus the project currently open in the sidebar – into a compact, URL-safe string so it can be shared or bookmarked. Times are stored as integer milliseconds and annotation reasons as their stable catalog ids (never positional indexes, so reordering ANNOTATION_REASONS can't remap existing links).
 //
-// Only the raw review inputs travel: each timelapse's detected idle ranges and
-// its annotation selections. The human-readable description, per-reason
-// deflation totals and idle duration are recomputed on decode, which keeps the
-// payload far smaller than shipping the rendered prose and lets the cached idle
-// scan be reused instead of redone.
+// Only the raw review inputs travel: each timelapse's detected idle ranges and its annotation selections. The human-readable description, per-reason deflation totals and idle duration are recomputed on decode, which keeps the payload far smaller than shipping the rendered prose and lets the cached idle scan be reused instead of redone.
 //
-// The positional JSON array is then deflated with raw deflate (so there are no
-// zlib/gzip wrapper bytes) and base64url encoded without a leading marker. This
-// string is the whole share URL path: the open timelapse id is recovered from it
-// rather than stored separately. Only the current project travels in the URL;
-// the rest stay in local storage.
+// The positional JSON array is then deflated with raw deflate (so there are no zlib/gzip wrapper bytes) and base64url encoded without a leading marker. This string is the whole share URL path: the open timelapse id is recovered from it rather than stored separately. Only the current project travels in the URL; the rest stay in local storage.
 
 import {
 	ANNOTATION_REASONS,
@@ -178,10 +166,7 @@ function parseIdleRanges(value: unknown): IdleRange[] | undefined {
 }
 
 /**
- * Rebuild a project entry from its raw review inputs, recomputing the derived
- * idle duration, annotation breakdown and description that used to be shipped.
- * Returns the entry alongside the raw selections it was derived from, so the
- * caller can persist them for reopening the timelapse later.
+ * Rebuild a project entry from its raw review inputs, recomputing the derived idle duration, annotation breakdown and description that used to be shipped. Returns the entry alongside the raw selections it was derived from, so the caller can persist them for reopening the timelapse later.
  */
 function parseProjectEntry(
 	value: unknown,
@@ -209,8 +194,7 @@ function parseProjectEntry(
 	const idleRanges = parseIdleRanges(rawIdleRanges)
 	const selections =
 		id === openId ? openSelections : parseSelections(rawSelections)
-	// Links encoded before the threshold was adjustable omit it; any value
-	// snaps to the nearest selectable threshold.
+	// Links encoded before the threshold was adjustable omit it; any value snaps to the nearest selectable threshold.
 	const idleThreshold = nearestIdleThreshold(
 		typeof rawThreshold === "number" ? rawThreshold : Number.NaN
 	)
@@ -252,10 +236,7 @@ export async function decodeShare(value: string): Promise<ShareState | null> {
 			.filter((entry): entry is NonNullable<typeof entry> =>
 				Boolean(entry)
 			)
-		// Persist every timelapse's selections so opening a non-open entry
-		// later (which reads from storage via `loadSelections`) restores its
-		// annotations instead of starting empty. The open entry is also saved
-		// here so it survives even if the selections effect hasn't run yet.
+		// Persist every timelapse's selections so opening a non-open entry later (which reads from storage via `loadSelections`) restores its annotations instead of starting empty. The open entry is also saved here so it survives even if the selections effect hasn't run yet.
 		for (const { entry, selections: entrySelections } of parsed) {
 			saveSelections(entry.id, entrySelections)
 		}
