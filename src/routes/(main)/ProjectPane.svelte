@@ -11,7 +11,6 @@ let {
 	projects = [],
 	currentProjectId = "",
 	focusNameId = null,
-	projectName = "",
 	projectEntries = [],
 	submittedId,
 	projectTotals,
@@ -30,7 +29,6 @@ let {
 	currentProjectId: string
 	/** Project whose name field should take focus, set right after creating one. */
 	focusNameId?: string | null
-	projectName: string
 	projectEntries: ProjectTimelapse[]
 	submittedId: string
 	projectTotals: ProjectTotals
@@ -39,7 +37,7 @@ let {
 	loadError?: string | null
 	onLoad: (id: string) => void
 	onRemoveTimelapse: (id: string) => void
-	onRenameProject: (name: string) => void
+	onRenameProject: (id: string, name: string) => void
 	onReorderProject: (entries: ProjectTimelapse[]) => void
 	onSelectProject: (id: string) => void
 	onCreateProject: () => void
@@ -74,7 +72,6 @@ let {
 		<ProjectList
 			{projects}
 			{currentProjectId}
-			{projectName}
 			{focusNameId}
 			{onRenameProject}
 			{onSelectProject}

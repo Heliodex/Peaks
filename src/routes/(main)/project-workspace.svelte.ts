@@ -64,10 +64,12 @@ export class ProjectWorkspace {
 		)
 	}
 
-	/** Rename the open project. */
-	renameCurrentProject(name: string) {
+	/** Rename a project by id. */
+	renameProject(id: string, name: string) {
 		const trimmed = name.trim() || DEFAULT_PROJECT_NAME
-		this.updateCurrentProject(project => ({ ...project, name: trimmed }))
+		this.projects = this.projects.map(project =>
+			project.id === id ? { ...project, name: trimmed } : project
+		)
 	}
 
 	/** Replace the open project's timelapse order. */

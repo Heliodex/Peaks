@@ -4,6 +4,7 @@ import { prefersReducedMotion } from "svelte/motion"
 import { fade } from "svelte/transition"
 import { createCopyToClipboard } from "#lib/copy.svelte.js"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
+import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
 import { entryFinalDuration, formatDuration } from "./review-format.js"
 
 let {
@@ -26,17 +27,12 @@ const clipboard = createCopyToClipboard()
 let menu = $state<{ id: string; name: string; x: number; y: number } | null>(
 	null
 )
-let menuEl = $state<HTMLDivElement>()
 // Focus to restore when the menu is dismissed with Escape.
 let previousFocus: HTMLElement | null = null
 // Where the copy confirmation shows, captured before the menu closes.
 let copiedAt = $state<{ x: number; y: number } | null>(null)
 
 let draggingId = $state<string | null>(null)
-
-/** Approximate menu size, used to keep it inside the viewport. */
-const MENU_WIDTH = 176
-const MENU_HEIGHT = 62
 
 /**
  * Move the entry at `from` so it lands at `insert`.
@@ -115,91 +111,23 @@ function moveEntryBy(id: string, delta: number) {
 function openMenu(event: MouseEvent, entry: ProjectTimelapse) {
 	event.preventDefault()
 	previousFocus = document.activeElement as HTMLElement | null
-	const row = (event.currentTarget as HTMLElement).getBoundingClientRect()
-	// Keyboard-triggered context menus report (0, 0); anchor those to the row instead.
-	const fromKeyboard = event.clientX === 0 && event.clientY === 0
-	const x = fromKeyboard ? row.left + 24 : event.clientX
-	const y = fromKeyboard ? row.bottom : event.clientY
 	menu = {
 		id: entry.id,
 		name: entry.name || entry.id,
-		x: Math.max(8, Math.min(x, window.innerWidth - MENU_WIDTH - 8)),
-		y: Math.max(8, Math.min(y, window.innerHeight - MENU_HEIGHT - 8)),
+		...contextMenuPosition(event),
 	}
 }
 
-function closeMenu() {
+function closeMenu(restoreFocus = false) {
 	menu = null
+	if (restoreFocus) previousFocus?.focus()
 }
 
-/** Dismiss the menu with Escape, returning focus to where it came from; arrow keys move between items. */
-function onMenuKeydown(event: KeyboardEvent) {
-	if (event.key === "Escape") {
-		event.preventDefault()
-		closeMenu()
-		previousFocus?.focus()
-		return
-	}
-
-	const items = menuEl
-		? [...menuEl.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
-		: []
-	if (items.length === 0) return
-	const index = items.indexOf(document.activeElement as HTMLButtonElement)
-
-	if (event.key === "ArrowDown") {
-		event.preventDefault()
-		items[(index + 1) % items.length]?.focus()
-	} else if (event.key === "ArrowUp") {
-		event.preventDefault()
-		items[(index - 1 + items.length) % items.length]?.focus()
-	} else if (event.key === "Home") {
-		event.preventDefault()
-		items[0]?.focus()
-	} else if (event.key === "End") {
-		event.preventDefault()
-		items[items.length - 1]?.focus()
-	}
+/** Copy the id, showing the confirmation where the menu was. */
+function copyId(id: string, x: number, y: number) {
+	copiedAt = { x, y }
+	void clipboard.copy(id)
 }
-
-function copyMenuId() {
-	if (!menu) return
-	// Show the confirmation where the menu was, then dismiss it straight away.
-	copiedAt = { x: menu.x, y: menu.y }
-	void clipboard.copy(menu.id)
-	closeMenu()
-}
-
-function deleteMenuEntry() {
-	if (!menu) return
-	onRemoveTimelapse(menu.id)
-	closeMenu()
-}
-
-// Focus the first item once the menu is in the DOM.
-$effect(() => {
-	if (!menu) return
-	menuEl?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
-})
-
-// Dismiss an open menu on an outside press, scroll, resize or window blur.
-$effect(() => {
-	if (!menu) return
-	const onPointerDown = (event: PointerEvent) => {
-		if (menuEl && !menuEl.contains(event.target as Node)) closeMenu()
-	}
-	const dismiss = () => closeMenu()
-	window.addEventListener("pointerdown", onPointerDown, true)
-	window.addEventListener("scroll", dismiss, true)
-	window.addEventListener("resize", dismiss)
-	window.addEventListener("blur", dismiss)
-	return () => {
-		window.removeEventListener("pointerdown", onPointerDown, true)
-		window.removeEventListener("scroll", dismiss, true)
-		window.removeEventListener("resize", dismiss)
-		window.removeEventListener("blur", dismiss)
-	}
-})
 </script>
 
 <ul
@@ -286,34 +214,24 @@ $effect(() => {
 </ul>
 
 {#if menu}
-	<div
-		bind:this={menuEl}
-		class="fixed z-50 flex min-w-44 flex-col border border-line bg-surface-raised py-0.5 shadow-2xl shadow-black/60"
-		style:left="{menu.x}px"
-		style:top="{menu.y}px"
-		role="menu"
-		tabindex="-1"
-		aria-label="{menu.name} actions"
-		onkeydown={onMenuKeydown}
-		oncontextmenu={event => event.preventDefault()}
-	>
-		<button
-			type="button"
-			role="menuitem"
-			onclick={copyMenuId}
-			class="flex cursor-pointer items-center gap-2 px-3 py-1 text-left text-sm text-neutral-300 transition-colors hover:bg-neutral-800/70 hover:text-white focus:bg-neutral-800/70 focus:text-white active:translate-y-px active:bg-primary-500/20 active:text-primary-200"
-		>
-			Copy ID
-		</button>
-		<button
-			type="button"
-			role="menuitem"
-			onclick={deleteMenuEntry}
-			class="flex cursor-pointer items-center gap-2 px-3 py-1 text-left text-sm text-neutral-300 transition-colors hover:bg-red-500/10 hover:text-red-400 focus:bg-red-500/10 focus:text-red-400 active:translate-y-px active:bg-red-500/20 active:text-red-300"
-		>
-			Delete from project
-		</button>
-	</div>
+	{const current = menu}
+	<ContextMenu
+		x={current.x}
+		y={current.y}
+		label="{current.name} actions"
+		onClose={closeMenu}
+		items={[
+			{
+				label: "Copy ID",
+				onSelect: () => copyId(current.id, current.x, current.y),
+			},
+			{
+				label: "Delete from project",
+				danger: true,
+				onSelect: () => onRemoveTimelapse(current.id),
+			},
+		]}
+	/>
 {/if}
 
 {#if clipboard.copied && copiedAt}

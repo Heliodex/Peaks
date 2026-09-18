@@ -273,7 +273,6 @@ const summary = new ProjectSummary({
 		projects={workspace.projects}
 		currentProjectId={workspace.currentProjectId}
 		focusNameId={workspace.focusNameId}
-		projectName={workspace.projectName}
 		projectEntries={workspace.projectEntries}
 		submittedId={session.submittedId}
 		projectTotals={summary.totals}
@@ -281,7 +280,7 @@ const summary = new ProjectSummary({
 		loadError={workspace.loadError}
 		onLoad={loadId}
 		onRemoveTimelapse={removeEntry}
-		onRenameProject={name => workspace.renameCurrentProject(name)}
+		onRenameProject={(id, name) => workspace.renameProject(id, name)}
 		onReorderProject={timelapses =>
 			workspace.reorderCurrentProject(timelapses)}
 		onSelectProject={id => workspace.selectProject(id)}
