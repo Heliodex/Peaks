@@ -4,9 +4,8 @@ import type { TimelineSelection } from "./timeline.js"
 
 const STORAGE_PREFIX = "peaks:selections:"
 
-function storageKey(timelapseId: string): string {
-	return `${STORAGE_PREFIX}${timelapseId}`
-}
+const storageKey = (timelapseId: string): string =>
+	`${STORAGE_PREFIX}${timelapseId}`
 
 /** Validate a value read back from storage before trusting it as a selection. */
 function parseSelection(value: unknown): TimelineSelection | null {

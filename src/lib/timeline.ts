@@ -19,9 +19,8 @@ export const PLAYBACK_TO_RECORDED = 60
  */
 export const MIN_VISIBLE_FRAMES = 30
 
-export function clamp(value: number, min: number, max: number): number {
-	return Math.min(max, Math.max(min, value))
-}
+export const clamp = (value: number, min: number, max: number): number =>
+	Math.min(max, Math.max(min, value))
 
 /** Quantize a time to the nearest frame boundary (no-op without a frame rate). */
 export function snapToFrame(time: number, frameRate: number): number {

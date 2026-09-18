@@ -65,15 +65,14 @@ const framesFor = (source: string): CachedFrame[] =>
 	frameCache.get(source) ?? []
 
 /** Keep the `limit` frames nearest `center`, preserving order for the final sort. */
-function trimFramesNear(
+const trimFramesNear = (
 	candidates: CachedFrame[],
 	center: number,
 	limit: number
-): CachedFrame[] {
-	return [...candidates]
+): CachedFrame[] =>
+	[...candidates]
 		.sort((a, b) => Math.abs(a.time - center) - Math.abs(b.time - center))
 		.slice(0, limit)
-}
 
 /** Revoke the object URLs of frames that `kept` dropped. */
 function revokeDropped(candidates: CachedFrame[], kept: CachedFrame[]) {

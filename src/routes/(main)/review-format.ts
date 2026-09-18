@@ -54,18 +54,16 @@ export function formatTimeSince(timestamp: number, now = Date.now()): string {
 }
 
 /** Total recorded seconds removed by a set of annotation reasons. */
-export function annotationTotal(annotations: AnnotationDeflation[]): number {
-	return annotations.reduce((sum, annotation) => sum + annotation.duration, 0)
-}
+export const annotationTotal = (annotations: AnnotationDeflation[]): number =>
+	annotations.reduce((sum, annotation) => sum + annotation.duration, 0)
 
 /** Recorded seconds an entry contributes once idle and annotations are removed. */
-export function entryFinalDuration(entry: {
+export const entryFinalDuration = (entry: {
 	duration: number
 	idleDuration: number
 	annotations: AnnotationDeflation[]
-}): number {
-	return Math.max(
+}): number =>
+	Math.max(
 		0,
 		entry.duration - entry.idleDuration - annotationTotal(entry.annotations)
 	)
-}

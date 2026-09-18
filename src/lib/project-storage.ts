@@ -44,9 +44,8 @@ export const DEFAULT_PROJECT_NAME = "Untitled project"
 
 const STORAGE_KEY = "peaks:projects"
 
-function isFiniteNonNegative(value: unknown): value is number {
-	return typeof value === "number" && Number.isFinite(value) && value >= 0
-}
+const isFiniteNonNegative = (value: unknown): value is number =>
+	typeof value === "number" && Number.isFinite(value) && value >= 0
 
 function parseAnnotation(value: unknown): AnnotationDeflation | null {
 	if (typeof value !== "object" || value === null) return null
@@ -166,9 +165,11 @@ export function newProjectId(): string {
 }
 
 /** Create an empty project, optionally named. */
-export function createProject(name = DEFAULT_PROJECT_NAME): Project {
-	return { id: newProjectId(), name, timelapses: [] }
-}
+export const createProject = (name = DEFAULT_PROJECT_NAME): Project => ({
+	id: newProjectId(),
+	name,
+	timelapses: [],
+})
 
 /** Pick a default name that doesn't collide with an existing project. */
 export function uniqueProjectName(projects: Project[]): string {

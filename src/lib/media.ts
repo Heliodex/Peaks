@@ -4,12 +4,12 @@
  * Resolve once `video.currentTime` has settled on `time`.
  * Passing `timeoutMs` rejects if the seek never settles, so a stalled seek can't block a capturer that's shared between consumers.
  */
-export function seekVideo(
+export const seekVideo = (
 	video: HTMLVideoElement,
 	time: number,
 	timeoutMs?: number
-): Promise<void> {
-	return new Promise<void>((resolve, reject) => {
+): Promise<void> =>
+	new Promise<void>((resolve, reject) => {
 		if (
 			video.readyState >= 2 &&
 			Math.abs(video.currentTime - time) < 0.001
@@ -43,4 +43,3 @@ export function seekVideo(
 		video.addEventListener("abort", onError)
 		video.currentTime = time
 	})
-}

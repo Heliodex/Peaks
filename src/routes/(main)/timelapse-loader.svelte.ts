@@ -11,18 +11,16 @@ import type { ReviewTimelapse } from "./review-types.js"
 type ResolvedId = { id: string; meta: ReviewTimelapse | null }
 
 /** A project entry for a timelapse whose metadata hasn't resolved yet. */
-function emptyTimelapse(id: string): ProjectTimelapse {
-	return {
-		id,
-		name: "",
-		duration: 0,
-		idleDuration: 0,
-		annotations: [],
-		ignoreIdle: false,
-		idleThreshold: DEFAULT_IDLE_THRESHOLD,
-		description: "",
-	}
-}
+const emptyTimelapse = (id: string): ProjectTimelapse => ({
+	id,
+	name: "",
+	duration: 0,
+	idleDuration: 0,
+	annotations: [],
+	ignoreIdle: false,
+	idleThreshold: DEFAULT_IDLE_THRESHOLD,
+	description: "",
+})
 
 /** Comparator that restores the order ids appeared in the pasted input. */
 function inputOrderComparator(ids: string[]) {

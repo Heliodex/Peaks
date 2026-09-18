@@ -65,12 +65,11 @@ function fromBase64Url(value: string): Uint8Array {
 }
 
 /** Copy a (possibly offset) byte view into a plain ArrayBuffer for Blob. */
-function asArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-	return bytes.buffer.slice(
+const asArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
+	bytes.buffer.slice(
 		bytes.byteOffset,
 		bytes.byteOffset + bytes.byteLength
 	) as ArrayBuffer
-}
 
 /** Compress `bytes` with raw DEFLATE, which carries no zlib/gzip wrapper. */
 async function deflate(bytes: Uint8Array): Promise<Uint8Array> {
@@ -87,13 +86,11 @@ async function inflate(bytes: Uint8Array): Promise<Uint8Array> {
 	return new Uint8Array(await new Response(stream).arrayBuffer())
 }
 
-function selectionTuple(selection: TimelineSelection): ShareSelectionTuple {
-	return [
-		Math.round(selection.start * 1000),
-		Math.round(selection.end * 1000),
-		selection.reason ?? "",
-	]
-}
+const selectionTuple = (selection: TimelineSelection): ShareSelectionTuple => [
+	Math.round(selection.start * 1000),
+	Math.round(selection.end * 1000),
+	selection.reason ?? "",
+]
 
 export async function encodeShare(state: ShareState): Promise<string> {
 	const payload: SharePayload = [

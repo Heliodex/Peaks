@@ -23,19 +23,16 @@ type ReviewSyncOptions = {
 }
 
 /** Whether two annotation breakdowns carry the same reasons and durations. */
-function sameAnnotations(
+const sameAnnotations = (
 	a: AnnotationDeflation[],
 	b: AnnotationDeflation[]
-): boolean {
-	return (
-		a.length === b.length &&
-		a.every(
-			(annotation, i) =>
-				annotation.reason === b[i].reason &&
-				annotation.duration === b[i].duration
-		)
+): boolean =>
+	a.length === b.length &&
+	a.every(
+		(annotation, i) =>
+			annotation.reason === b[i].reason &&
+			annotation.duration === b[i].duration
 	)
-}
 
 /** Whether two cached idle-range lists match (including both being absent). */
 function sameIdleRanges(

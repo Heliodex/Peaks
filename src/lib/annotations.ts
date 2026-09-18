@@ -198,22 +198,18 @@ export function selectionDeflation(
 }
 
 /** Length of a set of idle ranges, in playback seconds. */
-export function idlePlaybackSeconds(idleRanges: IdleRange[]): number {
-	return idleRanges.reduce((sum, range) => sum + (range.end - range.start), 0)
-}
+export const idlePlaybackSeconds = (idleRanges: IdleRange[]): number =>
+	idleRanges.reduce((sum, range) => sum + (range.end - range.start), 0)
 
 /** Recorded seconds removed by a set of idle ranges. */
-export function idleRecordedSeconds(idleRanges: IdleRange[]): number {
-	return idlePlaybackSeconds(idleRanges) * PLAYBACK_TO_RECORDED
-}
+export const idleRecordedSeconds = (idleRanges: IdleRange[]): number =>
+	idlePlaybackSeconds(idleRanges) * PLAYBACK_TO_RECORDED
 
 /** Idle ranges that count towards the maths (none while overridden). */
-export function effectiveIdleRanges(
+export const effectiveIdleRanges = (
 	ignoreIdle: boolean,
 	idleRanges: IdleRange[]
-): IdleRange[] {
-	return ignoreIdle ? [] : idleRanges
-}
+): IdleRange[] => (ignoreIdle ? [] : idleRanges)
 
 /** Recorded time removed by a single annotation reason. */
 export type AnnotationDeflation = {
@@ -226,11 +222,11 @@ export type AnnotationDeflation = {
 /**
  * Recorded seconds removed by each annotation reason across `selections`, in catalog order. Reasons that removed nothing are omitted.
  */
-export function deflationByReason(
+export const deflationByReason = (
 	selections: TimelineSelection[],
 	idleRanges: IdleRange[]
-): AnnotationDeflation[] {
-	return ANNOTATION_REASONS.map(reason => ({
+): AnnotationDeflation[] =>
+	ANNOTATION_REASONS.map(reason => ({
 		reason: reason.id,
 		duration: selections
 			.filter(selection => selection.reason === reason.id)
@@ -240,7 +236,6 @@ export function deflationByReason(
 				0
 			),
 	})).filter(entry => entry.duration > 0)
-}
 
 /**
  * Format a run of spans as `0:07-0:08, 0:09-0:12`. Spans that read the same – several short idle stretches can land within one clock second – collapse to a count, e.g. `0:12 (2)`, so identical times aren't repeated in the list.

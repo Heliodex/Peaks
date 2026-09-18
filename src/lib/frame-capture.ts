@@ -18,8 +18,8 @@ export type FrameCapturer = {
 }
 
 /** Encode a canvas as a JPEG blob (the async counterpart of `toDataURL`). */
-function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
-	return new Promise((resolve, reject) => {
+const toBlob = (canvas: HTMLCanvasElement, quality: number): Promise<Blob> =>
+	new Promise((resolve, reject) => {
 		canvas.toBlob(
 			blob =>
 				blob
@@ -29,7 +29,6 @@ function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
 			quality
 		)
 	})
-}
 
 /** A reusable canvas that scales a video frame to `width` and encodes it as a JPEG blob. */
 function createFrameEncoder(width: number, quality: number) {
