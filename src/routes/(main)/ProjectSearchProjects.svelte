@@ -49,10 +49,11 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 		{@attach scrollProjectIntoView}
 	>
 		{#each projects as project, index (project.id)}
-			{const selected =
+			{const selected = $derived(
 				mode === "projects"
 					? index === active
-					: project.id === expandedProjectId}
+					: project.id === expandedProjectId
+			)}
 			<div
 				role="presentation"
 				class="flex h-9 items-center {selected
