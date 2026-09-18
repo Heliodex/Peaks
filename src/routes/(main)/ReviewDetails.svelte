@@ -8,6 +8,7 @@ import TimelapseStats from "./TimelapseStats.svelte"
 
 let {
 	timelapse = null,
+	hasTimelapse,
 	selections = $bindable<TimelineSelection[]>([]),
 	idleRanges,
 	idleAnalyzing,
@@ -22,6 +23,8 @@ let {
 }: {
 	/** The open timelapse, or `null` while none is selected. */
 	timelapse?: ReviewTimelapse | null
+	/** Whether a timelapse is open at all (even before its metadata resolves). */
+	hasTimelapse: boolean
 	selections?: TimelineSelection[]
 	idleRanges: IdleRange[]
 	idleAnalyzing: boolean
@@ -37,27 +40,31 @@ let {
 
 type Tab = "data" | "settings"
 
-const TABS: Tab[] = ["data", "settings"]
-
 // Which tab is showing.
 // The user details footer stays visible in both.
 let tab = $state<Tab>("data")
 let tablistEl: HTMLDivElement
 
-/** Move between tabs with the arrow keys (and Home/End), as expected of an ARIA tablist. */
+// With no timelapse open the data tab has nothing to show, so it is hidden and the panel stays on settings.
+const visibleTabs = $derived<Tab[]>(
+	hasTimelapse ? ["data", "settings"] : ["settings"]
+)
+const activeTab = $derived<Tab>(hasTimelapse ? tab : "settings")
+
+/** Move between the visible tabs with the arrow keys (and Home/End), as expected of an ARIA tablist. */
 function onTabKeydown(event: KeyboardEvent) {
 	let next: number | null = null
-	const index = TABS.indexOf(tab)
+	const index = visibleTabs.indexOf(activeTab)
 
-	if (event.key === "ArrowRight") next = (index + 1) % TABS.length
+	if (event.key === "ArrowRight") next = (index + 1) % visibleTabs.length
 	else if (event.key === "ArrowLeft")
-		next = (index - 1 + TABS.length) % TABS.length
+		next = (index - 1 + visibleTabs.length) % visibleTabs.length
 	else if (event.key === "Home") next = 0
-	else if (event.key === "End") next = TABS.length - 1
+	else if (event.key === "End") next = visibleTabs.length - 1
 
 	if (next === null) return
 	event.preventDefault()
-	tab = TABS[next]
+	tab = visibleTabs[next]
 	tablistEl.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
 }
 </script>
@@ -71,32 +78,34 @@ function onTabKeydown(event: KeyboardEvent) {
 		aria-label="Timelapse review"
 		bind:this={tablistEl}
 	>
-		<button
-			type="button"
-			role="tab"
-			id="review-tab-data"
-			aria-selected={tab === "data"}
-			aria-controls="review-panel-data"
-			tabindex={tab === "data" ? 0 : -1}
-			onclick={() => (tab = "data")}
-			onkeydown={onTabKeydown}
-			class="-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors {tab ===
-			'data'
-				? 'border-primary-500 bg-primary-500/5 font-medium text-primary-300'
-				: 'border-transparent text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200'}"
-		>
-			Timelapse data
-		</button>
+		{#if hasTimelapse}
+			<button
+				type="button"
+				role="tab"
+				id="review-tab-data"
+				aria-selected={activeTab === "data"}
+				aria-controls="review-panel-data"
+				tabindex={activeTab === "data" ? 0 : -1}
+				onclick={() => (tab = "data")}
+				onkeydown={onTabKeydown}
+				class="-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors {activeTab ===
+				'data'
+					? 'border-primary-500 bg-primary-500/5 font-medium text-primary-300'
+					: 'border-transparent text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200'}"
+			>
+				Timelapse data
+			</button>
+		{/if}
 		<button
 			type="button"
 			role="tab"
 			id="review-tab-settings"
-			aria-selected={tab === "settings"}
+			aria-selected={activeTab === "settings"}
 			aria-controls="review-panel-settings"
-			tabindex={tab === "settings" ? 0 : -1}
+			tabindex={activeTab === "settings" ? 0 : -1}
 			onclick={() => (tab = "settings")}
 			onkeydown={onTabKeydown}
-			class="-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors {tab ===
+			class="-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors {activeTab ===
 			'settings'
 				? 'border-primary-500 bg-primary-500/5 font-medium text-primary-300'
 				: 'border-transparent text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200'}"
@@ -108,10 +117,10 @@ function onTabKeydown(event: KeyboardEvent) {
 	<div
 		class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"
 		role="tabpanel"
-		id="review-panel-{tab}"
-		aria-labelledby="review-tab-{tab}"
+		id="review-panel-{activeTab}"
+		aria-labelledby="review-tab-{activeTab}"
 	>
-		{#if tab === "data"}
+		{#if activeTab === "data"}
 			<!--
 				Recreate the stats when a different timelapse opens.
 				Its derived values (annotations, actual time, description) can otherwise keep the previous timelapse's selections after navigating until an unrelated input changes.

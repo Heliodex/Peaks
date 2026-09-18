@@ -293,6 +293,7 @@ const summary = new ProjectSummary({
 
 	<ReviewDetails
 		timelapse={sync.timelapse}
+		hasTimelapse={Boolean(session.submittedId)}
 		bind:selections={session.selections}
 		idleRanges={idleState.ranges}
 		idleAnalyzing={idleState.analyzing}
