@@ -104,14 +104,18 @@ export class TimelineViewport {
 		void this.#spring.set(next, { instant: true })
 	}
 
-	/** Scroll to zoom in/out, keeping the time under the cursor fixed. */
-	onWheel = (event: WheelEvent) => {
+	/**
+	 * Scroll to zoom in/out, keeping the time under the cursor fixed.
+	 * Returns that time so the caller can keep the playhead anchored to the cursor, or null when the wheel was ignored.
+	 */
+	onWheel = (event: WheelEvent): number | null => {
 		const duration = this.#options.duration()
 		const frameRate = this.#options.frameRate()
-		if (duration <= 0 || this.span <= 0 || event.defaultPrevented) return
+		if (duration <= 0 || this.span <= 0 || event.defaultPrevented)
+			return null
 		const track = event.currentTarget as HTMLElement
 		const rect = track.getBoundingClientRect()
-		if (rect.width <= 0) return
+		if (rect.width <= 0) return null
 
 		event.preventDefault()
 
@@ -124,7 +128,7 @@ export class TimelineViewport {
 		// Compute from the spring's target rather than its current value so rapid wheel events accumulate instead of being swallowed while it catches up.
 		const base = this.#spring.target
 		const baseSpan = base.end - base.start
-		if (baseSpan <= 0) return
+		if (baseSpan <= 0) return null
 
 		const span = clamp(
 			snapToFrame(baseSpan * factor, frameRate),
@@ -141,5 +145,6 @@ export class TimelineViewport {
 			{ start, end: start + span },
 			{ instant: prefersReducedMotion.current }
 		)
+		return anchor
 	}
 }

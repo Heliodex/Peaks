@@ -147,9 +147,11 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
  */
 function timelineGestures(node: HTMLElement) {
 	const handleWheel = (event: WheelEvent) => {
-		viewport.onWheel(event)
-		// Keep the video near the window start so the newly framed region is visible.
-		playback.seekTo(viewport.view.start)
+		const cursorTime = viewport.onWheel(event)
+		if (cursorTime === null) return
+		// Keep the playhead under the cursor, so zooming stays anchored on it rather than jumping to the window start.
+		viewport.hoverTime = cursorTime
+		playback.seekTo(cursorTime)
 	}
 	const handleContextMenu = (event: MouseEvent) => event.preventDefault()
 	node.addEventListener("wheel", handleWheel, { passive: false })
