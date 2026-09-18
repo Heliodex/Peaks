@@ -4,7 +4,11 @@ import { prefersReducedMotion } from "svelte/motion"
 import { scale } from "svelte/transition"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
 import { getTimelapseThumbnails } from "./api.remote.js"
-import { entryFinalDuration, formatDuration } from "./review-format.js"
+import {
+	annotationTotal,
+	entryFinalDuration,
+	formatDuration,
+} from "./review-format.js"
 
 let {
 	entries,
@@ -56,7 +60,7 @@ $effect(() => {
 					type="button"
 					onclick={() => onLoad(entry.id)}
 					title={entry.name || entry.id}
-					class="group flex w-full cursor-pointer flex-col overflow-hidden border border-line-soft bg-surface-raised text-left transition-colors hover:border-primary-500 hover:bg-surface"
+					class="group flex h-full w-full cursor-pointer flex-col overflow-hidden border border-line-soft bg-surface-raised text-left transition-colors hover:border-primary-500 hover:bg-surface"
 				>
 					<div
 						class="relative aspect-video w-full overflow-hidden bg-neutral-900"
@@ -75,12 +79,38 @@ $effect(() => {
 							{formatDuration(entryFinalDuration(entry))}
 						</span>
 					</div>
-					<div class="flex min-w-0 flex-col p-2">
+					<div class="flex min-w-0 flex-1 flex-col gap-0.5 p-2">
 						<span
 							class="truncate text-sm font-medium text-neutral-200 transition-colors group-hover:text-white"
 						>
 							{entry.name || entry.id}
 						</span>
+						{const idle = entry.idleDuration}
+						{const annotations = annotationTotal(entry.annotations)}
+						{#if idle > 0}
+							<span
+								class="flex items-center gap-1.5 text-xs text-neutral-400 tabular-nums"
+							>
+								<span
+									class="h-1.5 w-1.5 shrink-0 bg-amber-400"
+									aria-hidden="true"
+								></span>
+								-{formatDuration(idle)}
+								idle
+							</span>
+						{/if}
+						{#if annotations > 0}
+							<span
+								class="flex items-center gap-1.5 text-xs text-neutral-400 tabular-nums"
+							>
+								<span
+									class="h-1.5 w-1.5 shrink-0 bg-red-400"
+									aria-hidden="true"
+								></span>
+								-{formatDuration(annotations)}
+								annotations
+							</span>
+						{/if}
 					</div>
 				</button>
 			</li>
