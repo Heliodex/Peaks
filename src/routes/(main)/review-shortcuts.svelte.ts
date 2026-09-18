@@ -21,8 +21,8 @@ type ReviewShortcutsOptions = {
 /**
  * Ctrl+K (or Cmd+K) toggles the project search dialog – from anywhere, including while a field is focused, so the shortcut can both open and close it.
  * F toggles fullscreen for the open timelapse's video, and N creates a new project (with its name field focused).
- * Tab and Shift+Tab cycle through the open project's timelapses – forwards and backwards respectively, wrapping around at either end.
- * With none open, forwards opens the first entry and backwards the last.
+ * The `]` and `[` keys cycle through the open project's timelapses – forwards and backwards respectively, wrapping around at either end.
+ * With none open, forwards opens the first entry and backwards the last. Tab is deliberately left alone so focus can move between controls.
  * These are ignored while a modifier is held (so browser shortcuts still work) and while typing in a form field or contenteditable element, so focus can leave inputs natively.
  */
 export class ReviewShortcuts {
@@ -32,8 +32,8 @@ export class ReviewShortcuts {
 		this.#options = options
 	}
 
-	/** The entry a Tab press should move to, or null when Tab should move focus instead. */
-	#nextEntry(shiftKey: boolean): string | null {
+	/** The entry a cycle key should move to, or null when there is nothing to open. */
+	#nextEntry(backwards: boolean): string | null {
 		const entries = this.#options.entries()
 		if (entries.length === 0) return null
 
@@ -41,12 +41,12 @@ export class ReviewShortcuts {
 			entry => entry.id === this.#options.openId()
 		)
 		// Wrapping keeps the cycle self-contained; with none open, step towards the appropriate end of the list instead.
-		const next = !shiftKey
+		const next = !backwards
 			? (current + 1) % entries.length
 			: current === -1
 				? entries.length - 1
 				: (current - 1 + entries.length) % entries.length
-		// Nothing to cycle to (a lone open timelapse): leave Tab to move focus.
+		// Nothing to cycle to (a lone open timelapse).
 		if (next === current) return null
 		return entries[next].id
 	}
@@ -82,9 +82,10 @@ export class ReviewShortcuts {
 			return
 		}
 
-		if (event.key !== "Tab" || modified) return
+		if (event.key !== "]" && event.key !== "[") return
+		if (modified) return
 
-		const next = this.#nextEntry(event.shiftKey)
+		const next = this.#nextEntry(event.key === "[")
 		if (!next) return
 		event.preventDefault()
 		this.#options.open(next)

@@ -11,7 +11,7 @@ let {
 </script>
 
 <section
-	class="area-video flex min-h-0 items-center justify-center overflow-hidden"
+	class="area-video flex min-h-0 items-center justify-center overflow-hidden bg-black"
 >
 	{#if timelapse.playbackUrl}
 		<!--
@@ -28,6 +28,8 @@ let {
 			<track kind="captions">
 		</video>
 	{:else}
-		<p>This timelapse is still being processed and has no video yet.</p>
+		<p class="p-4 text-center text-sm text-neutral-400">
+			This timelapse is still being processed and has no video yet.
+		</p>
 	{/if}
 </section>

@@ -14,7 +14,7 @@ let {
 </script>
 
 <div
-	class="pointer-events-none absolute inset-0 overflow-hidden bg-neutral-800"
+	class="pointer-events-none absolute inset-0 overflow-hidden bg-surface-raised"
 >
 	{#each frames as frame (frame.time)}
 		<img

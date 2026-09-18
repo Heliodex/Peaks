@@ -98,12 +98,12 @@ const description = $derived(
 		{onRecalculateIdle}
 	/>
 
-	<section class="border-t border-neutral-700 pt-2">
+	<section class="border-t border-line-soft pt-2">
 		<div class="flex items-center justify-between gap-2 pb-1">
 			<h2 class="font-medium">Description</h2>
 			<CopyButton text={description} />
 		</div>
-		<p class="text-sm text-neutral-300 select-text">
+		<p class="text-sm leading-relaxed text-neutral-300 select-text">
 			{description}
 		</p>
 	</section>

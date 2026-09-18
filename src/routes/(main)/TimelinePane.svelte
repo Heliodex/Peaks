@@ -29,7 +29,7 @@ let {
 </script>
 
 <footer
-	class="area-timeline flex min-h-0 flex-col overflow-hidden border-t border-neutral-500 px-4 pb-3"
+	class="area-timeline flex min-h-0 flex-col overflow-hidden border-t border-line bg-surface px-4 pb-3"
 >
 	<Timeline
 		bind:selections

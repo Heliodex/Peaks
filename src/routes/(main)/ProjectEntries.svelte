@@ -101,10 +101,10 @@ function moveEntryBy(id: string, delta: number) {
 	{#each entries as entry (entry.id)}
 		<li
 			animate:flip={{ duration: 180 }}
-			class="entry-row flex items-start gap-2 border-b border-neutral-800 pb-1 {draggingId ===
-			entry.id
-				? 'opacity-50'
-				: ''}"
+			class="entry-row -mx-1.5 flex items-start gap-2 border-b border-line-soft px-1.5 py-0.5 transition-colors hover:bg-neutral-800/40 {entry.id ===
+			submittedId
+				? 'bg-primary-500/5'
+				: ''} {draggingId === entry.id ? 'opacity-50' : ''}"
 		>
 			<button
 				type="button"
@@ -139,14 +139,19 @@ function moveEntryBy(id: string, delta: number) {
 				ondragend={() => {
 					draggingId = null
 				}}
-				class="cursor-grab select-none text-neutral-500 hover:text-neutral-300 active:cursor-grabbing"
+				class="cursor-grab px-0.5 select-none text-neutral-500 transition-colors hover:text-neutral-300 active:cursor-grabbing"
 			>
 				⠿
 			</button>
-			<div class="flex min-w-0 flex-1 flex-col">
+			<div
+				class="flex min-w-0 flex-1 flex-col border-l-2 border-l-transparent pl-1.5 {entry.id ===
+				submittedId
+					? 'border-l-primary-500'
+					: ''}"
+			>
 				{#if entry.id === submittedId}
 					<span
-						class="w-full truncate font-medium text-primary-400"
+						class="w-full truncate font-medium text-primary-300"
 						title={entry.name || entry.id}
 						aria-current="true"
 					>
@@ -157,12 +162,12 @@ function moveEntryBy(id: string, delta: number) {
 						type="button"
 						onclick={() => onLoad(entry.id)}
 						title={entry.name || entry.id}
-						class="w-full cursor-pointer truncate text-left hover:underline"
+						class="w-full cursor-pointer truncate text-left text-neutral-300 transition-colors hover:text-white"
 					>
 						{entry.name || entry.id}
 					</button>
 				{/if}
-				<span class="text-xs text-neutral-500">
+				<span class="text-xs text-neutral-400 tabular-nums">
 					{formatDuration(entryFinalDuration(entry))}
 				</span>
 			</div>
@@ -171,7 +176,7 @@ function moveEntryBy(id: string, delta: number) {
 				onclick={() => onRemoveTimelapse(entry.id)}
 				title="Remove from project"
 				aria-label="Remove {entry.name || entry.id} from project"
-				class="row-action shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
+				class="row-action btn btn-danger shrink-0 px-1.5 py-0.5 text-xs"
 			>
 				×
 			</button>

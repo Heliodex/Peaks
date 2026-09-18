@@ -152,13 +152,15 @@ function onPointerUp(event: PointerEvent) {
 }
 </script>
 
+<!-- biome-ignore lint/a11y/useSemanticElements: `group` describes the pan/zoom controls; there is no matching semantic element. -->
 <div
-	class="relative mt-2 h-10 w-full shrink-0 touch-none overflow-hidden border border-neutral-500 bg-neutral-800 select-none"
+	class="relative mt-2 h-10 w-full shrink-0 touch-none overflow-hidden border border-line bg-surface-raised select-none"
 	onpointerdown={onPointerDown}
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}
 	onpointercancel={onPointerUp}
-	role="presentation"
+	role="group"
+	aria-label="Timeline overview and zoom. Drag the window to pan and its edges to zoom."
 >
 	<!-- Static overview thumbnails spanning the whole video -->
 	<div class="pointer-events-none absolute inset-0 flex overflow-hidden">
@@ -229,7 +231,7 @@ function onPointerUp(event: PointerEvent) {
 	<!-- Current playback position -->
 	{#if playheadTime >= 0 && playheadTime <= duration}
 		<div
-			class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-emerald-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
+			class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-primary-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
 			style:left="{percentOf(playheadTime, duration)}%"
 		></div>
 	{/if}

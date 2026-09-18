@@ -71,6 +71,45 @@ let searchOpen = $state(false)
 let justifyTimeline = $state(true)
 let settingsLoaded = $state(false)
 
+/** Pixels a pane separator moves per arrow-key press (tripled while Shift is held). */
+const RESIZE_STEP = 16
+
+/**
+ * Move one of the pane separators from the keyboard.
+ * `deltaForKey` maps the pressed arrow key to a direction (or null when the key is irrelevant).
+ */
+function keyboardResize(
+	event: KeyboardEvent,
+	resize: (delta: number) => void,
+	deltaForKey: (key: string) => number | null
+) {
+	const delta = deltaForKey(event.key)
+	if (delta === null) return
+	event.preventDefault()
+	resize(delta * RESIZE_STEP * (event.shiftKey ? 3 : 1))
+}
+
+const onLeftHandleKeydown = (event: KeyboardEvent) =>
+	keyboardResize(
+		event,
+		dx => panes.resizeLeftBy(dx),
+		key => (key === "ArrowRight" ? 1 : key === "ArrowLeft" ? -1 : null)
+	)
+
+const onRightHandleKeydown = (event: KeyboardEvent) =>
+	keyboardResize(
+		event,
+		dx => panes.resizeRightBy(dx),
+		key => (key === "ArrowLeft" ? 1 : key === "ArrowRight" ? -1 : null)
+	)
+
+const onTimelineHandleKeydown = (event: KeyboardEvent) =>
+	keyboardResize(
+		event,
+		dy => panes.resizeTimelineBy(dy),
+		key => (key === "ArrowUp" ? 1 : key === "ArrowDown" ? -1 : null)
+	)
+
 /**
  * Open timelapses by id.
  * The input may hold several space/comma-separated ids: each new one is resolved first so invalid ids are reported in the Project pane instead of being added and then disappearing.
@@ -173,17 +212,44 @@ const summary = new ProjectSummary({
 
 <svelte:window onkeydown={shortcuts.onKeyDown} />
 
-{#snippet resizeHandle(modifier: string, onpointerdown: (event: PointerEvent) => void)}
+{#snippet resizeHandle(options: {
+	modifier: string
+	orientation: "vertical" | "horizontal"
+	label: string
+	value: number
+	min: number
+	max: number
+	onpointerdown: (event: PointerEvent) => void
+	onkeydown: (event: KeyboardEvent) => void
+})}
+	<!-- A focusable separator is a window splitter: the resize handle is keyboard-operable, which the linters can't tell from a static separator. -->
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<!-- biome-ignore lint/a11y/useSemanticElements: A window splitter is not an <hr>. -->
 	<div
-		class="resize-handle {modifier} hidden transition-colors hover:bg-primary-500/40 lg:block"
-		{onpointerdown}
-		role="presentation"
-	></div>
+		class="resize-handle {options.modifier} hidden hover:bg-primary-500/10 lg:block"
+		role="separator"
+		tabindex="0"
+		aria-orientation={options.orientation}
+		aria-label={options.label}
+		aria-valuenow={Math.round(options.value)}
+		aria-valuemin={Math.round(options.min)}
+		aria-valuemax={Math.round(options.max)}
+		onpointerdown={options.onpointerdown}
+		onkeydown={options.onkeydown}
+	>
+		<span class="resize-grip" aria-hidden="true"></span>
+	</div>
 {/snippet}
 
-{#snippet centeredState(message: string)}
-	<section class="area-video flex items-center justify-center p-4">
-		<p class="text-center">{message}</p>
+{#snippet centeredState(message: string, loading = false)}
+	<section
+		class="area-video flex flex-col items-center justify-center gap-3 p-4 text-center"
+	>
+		{#if loading}
+			<span class="spinner" aria-hidden="true"></span>
+		{/if}
+		<p class="text-sm text-neutral-400">{message}</p>
 	</section>
 {/snippet}
 
@@ -214,7 +280,16 @@ const summary = new ProjectSummary({
 		onNameFocused={() => (workspace.focusNameId = null)}
 	/>
 
-	{@render resizeHandle("resize-handle-right", panes.startRightResize)}
+	{@render resizeHandle({
+		modifier: "resize-handle-right",
+		orientation: "vertical",
+		label: "Resize project panel",
+		value: panes.rightWidth,
+		min: panes.bounds.right.min,
+		max: panes.bounds.right.max,
+		onpointerdown: panes.startRightResize,
+		onkeydown: onRightHandleKeydown,
+	})}
 
 	<ReviewDetails
 		timelapse={sync.timelapse}
@@ -231,27 +306,36 @@ const summary = new ProjectSummary({
 		onToggleJustifyTimeline={value => (justifyTimeline = value)}
 	/>
 
-	{@render resizeHandle("resize-handle-left", panes.startLeftResize)}
+	{@render resizeHandle({
+		modifier: "resize-handle-left",
+		orientation: "vertical",
+		label: "Resize timelapse data panel",
+		value: panes.leftWidth,
+		min: panes.bounds.left.min,
+		max: panes.bounds.left.max,
+		onpointerdown: panes.startLeftResize,
+		onkeydown: onLeftHandleKeydown,
+	})}
 
 	{#if session.submittedId}
 		{#key session.submittedId}
 			<svelte:boundary>
 				{#snippet pending()}
-					{@render centeredState("Loading timelapse…")}
+					{@render centeredState("Loading timelapse…", true)}
 				{/snippet}
 
 				{#snippet failed(error: unknown, reset: () => void)}
 					<section
-						class="area-video flex flex-col items-center justify-center gap-2 p-4"
+						class="area-video flex flex-col items-center justify-center gap-3 p-4 text-center"
 					>
-						<p>
+						<p class="text-sm text-neutral-300">
 							Couldn't load timelapse:
 							{(error as Error)?.message ?? error}
 						</p>
 						<button
 							type="button"
 							onclick={reset}
-							class="border border-neutral-500 px-2 py-1"
+							class="btn btn-primary"
 						>
 							Retry
 						</button>
@@ -276,7 +360,16 @@ const summary = new ProjectSummary({
 							idleThreshold={idleState.threshold}
 						/>
 
-						{@render resizeHandle("resize-handle-timeline", panes.startTimelineResize)}
+						{@render resizeHandle({
+							modifier: "resize-handle-timeline",
+							orientation: "horizontal",
+							label: "Resize timeline",
+							value: panes.timelineHeight,
+							min: panes.bounds.timeline.min,
+							max: panes.bounds.timeline.max,
+							onpointerdown: panes.startTimelineResize,
+							onkeydown: onTimelineHandleKeydown,
+						})}
 					{/if}
 				{:else}
 					{@render centeredState(
@@ -286,7 +379,7 @@ const summary = new ProjectSummary({
 			</svelte:boundary>
 		{/key}
 	{:else if routeParam && !session.loaded}
-		{@render centeredState("Loading timelapse…")}
+		{@render centeredState("Loading timelapse…", true)}
 	{:else if workspace.projectEntries.length > 0}
 		<ProjectTimelapses entries={workspace.projectEntries} onLoad={loadId} />
 	{:else}
@@ -333,6 +426,58 @@ const summary = new ProjectSummary({
 	position: absolute;
 	z-index: 30;
 	touch-action: none;
+}
+
+/* A faint grip along each separator hints that the pane can be dragged; it lights up on hover and keyboard focus. */
+.resize-grip {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	translate: -50% -50%;
+	background: var(--color-neutral-600);
+	opacity: 0.35;
+	transition:
+		opacity 120ms ease,
+		background-color 120ms ease;
+}
+
+.resize-handle-left .resize-grip,
+.resize-handle-right .resize-grip {
+	width: 2px;
+	height: 2.5rem;
+}
+
+.resize-handle-timeline .resize-grip {
+	width: 2.5rem;
+	height: 2px;
+}
+
+.resize-handle:hover .resize-grip,
+.resize-handle:focus-visible .resize-grip,
+.resize-handle:active .resize-grip {
+	opacity: 1;
+	background: var(--color-primary-500);
+}
+
+.spinner {
+	width: 1.25rem;
+	height: 1.25rem;
+	border: 2px solid var(--color-neutral-700);
+	border-top-color: var(--color-primary-500);
+	border-radius: 50%;
+	animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+	to {
+		rotate: 360deg;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.spinner {
+		animation: none;
+	}
 }
 
 .resize-handle-right {

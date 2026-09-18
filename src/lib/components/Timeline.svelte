@@ -228,7 +228,7 @@ function onKeyDown(event: KeyboardEvent) {
 	{const layoutFrames = $derived(frameStrip.layout)}
 	<div class="flex min-h-0 w-full flex-1 flex-col pt-3">
 		<div
-			class={["relative min-h-0 w-full flex-1 touch-none border border-neutral-500 select-none", editor.drag?.kind ===
+			class={["relative min-h-0 w-full flex-1 touch-none border border-line select-none", editor.drag?.kind ===
 				"create"
 					? "cursor-text"
 					: editor.pan
@@ -240,7 +240,13 @@ function onKeyDown(event: KeyboardEvent) {
 			onpointercancel={event => editor.onPointerUp(event)}
 			onpointerleave={onPointerLeave}
 			{@attach timelineGestures}
-			role="presentation"
+			tabindex="0"
+			role="slider"
+			aria-label="Timeline. Drag to annotate, or use the arrow keys to seek and space to play."
+			aria-valuemin="0"
+			aria-valuemax={Math.round(duration)}
+			aria-valuenow={Math.round(playback.playheadTime)}
+			aria-valuetext={formatClock(playback.playheadTime)}
 		>
 			<!-- Frame previews: cached thumbnails positioned by absolute time so they slide and scale with the view -->
 			<TimelineFrames
@@ -287,7 +293,7 @@ function onKeyDown(event: KeyboardEvent) {
 							percentWithin(visibleStart, viewport.view)}%"
 					>
 						<div
-							class="pointer-events-none absolute inset-0 border-x-2 {color.border} {color.fill}"
+							class="pointer-events-none absolute inset-0 border-x-2 transition-[filter] group-hover:brightness-125 {color.border} {color.fill}"
 						></div>
 
 						{#if sel.start >= viewport.view.start}
@@ -303,7 +309,7 @@ function onKeyDown(event: KeyboardEvent) {
 							data-delete={sel.id}
 							aria-label="Delete selection"
 							onclick={e => editor.deleteSelection(sel.id, e)}
-							class="absolute -top-3 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border bg-white text-xs leading-none shadow transition-opacity {color.button} {editor.controlsClass(
+							class="absolute -top-3 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border bg-white text-xs leading-none shadow transition-[opacity,filter] hover:brightness-110 {color.button} {editor.controlsClass(
 								sel.id
 							)}"
 						>
@@ -316,7 +322,7 @@ function onKeyDown(event: KeyboardEvent) {
 			{#if playback.playheadTime >= viewport.view.start &&
 				playback.playheadTime <= viewport.view.end}
 				<div
-					class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-emerald-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
+					class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-primary-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
 					style:left="{percentWithin(playback.playheadTime, viewport.view)}%"
 				></div>
 			{/if}
@@ -334,7 +340,7 @@ function onKeyDown(event: KeyboardEvent) {
 
 			{#if viewport.hoverTime !== null && editor.hoveredSelectionId === null}
 				<div
-					class="pointer-events-none absolute top-1 bg-black/80 px-1.5 py-0.5 text-xs text-white"
+					class="pointer-events-none absolute top-1 border border-line bg-black/85 px-1.5 py-0.5 text-xs text-white tabular-nums"
 					class:mr-1={viewport.hoverTooltipFlip}
 					style:left={viewport.hoverTooltipFlip
 						? undefined

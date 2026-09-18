@@ -60,17 +60,46 @@ export class PaneLayout {
 		this.#hasTimeline = hasTimeline
 	}
 
-	/** Drag the stats pane's right (inner) border. */
-	startLeftResize = (event: PointerEvent) => {
-		const start = this.leftWidth
-		const max = Math.max(
+	// Bounds widen with the viewport. They are read while rendering (for the separators' ARIA values), which also happens during SSR, so they fall back to the defaults when there is no window.
+
+	/** Upper bound for the stats pane, leaving room for the centre and the project pane. */
+	get #leftMax(): number {
+		if (typeof window === "undefined") return DEFAULT_LEFT_WIDTH
+		return Math.max(
 			DEFAULT_LEFT_WIDTH,
 			window.innerWidth - this.rightWidth - MIN_CENTER_WIDTH
 		)
+	}
+
+	/** Upper bound for the project pane, leaving room for the centre and the stats pane. */
+	get #rightMax(): number {
+		if (typeof window === "undefined") return DEFAULT_RIGHT_WIDTH
+		return Math.max(
+			DEFAULT_RIGHT_WIDTH,
+			window.innerWidth - this.leftWidth - MIN_CENTER_WIDTH
+		)
+	}
+
+	/** Upper bound for the timeline, leaving room for the video above it. */
+	get #timelineMax(): number {
+		if (typeof window === "undefined") return DEFAULT_TIMELINE_HEIGHT
+		return Math.max(
+			DEFAULT_TIMELINE_HEIGHT,
+			window.innerHeight - MIN_CENTER_HEIGHT - 120
+		)
+	}
+
+	/** Drag the stats pane's right (inner) border. */
+	startLeftResize = (event: PointerEvent) => {
+		const start = this.leftWidth
 		trackResize(
 			event,
 			dx => {
-				this.leftWidth = clamp(start + dx, DEFAULT_LEFT_WIDTH, max)
+				this.leftWidth = clamp(
+					start + dx,
+					DEFAULT_LEFT_WIDTH,
+					this.#leftMax
+				)
 			},
 			"col-resize"
 		)
@@ -79,14 +108,14 @@ export class PaneLayout {
 	/** Drag the project pane's left (inner) border. */
 	startRightResize = (event: PointerEvent) => {
 		const start = this.rightWidth
-		const max = Math.max(
-			DEFAULT_RIGHT_WIDTH,
-			window.innerWidth - this.leftWidth - MIN_CENTER_WIDTH
-		)
 		trackResize(
 			event,
 			dx => {
-				this.rightWidth = clamp(start - dx, DEFAULT_RIGHT_WIDTH, max)
+				this.rightWidth = clamp(
+					start - dx,
+					DEFAULT_RIGHT_WIDTH,
+					this.#rightMax
+				)
 			},
 			"col-resize"
 		)
@@ -95,20 +124,53 @@ export class PaneLayout {
 	/** Drag the timeline's top (inner) border. */
 	startTimelineResize = (event: PointerEvent) => {
 		const start = this.timelineHeight
-		const max = Math.max(
-			DEFAULT_TIMELINE_HEIGHT,
-			window.innerHeight - MIN_CENTER_HEIGHT - 120
-		)
 		trackResize(
 			event,
 			(_dx, dy) => {
 				this.timelineHeight = clamp(
 					start - dy,
 					DEFAULT_TIMELINE_HEIGHT,
-					max
+					this.#timelineMax
 				)
 			},
 			"row-resize"
 		)
+	}
+
+	/**
+	 * Keyboard resizing for the separators, so the panes are adjustable without a pointer.
+	 * `dx`/`dy` are the requested changes in pixels: positive grows towards the right/down.
+	 */
+	resizeLeftBy = (dx: number) => {
+		this.leftWidth = clamp(
+			this.leftWidth + dx,
+			DEFAULT_LEFT_WIDTH,
+			this.#leftMax
+		)
+	}
+
+	resizeRightBy = (dx: number) => {
+		this.rightWidth = clamp(
+			this.rightWidth - dx,
+			DEFAULT_RIGHT_WIDTH,
+			this.#rightMax
+		)
+	}
+
+	resizeTimelineBy = (dy: number) => {
+		this.timelineHeight = clamp(
+			this.timelineHeight - dy,
+			DEFAULT_TIMELINE_HEIGHT,
+			this.#timelineMax
+		)
+	}
+
+	/** Current bounds, used to describe the separators to assistive tech. */
+	get bounds() {
+		return {
+			left: { min: DEFAULT_LEFT_WIDTH, max: this.#leftMax },
+			right: { min: DEFAULT_RIGHT_WIDTH, max: this.#rightMax },
+			timeline: { min: DEFAULT_TIMELINE_HEIGHT, max: this.#timelineMax },
+		}
 	}
 }

@@ -37,7 +37,7 @@ function focusCreatedName(node: HTMLInputElement) {
 <ul class="flex flex-col gap-1 text-sm">
 	{#each projects as project (project.id)}
 		<li
-			class="project-row flex items-center gap-2 border-b border-neutral-800 pb-1"
+			class="project-row -mx-1.5 flex items-center gap-2 border-b border-line-soft px-1.5 py-0.5 transition-colors hover:bg-neutral-800/40"
 		>
 			{#if project.id === currentProjectId}
 				<input
@@ -48,14 +48,14 @@ function focusCreatedName(node: HTMLInputElement) {
 					placeholder={DEFAULT_PROJECT_NAME}
 					title={project.name}
 					aria-label="Project name"
-					class="min-w-0 flex-1 border border-neutral-500 px-1 py-0.5 font-medium text-primary-400"
+					class="field flex-1 border-l-2 border-l-primary-500 px-1.5 py-0.5 font-medium text-primary-300"
 				>
 			{:else}
 				<button
 					type="button"
 					onclick={() => onSelectProject(project.id)}
 					title={project.name}
-					class="min-w-0 flex-1 cursor-pointer truncate text-left hover:underline"
+					class="min-w-0 flex-1 cursor-pointer truncate border-l-2 border-l-transparent px-1.5 py-0.5 text-left text-neutral-300 transition-colors hover:border-l-primary-500/60 hover:text-white"
 				>
 					{project.name}
 				</button>
@@ -64,7 +64,7 @@ function focusCreatedName(node: HTMLInputElement) {
 					onclick={() => onRemoveProject(project.id)}
 					title="Delete project"
 					aria-label="Delete {project.name}"
-					class="row-action shrink-0 cursor-pointer border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
+					class="row-action btn btn-danger shrink-0 px-1.5 py-0.5 text-xs"
 				>
 					×
 				</button>

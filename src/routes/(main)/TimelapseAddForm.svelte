@@ -32,41 +32,42 @@ async function pasteAndLoad() {
 </script>
 
 <form
-	class="flex gap-2 border-t border-neutral-700 pt-3 text-sm"
+	class="flex flex-col gap-2 border-t border-line-soft pt-3"
 	onsubmit={loadTimelapse}
 >
-	<label class="flex flex-col gap-1 w-full min-w-0">
-		<span class="text-xs uppercase tracking-wide text-neutral-500">
+	<label class="flex min-w-0 flex-col gap-1">
+		<span class="text-xs uppercase tracking-wide text-neutral-400">
 			Timelapse IDs
 		</span>
 		<input
 			type="text"
 			name="timelapseId"
 			placeholder="IDs separated by spaces or commas"
+			autocomplete="off"
+			spellcheck="false"
 			bind:value={timelapseId}
-			class="border border-neutral-500 px-2 py-1"
+			class="field"
 		>
 	</label>
-	<div class="flex gap-2 items-end">
+	<div class="flex items-center gap-2">
 		<button
 			type="submit"
 			disabled={!timelapseId.trim()}
-			class="flex-1 border border-neutral-500 px-2 py-1 disabled:opacity-50"
+			class="btn btn-primary flex-1"
 		>
 			Load
 		</button>
-		<button
-			type="button"
-			onclick={pasteAndLoad}
-			class="flex-1 border border-neutral-500 px-2 py-1"
-		>
+		<button type="button" onclick={pasteAndLoad} class="btn flex-1">
 			Paste
 		</button>
 	</div>
-</form>
 
-{#if loadError}
-	<p role="alert" class="text-xs text-red-400">
-		{loadError}
-	</p>
-{/if}
+	{#if loadError}
+		<p
+			role="alert"
+			class="border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs text-red-300"
+		>
+			{loadError}
+		</p>
+	{/if}
+</form>

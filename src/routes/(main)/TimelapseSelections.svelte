@@ -1,5 +1,9 @@
 <script lang="ts">
-import { ANNOTATION_REASONS, selectionDeflation } from "#lib/annotations.js"
+import {
+	ANNOTATION_REASONS,
+	selectionColors,
+	selectionDeflation,
+} from "#lib/annotations.js"
 import type { IdleRange } from "#lib/idle-time.js"
 import { formatClock, type TimelineSelection } from "#lib/timeline.js"
 import { formatDuration } from "./review-format.js"
@@ -28,26 +32,66 @@ function removeSelection(id: string) {
 </script>
 
 <section class="flex flex-col gap-1">
-	<h2 class="font-medium">Selections</h2>
+	<div class="flex items-baseline justify-between gap-2">
+		<h2 class="font-medium">Selections</h2>
+		{#if sortedSelections.length > 0}
+			<span class="text-xs text-neutral-500 tabular-nums">
+				{sortedSelections.length}
+			</span>
+		{/if}
+	</div>
 	{#if sortedSelections.length > 0}
 		<ul class="flex flex-col gap-1 text-sm">
 			{#each sortedSelections as sel, i (sel.id)}
 				{const deflation = $derived(
 					selectionDeflation(sel, activeIdleRanges)
 				)}
-				<li class="flex flex-wrap items-center gap-2">
-					<span>
-						Selection {i + 1}:
-						<span class="font-medium">{formatClock(sel.start)}</span
-						>-
-						<span class="font-medium">{formatClock(sel.end)}</span>
-					</span>
+				{const color = $derived(selectionColors(sel.reason))}
+				<li
+					class="flex flex-col gap-1.5 border border-transparent px-1 py-1.5 transition-colors hover:border-line-soft hover:bg-surface-raised"
+				>
+					<div class="flex items-center justify-between gap-2">
+						<span
+							class="flex items-center gap-1.5 whitespace-nowrap"
+						>
+							<span
+								class="h-2 w-2 shrink-0 {color.marker}"
+								aria-hidden="true"
+							></span>
+							Selection {i + 1}:
+							<span class="font-medium tabular-nums"
+								>{formatClock(sel.start)}</span
+							>
+							<span class="text-neutral-500">-</span>
+							<span class="font-medium tabular-nums"
+								>{formatClock(sel.end)}</span
+							>
+						</span>
+						<span class="flex shrink-0 items-center gap-1.5">
+							{#if deflation > 0}
+								<span
+									class="border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-400 tabular-nums"
+								>
+									-{formatDuration(deflation)}
+								</span>
+							{/if}
+							<button
+								type="button"
+								onclick={() => removeSelection(sel.id)}
+								title="Delete selection {i + 1}"
+								aria-label="Delete selection {i + 1}"
+								class="btn btn-danger px-1.5 py-0.5 text-xs"
+							>
+								×
+							</button>
+						</span>
+					</div>
 					<select
 						aria-label="Annotation reason for selection {i + 1}"
 						value={sel.reason ?? ""}
 						onchange={e =>
 							setSelectionReason(sel.id, e.currentTarget.value)}
-						class="border border-neutral-500 bg-neutral-800 px-1 py-0.5 text-sm"
+						class="field w-full px-1.5 py-0.5 text-xs"
 					>
 						<option value="">Select a reason…</option>
 						{#each ANNOTATION_REASONS as annotation (annotation.id)}
@@ -56,24 +100,11 @@ function removeSelection(id: string) {
 							</option>
 						{/each}
 					</select>
-					<button
-						type="button"
-						onclick={() => removeSelection(sel.id)}
-						aria-label="Delete selection {i + 1}"
-						class="border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
-					>
-						×
-					</button>
-					{#if deflation > 0}
-						<span class="text-xs text-neutral-500">
-							-{formatDuration(deflation)}
-						</span>
-					{/if}
 				</li>
 			{/each}
 		</ul>
 	{:else}
-		<p class="text-sm text-neutral-500">
+		<p class="text-sm text-neutral-400">
 			Drag across the timeline to select an annotation.
 		</p>
 	{/if}

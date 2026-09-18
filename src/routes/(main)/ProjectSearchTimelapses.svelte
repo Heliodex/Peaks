@@ -42,6 +42,7 @@ function scrollTimelapseIntoView(node: HTMLDivElement) {
 	<div
 		class="min-h-0 overflow-y-auto py-1"
 		role="listbox"
+		id="search-timelapses-list"
 		aria-label="Timelapses"
 		{@attach scrollTimelapseIntoView}
 	>
@@ -49,29 +50,31 @@ function scrollTimelapseIntoView(node: HTMLDivElement) {
 			<button
 				type="button"
 				role="option"
+				id="search-timelapse-{index}"
+				tabindex="-1"
 				aria-selected={index === active}
 				onclick={() => onOpen(entry.id)}
 				onpointermove={() => {
 					if (active !== index) onHover(index)
 				}}
-				class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm {index ===
+				class="flex w-full cursor-pointer items-center justify-between gap-3 border-l-2 border-l-transparent px-3 py-2 text-left text-sm transition-colors {index ===
 				active
-					? 'bg-primary-600/30'
-					: ''}"
+					? 'border-l-primary-500 bg-primary-600/20'
+					: 'hover:bg-neutral-800/40'}"
 			>
 				<span
 					class="truncate {entry.id === currentTimelapseId
-						? 'font-medium text-primary-400'
-						: ''}"
+						? 'font-medium text-primary-300'
+						: 'text-neutral-300'}"
 				>
 					{entry.name || entry.id}
 				</span>
-				<span class="shrink-0 text-xs text-neutral-500">
+				<span class="shrink-0 text-xs text-neutral-400 tabular-nums">
 					{formatDuration(entryFinalDuration(entry))}
 				</span>
 			</button>
 		{:else}
-			<div class="px-3 py-2 text-sm text-neutral-500">
+			<div class="px-3 py-2 text-sm text-neutral-400">
 				No timelapses in this project
 			</div>
 		{/each}

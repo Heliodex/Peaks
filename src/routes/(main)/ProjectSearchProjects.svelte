@@ -39,12 +39,13 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 <div
 	class="flex min-h-0 flex-col overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none {mode ===
 	"timelapses"
-		? 'w-2/5 shrink-0 border-r border-neutral-700'
+		? 'w-2/5 shrink-0 border-r border-line-soft'
 		: 'w-full'}"
 >
 	<div
 		class="min-h-0 overflow-y-auto py-1"
 		role="listbox"
+		id="search-projects-list"
 		aria-label="Projects"
 		{@attach scrollProjectIntoView}
 	>
@@ -56,13 +57,15 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 			)}
 			<div
 				role="presentation"
-				class="flex h-9 items-center {selected
-					? 'bg-primary-600/30'
-					: ''}"
+				class="flex h-9 items-center border-l-2 border-l-transparent transition-colors {selected
+					? 'border-l-primary-500 bg-primary-600/20'
+					: 'hover:bg-neutral-800/40'}"
 			>
 				<button
 					type="button"
 					role="option"
+					id="search-project-{index}"
+					tabindex="-1"
 					aria-selected={selected}
 					onclick={() => onOpen(project)}
 					onpointermove={() => {
@@ -73,29 +76,32 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 				>
 					<span
 						class="truncate {project.id === currentProjectId
-							? 'font-medium text-primary-400'
-							: ''}"
+							? 'font-medium text-primary-300'
+							: 'text-neutral-300'}"
 					>
 						{project.name}
 					</span>
-					<span class="shrink-0 text-xs text-neutral-500">
+					<span
+						class="shrink-0 text-xs text-neutral-400 tabular-nums"
+					>
 						{project.timelapses.length}
 					</span>
 				</button>
 				{#if mode === "projects" && project.timelapses.length > 0}
 					<button
 						type="button"
+						tabindex="-1"
 						onclick={() => onExpand(project)}
 						title="Show timelapses"
 						aria-label="Show timelapses for {project.name}"
-						class="shrink-0 cursor-pointer p-2 pr-4 text-sm text-neutral-500 hover:text-white"
+						class="shrink-0 cursor-pointer p-2 pr-4 text-sm text-neutral-400 transition-colors hover:text-white"
 					>
 						›
 					</button>
 				{/if}
 			</div>
 		{:else}
-			<div class="px-3 py-2 text-sm text-neutral-500">
+			<div class="px-3 py-2 text-sm text-neutral-400">
 				No projects found
 			</div>
 		{/each}

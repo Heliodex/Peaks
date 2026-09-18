@@ -1,6 +1,6 @@
 <script lang="ts">
 import { prefersReducedMotion } from "svelte/motion"
-import { type SlideParams, slide } from "svelte/transition"
+import { fade, type SlideParams, scale, slide } from "svelte/transition"
 import type { Project } from "#lib/project-storage.js"
 import ProjectSearchProjects from "./ProjectSearchProjects.svelte"
 import ProjectSearchTimelapses from "./ProjectSearchTimelapses.svelte"
@@ -59,12 +59,34 @@ const activeTimelapse = $derived(
 	Math.min(timelapseIndex, Math.max(0, filteredTimelapses.length - 1))
 )
 
+// The list the search field is driving, and the highlighted row within it, exposed to assistive tech as a combobox.
+const activeListId = $derived(
+	mode === "projects" ? "search-projects-list" : "search-timelapses-list"
+)
+const activeOptionId = $derived(
+	mode === "projects"
+		? filteredProjects.length > 0
+			? `search-project-${activeProject}`
+			: undefined
+		: filteredTimelapses.length > 0
+			? `search-timelapse-${activeTimelapse}`
+			: undefined
+)
+
 // Appearance animations for the timelapse pane and its breadcrumb.
 // Both become instant for reduced-motion users.
 const breadcrumbTransition = $derived<SlideParams>(
 	prefersReducedMotion.current
 		? { duration: 0 }
 		: { duration: 150, axis: "x" }
+)
+const dialogTransition = $derived(
+	prefersReducedMotion.current
+		? { duration: 0 }
+		: { duration: 150, start: 0.97, opacity: 0 }
+)
+const backdropTransition = $derived(
+	prefersReducedMotion.current ? { duration: 0 } : { duration: 150 }
 )
 
 // The search field, so collapsing (or expanding) can put the caret back in it after a click moves focus to a row button.
@@ -154,6 +176,10 @@ function handleKeydown(event: KeyboardEvent) {
 	} else if (event.key === "Escape") {
 		event.preventDefault()
 		onClose()
+	} else if (event.key === "Tab") {
+		// The field is the dialog's only tab stop; keep focus there so it can't wander behind the overlay.
+		event.preventDefault()
+		inputEl?.focus()
 	}
 }
 </script>
@@ -164,10 +190,14 @@ function handleKeydown(event: KeyboardEvent) {
 	tabindex="-1"
 	aria-label="Close search"
 	onclick={onClose}
-	class="fixed inset-0 z-40 cursor-default bg-black/60"
+	in:fade={backdropTransition}
+	out:fade={backdropTransition}
+	class="fixed inset-0 z-40 cursor-default bg-black/70 backdrop-blur-sm"
 ></button>
 <div
-	class="fixed inset-x-0 top-[12vh] z-50 mx-auto flex max-h-[70vh] w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-lg border border-neutral-600 bg-neutral-900 shadow-2xl"
+	in:scale={dialogTransition}
+	out:scale={dialogTransition}
+	class="fixed inset-x-0 top-[12vh] z-50 mx-auto flex max-h-[70vh] w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden border border-line bg-surface shadow-2xl shadow-black/60"
 >
 	<div
 		role="dialog"
@@ -177,7 +207,7 @@ function handleKeydown(event: KeyboardEvent) {
 		onkeydown={handleKeydown}
 		class="flex min-h-0 flex-col"
 	>
-		<div class="flex h-10 items-center gap-1 border-b border-neutral-700">
+		<div class="flex h-10 items-center gap-1 border-b border-line-soft">
 			{#if mode === "timelapses"}
 				<div
 					class="flex items-center gap-1"
@@ -185,15 +215,16 @@ function handleKeydown(event: KeyboardEvent) {
 				>
 					<button
 						type="button"
+						tabindex="-1"
 						onclick={collapse}
 						title="Back to projects"
 						aria-label="Back to projects"
-						class="shrink-0 cursor-pointer px-2 py-2.5 text-sm text-neutral-400 hover:text-white"
+						class="shrink-0 cursor-pointer px-2 py-2.5 text-sm text-neutral-400 transition-colors hover:text-white"
 					>
 						‹
 					</button>
 					<span
-						class="max-w-36 shrink-0 truncate text-sm font-medium text-primary-400"
+						class="max-w-36 shrink-0 truncate text-sm font-medium text-primary-300"
 						title={expandedProject?.name}
 					>
 						{expandedProject?.name}
@@ -202,6 +233,10 @@ function handleKeydown(event: KeyboardEvent) {
 			{/if}
 			<input
 				type="text"
+				role="combobox"
+				aria-expanded="true"
+				aria-controls={activeListId}
+				aria-activedescendant={activeOptionId}
 				value={mode === "projects" ? projectQuery : timelapseQuery}
 				oninput={event => {
 					if (mode === "projects") {
@@ -216,6 +251,8 @@ function handleKeydown(event: KeyboardEvent) {
 				placeholder={mode === "projects"
 					? "Search projects…"
 					: "Search timelapses…"}
+				autocomplete="off"
+				spellcheck="false"
 				aria-label={mode === "projects"
 					? "Search projects"
 					: "Search timelapses"}
@@ -244,6 +281,21 @@ function handleKeydown(event: KeyboardEvent) {
 					onHover={index => (timelapseIndex = index)}
 				/>
 			{/if}
+		</div>
+
+		<div
+			class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-line-soft px-3 py-1.5 text-xs text-neutral-500"
+		>
+			<span class="flex items-center gap-1">
+				<kbd>↑</kbd><kbd>↓</kbd>
+				navigate
+			</span>
+			<span class="flex items-center gap-1">
+				<kbd>→</kbd>
+				timelapses
+			</span>
+			<span class="flex items-center gap-1"> <kbd>↵</kbd> open </span>
+			<span class="flex items-center gap-1"> <kbd>esc</kbd> close </span>
 		</div>
 	</div>
 </div>

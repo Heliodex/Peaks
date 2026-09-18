@@ -48,21 +48,18 @@ $effect(() => {
 })
 </script>
 
-<section class="area-video min-h-0 overflow-y-auto p-4">
+<section class="area-video min-h-0 overflow-y-auto bg-black p-4">
 	<ul class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">
 		{#each entries as entry (entry.id)}
-			<li
-				out:scale|local={cardTransition}
-				animate:flip={cardShift}
-			>
+			<li out:scale|local={cardTransition} animate:flip={cardShift}>
 				<button
 					type="button"
 					onclick={() => onLoad(entry.id)}
 					title={entry.name || entry.id}
-					class="group flex w-full cursor-pointer flex-col overflow-hidden rounded border border-neutral-600 text-left hover:border-primary-500"
+					class="group flex w-full cursor-pointer flex-col overflow-hidden border border-line-soft bg-surface-raised text-left transition-colors hover:border-primary-500 hover:bg-surface"
 				>
 					<div
-						class="aspect-video w-full overflow-hidden bg-neutral-800"
+						class="relative aspect-video w-full overflow-hidden bg-neutral-900"
 					>
 						{#if thumbnails[entry.id]}
 							<img
@@ -72,13 +69,17 @@ $effect(() => {
 								class="h-full w-full object-cover"
 							>
 						{/if}
-					</div>
-					<div class="flex min-w-0 flex-col gap-0.5 p-2">
-						<span class="truncate text-sm font-medium">
-							{entry.name || entry.id}
-						</span>
-						<span class="text-xs text-neutral-500">
+						<span
+							class="absolute right-1 bottom-1 border border-white/10 bg-black/75 px-1.5 py-0.5 text-xs text-neutral-200 tabular-nums"
+						>
 							{formatDuration(entryFinalDuration(entry))}
+						</span>
+					</div>
+					<div class="flex min-w-0 flex-col p-2">
+						<span
+							class="truncate text-sm font-medium text-neutral-200 transition-colors group-hover:text-white"
+						>
+							{entry.name || entry.id}
 						</span>
 					</div>
 				</button>

@@ -49,51 +49,60 @@ let {
 </script>
 
 <aside
-	class="area-project flex min-h-0 flex-col gap-3 overflow-y-auto border-neutral-500 p-3 lg:border-l"
+	class="area-project flex min-h-0 flex-col bg-surface lg:border-l lg:border-line"
+	aria-label="Project"
 >
-	<div class="flex items-center justify-between">
-		<h2 class="font-medium">Projects</h2>
+	<header
+		class="flex shrink-0 items-center justify-between gap-2 border-b border-line-soft px-3 py-2"
+	>
+		<h2 class="text-sm font-medium tracking-wide text-neutral-200">
+			Projects
+		</h2>
 		<button
 			type="button"
 			onclick={onCreateProject}
-			class="cursor-pointer border border-neutral-500 px-2 py-1 text-sm hover:bg-neutral-800"
+			title="New project"
+			aria-label="New project"
+			class="btn px-1.5 py-0.5 text-xs"
 		>
 			+
 		</button>
-	</div>
+	</header>
 
-	<ProjectList
-		{projects}
-		{currentProjectId}
-		{projectName}
-		{focusNameId}
-		{onRenameProject}
-		{onSelectProject}
-		{onRemoveProject}
-		{onNameFocused}
-	/>
-
-	{#if projectEntries.length > 0}
-		<ProjectEntries
-			entries={projectEntries}
-			{submittedId}
-			{onLoad}
-			{onRemoveTimelapse}
-			{onReorderProject}
+	<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+		<ProjectList
+			{projects}
+			{currentProjectId}
+			{projectName}
+			{focusNameId}
+			{onRenameProject}
+			{onSelectProject}
+			{onRemoveProject}
+			{onNameFocused}
 		/>
-	{:else}
-		<p class="text-sm text-neutral-500">
-			No timelapses yet. Add one below.
-		</p>
-	{/if}
 
-	<TimelapseAddForm {submittedId} {loadError} {onLoad} />
+		{#if projectEntries.length > 0}
+			<ProjectEntries
+				entries={projectEntries}
+				{submittedId}
+				{onLoad}
+				{onRemoveTimelapse}
+				{onReorderProject}
+			/>
+		{:else}
+			<p class="text-sm text-neutral-400">
+				No timelapses yet. Add one below.
+			</p>
+		{/if}
 
-	<ProjectTotalsPanel totals={projectTotals} />
+		<TimelapseAddForm {submittedId} {loadError} {onLoad} />
 
-	{#if projectEntries.length > 0}
-		<ProjectDescription description={projectDescription} />
-	{/if}
+		<ProjectTotalsPanel totals={projectTotals} />
+
+		{#if projectEntries.length > 0}
+			<ProjectDescription description={projectDescription} />
+		{/if}
+	</div>
 </aside>
 
 <style>
