@@ -312,8 +312,9 @@ function onKeyDown(event: KeyboardEvent) {
 							type="button"
 							data-delete={sel.id}
 							aria-label="Delete selection"
+							title="Delete selection"
 							onclick={e => editor.deleteSelection(sel.id, e)}
-							class="absolute -top-3 left-1/2 flex h-5 w-5 -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border bg-white text-xs leading-none shadow transition-[opacity,filter] hover:brightness-110 {color.button} {editor.controlsClass(
+							class="btn btn-danger absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-surface text-xs shadow transition-[color,background-color,border-color,opacity] {editor.controlsClass(
 								sel.id
 							)}"
 						>
