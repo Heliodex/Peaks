@@ -46,11 +46,10 @@ export function formatTimeSince(timestamp: number, now = Date.now()): string {
 	const formatter = new Intl.RelativeTimeFormat(undefined, {
 		numeric: "auto",
 	})
-	for (const [unit, unitSeconds] of TIME_SINCE_UNITS) {
-		if (elapsed >= unitSeconds) {
+	for (const [unit, unitSeconds] of TIME_SINCE_UNITS)
+		if (elapsed >= unitSeconds)
 			return formatter.format(-Math.floor(elapsed / unitSeconds), unit)
-		}
-	}
+
 	return formatter.format(0, "second")
 }
 

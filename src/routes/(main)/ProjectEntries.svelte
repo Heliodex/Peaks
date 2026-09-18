@@ -30,9 +30,9 @@ function moveEntryTo(from: number, insert: number): boolean {
 		insert < 0 ||
 		insert >= entries.length ||
 		insert === from
-	) {
+	)
 		return false
-	}
+
 	const updated = [...entries]
 	const [moved] = updated.splice(from, 1)
 	updated.splice(insert, 0, moved)

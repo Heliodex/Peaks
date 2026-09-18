@@ -18,9 +18,9 @@ function parseSelection(value: unknown): TimelineSelection | null {
 		typeof end !== "number" ||
 		!Number.isFinite(start) ||
 		!Number.isFinite(end)
-	) {
+	)
 		return null
-	}
+
 	return {
 		id,
 		start,
