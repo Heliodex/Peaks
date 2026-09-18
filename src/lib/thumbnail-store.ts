@@ -40,9 +40,9 @@ async function requestsFor(
 		const url = new URL(request.url)
 		if (url.pathname !== KEY_PATH) continue
 		const params = url.searchParams
-		if (params.get("kind") !== kind || params.get("src") !== source) {
+		if (params.get("kind") !== kind || params.get("src") !== source)
 			continue
-		}
+
 		matches.push(request)
 	}
 	return matches
@@ -99,9 +99,8 @@ export async function deleteThumbnails(
 	const cache = await openCache()
 	if (!cache) return
 	try {
-		for (const request of await requestsFor(cache, kind, source)) {
+		for (const request of await requestsFor(cache, kind, source))
 			await cache.delete(request)
-		}
 	} catch {
 		// Ignore; a stale entry is harmless.
 	}

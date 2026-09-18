@@ -32,9 +32,9 @@ export function createObjectUrlCache<T>({
 				if (oldest === undefined) break
 				const evicted = cache.get(oldest)
 				cache.delete(oldest)
-				if (evicted) {
+				if (evicted)
 					for (const url of urls(evicted)) URL.revokeObjectURL(url)
-				}
+
 				void deleteThumbnails(kind, oldest)
 			}
 		},

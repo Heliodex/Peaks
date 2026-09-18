@@ -217,9 +217,9 @@ function parseProjectEntry(
 		typeof id !== "string" ||
 		typeof name !== "string" ||
 		!Number.isFinite(duration)
-	) {
+	)
 		return null
-	}
+
 	const ignore = ignoreIdle === 1
 	const idleRanges = parseIdleRanges(rawIdleRanges)
 	const selections =
@@ -258,9 +258,9 @@ export async function decodeShare(value: string): Promise<ShareState | null> {
 				Boolean(entry)
 			)
 		// Persist every timelapse's selections so opening a non-open entry later (which reads from storage via `loadSelections`) restores its annotations instead of starting empty. The open entry is also saved here so it survives even if the selections effect hasn't run yet.
-		for (const { entry, selections: entrySelections } of parsed) {
+		for (const { entry, selections: entrySelections } of parsed)
 			saveSelections(entry.id, entrySelections)
-		}
+
 		return {
 			projectId: typeof i === "string" ? i : "",
 			selections,

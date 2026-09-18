@@ -32,9 +32,9 @@ function parseTarget(url: URL): URL {
 			parsed.hostname
 		) ||
 		parsed.hostname.endsWith(".local")
-	) {
+	)
 		error(400, "Host not allowed")
-	}
+
 	return parsed
 }
 

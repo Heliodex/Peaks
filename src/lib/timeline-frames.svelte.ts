@@ -107,10 +107,9 @@ function layoutFrames(
 		let bestDistance = Number.POSITIVE_INFINITY
 		for (const frame of frames) {
 			const distance = Math.abs(frame.time - target)
-			if (distance < bestDistance) {
-				bestDistance = distance
-				best = frame
-			}
+			if (distance >= bestDistance) continue
+			bestDistance = distance
+			best = frame
 		}
 		if (best && bestDistance <= maxDistance && !picks.includes(best)) {
 			picks.push(best)
@@ -167,9 +166,9 @@ async function hydrate(source: string) {
 				merged.some(
 					frame => Math.abs(frame.time - time) <= 1 / TIME_KEY_SCALE
 				)
-			) {
+			)
 				continue
-			}
+
 			merged.push({ time, url: URL.createObjectURL(blob), fresh: false })
 		}
 		merged.sort((a, b) => a.time - b.time)
@@ -207,10 +206,10 @@ function createCapturePool(targetSrc: () => string): CapturePool {
 			poolSrc = url
 		}
 		let item = capturers[index]
-		if (!item) {
-			item = createFrameCapturer(url)
-			capturers[index] = item
-		}
+		if (item) return item
+
+		item = createFrameCapturer(url)
+		capturers[index] = item
 		return item
 	}
 
@@ -306,9 +305,8 @@ export class FrameStrip {
 		// Revoke object URLs for any frames dropped by the trim.
 		if (next !== candidates) {
 			const kept = new Set(next)
-			for (const frame of candidates) {
+			for (const frame of candidates)
 				if (!kept.has(frame)) URL.revokeObjectURL(frame.url)
-			}
 		}
 		frameCache.set(source, next)
 		void saveThumbnail(

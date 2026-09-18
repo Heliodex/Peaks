@@ -80,9 +80,9 @@ export class IdleAnalysis {
 	/** Adopt a usable cached scan. Returns whether it was adopted (a misaligned cache is re-scanned instead). */
 	#adoptCache(rate: number): boolean {
 		const cachedRanges = untrack(this.#options.cached)
-		if (rate > 0 && !idleRangesAreFrameAligned(cachedRanges, rate)) {
+		if (rate > 0 && !idleRangesAreFrameAligned(cachedRanges, rate))
 			return false
-		}
+
 		this.#cancel()
 		this.ranges = cachedRanges
 		this.progress = 1

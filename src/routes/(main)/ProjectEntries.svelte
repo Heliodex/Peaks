@@ -67,9 +67,7 @@ function reorderFromPointer(event: DragEvent, force: boolean) {
 			break
 		}
 	}
-	if (moveToIndex(draggingId, targetIndex)) {
-		lastReorder = performance.now()
-	}
+	if (moveToIndex(draggingId, targetIndex)) lastReorder = performance.now()
 }
 
 /** Live-reorder while the pointer moves over the list. */
@@ -124,19 +122,19 @@ function moveEntryBy(id: string, delta: number) {
 				}}
 				ondragstart={e => {
 					draggingId = entry.id
-					if (e.dataTransfer) {
-						const row = e.currentTarget.closest("li")
-						e.dataTransfer.effectAllowed = "move"
-						e.dataTransfer.setData("text/plain", entry.id)
-						if (row) {
-							const rect = row.getBoundingClientRect()
-							e.dataTransfer.setDragImage(
-								row,
-								e.clientX - rect.left,
-								e.clientY - rect.top
-							)
-						}
-					}
+					if (!e.dataTransfer) return
+
+					const row = e.currentTarget.closest("li")
+					e.dataTransfer.effectAllowed = "move"
+					e.dataTransfer.setData("text/plain", entry.id)
+					if (!row) return
+
+					const rect = row.getBoundingClientRect()
+					e.dataTransfer.setDragImage(
+						row,
+						e.clientX - rect.left,
+						e.clientY - rect.top
+					)
 				}}
 				ondragend={() => {
 					draggingId = null

@@ -161,16 +161,16 @@ function inputOrderComparator(ids: string[]) {
 /** Human-readable errors for ids that couldn't be resolved. */
 function idProblems(missing: string[], unchecked: string[]): string[] {
 	const problems: string[] = []
-	if (missing.length > 0) {
+	if (missing.length > 0)
 		problems.push(
 			`No timelapse found for ID${missing.length > 1 ? "s" : ""} ${formatIdList(missing)}.`
 		)
-	}
-	if (unchecked.length > 0) {
+
+	if (unchecked.length > 0)
 		problems.push(
 			`Couldn't check ID${unchecked.length > 1 ? "s" : ""} ${formatIdList(unchecked)}. Please try again.`
 		)
-	}
+
 	return problems
 }
 
@@ -180,7 +180,7 @@ function seedResolvedEntries(
 ): ProjectTimelapse[] {
 	const entries = $state.snapshot(workspace.projectEntries)
 	let added = false
-	for (const { id, meta } of valid) {
+	for (const { id, meta } of valid)
 		if (meta && !entries.some(entry => entry.id === id)) {
 			entries.push({
 				...emptyTimelapse(id),
@@ -190,13 +190,13 @@ function seedResolvedEntries(
 			pendingAdds.add(id)
 			added = true
 		}
-	}
-	if (added) {
+
+	if (added)
 		workspace.updateCurrentProject(project => ({
 			...project,
 			timelapses: entries,
 		}))
-	}
+
 	return entries
 }
 
@@ -254,11 +254,9 @@ function formatIdList(ids: string[]): string {
 function toggleFullscreen() {
 	const el = videoEl
 	if (!el) return
-	if (document.fullscreenElement) {
+	if (document.fullscreenElement)
 		void document.exitFullscreen().catch(() => {})
-	} else {
-		void el.requestFullscreen().catch(() => {})
-	}
+	else void el.requestFullscreen().catch(() => {})
 }
 
 /**
@@ -282,9 +280,8 @@ function onKeyDown(event: KeyboardEvent) {
 		target &&
 		(target.isContentEditable ||
 			target.closest("input, textarea, select, [contenteditable]"))
-	) {
+	)
 		return
-	}
 
 	if (event.key.toLowerCase() === "f") {
 		if (event.metaKey || event.ctrlKey || event.altKey) return
@@ -324,18 +321,16 @@ function onKeyDown(event: KeyboardEvent) {
 }
 
 /** A project entry for a timelapse whose metadata hasn't resolved yet. */
-function emptyTimelapse(id: string): ProjectTimelapse {
-	return {
-		id,
-		name: "",
-		duration: 0,
-		idleDuration: 0,
-		annotations: [],
-		ignoreIdle: false,
-		idleThreshold: DEFAULT_IDLE_THRESHOLD,
-		description: "",
-	}
-}
+const emptyTimelapse = (id: string): ProjectTimelapse => ({
+	id,
+	name: "",
+	duration: 0,
+	idleDuration: 0,
+	annotations: [],
+	ignoreIdle: false,
+	idleThreshold: DEFAULT_IDLE_THRESHOLD,
+	description: "",
+})
 
 // Ids added optimistically by `loadId` that still need confirming by Lapse.
 const pendingAdds = new SvelteSet<string>()
@@ -403,9 +398,8 @@ $effect(() => {
 						}
 					: null
 			}
-			if (timelapse) {
-				pendingAdds.delete(id)
-			} else if (pendingAdds.has(id)) {
+			if (timelapse) pendingAdds.delete(id)
+			else if (pendingAdds.has(id)) {
 				// The id couldn't be resolved, so drop the optimistic entry.
 				pendingAdds.delete(id)
 				removeEntry(id)
@@ -461,9 +455,9 @@ function updatedEntry(
 		existing.idleThreshold === idleState.threshold &&
 		existing.description === description &&
 		sameIdleRanges(existing.idleRanges, cachedRanges)
-	) {
+	)
 		return null
-	}
+
 	return {
 		index,
 		entry: {
