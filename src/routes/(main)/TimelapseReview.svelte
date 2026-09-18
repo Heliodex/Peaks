@@ -2,12 +2,9 @@
 import { onMount } from "svelte"
 import { SvelteSet } from "svelte/reactivity"
 import {
-	ANNOTATION_REASONS,
 	type AnnotationDeflation,
 	deflationByReason,
 	describeTimelapse,
-	effectiveIdleRanges,
-	idleRecordedSeconds,
 } from "#lib/annotations.js"
 import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
@@ -18,22 +15,19 @@ import {
 	saveSettings,
 } from "#lib/settings-storage.js"
 import { encodeShare } from "#lib/share.js"
-import {
-	formatClock,
-	formatHours,
-	type TimelineSelection,
-} from "#lib/timeline.js"
+import { type TimelineSelection } from "#lib/timeline.js"
 import { goto } from "$app/navigation"
 import { page } from "$app/state"
 import { getTimelapse } from "./api.remote.js"
 import ProjectPane from "./ProjectPane.svelte"
 import ProjectSearch from "./ProjectSearch.svelte"
 import ProjectTimelapses from "./ProjectTimelapses.svelte"
-import { createPaneLayout } from "./pane-layout.svelte.js"
-import { createProjectWorkspace } from "./project-workspace.svelte.js"
+import { PaneLayout } from "./pane-layout.svelte.js"
+import { ProjectSummary } from "./project-summary.svelte.js"
+import { ProjectWorkspace } from "./project-workspace.svelte.js"
 import ReviewDetails from "./ReviewDetails.svelte"
-import { entryFinalDuration } from "./review-format.js"
-import { createReviewSession } from "./review-session.svelte.js"
+import { ReviewIdle } from "./review-idle.svelte.js"
+import { ReviewSession } from "./review-session.svelte.js"
 import type { ReviewTimelapse } from "./review-types.js"
 import TimelinePane from "./TimelinePane.svelte"
 import VideoPane from "./VideoPane.svelte"
@@ -59,31 +53,28 @@ const routeParam = $derived(
 )
 
 let videoEl = $state<HTMLVideoElement>()
-let idleRanges = $state<IdleRange[]>([])
-let idleAnalyzing = $state(false)
-// Whether `idleRanges` came from a completed scan or the project's cache.
-let idleAnalyzed = $state(false)
-// Bumped to request a fresh idle scan; negative means "use the cached ranges".
-let idleRevision = $state(0)
 
-const panes = createPaneLayout(() => Boolean(videoEl))
+const panes = new PaneLayout(() => Boolean(videoEl))
 
 // Every project lives in local storage; the workspace owns the open project and its timelapses.
-const workspace = createProjectWorkspace({ closeTimelapse })
+const workspace = new ProjectWorkspace(closeTimelapse)
 
 // The review session owns the open timelapse's selections and the URL sync.
-const session = createReviewSession({
+const session = new ReviewSession({
 	routeParam: () => routeParam,
 	projectId: () => workspace.activeProjectId,
 	projectName: () => workspace.projectName,
 	project: () => workspace.projectEntries,
 	projectLoaded: () => workspace.projectLoaded,
 	onDecoded: decoded => workspace.importSharedProject(decoded),
-	onResetIdle: () => {
-		idleRanges = []
-		idleAnalyzing = false
-		idleAnalyzed = false
-	},
+	onResetIdle: () => idleState.reset(),
+})
+
+// The open timelapse's idle analysis and per-entry overrides.
+const idleState = new ReviewIdle({
+	openId: () => session.submittedId,
+	entries: () => workspace.projectEntries,
+	updateProject: update => workspace.updateCurrentProject(update),
 })
 
 // Whether the Ctrl+K project search dialog is open.
@@ -94,23 +85,6 @@ let searchOpen = $state(false)
 let justifyTimeline = $state(true)
 let settingsLoaded = $state(false)
 
-/**
- * Whether idle time is ignored for the open timelapse.
- * It lives on the project entry (the single source of truth for timelapse state), defaulting to off.
- */
-const ignoreIdle = $derived(
-	workspace.projectEntries.find(entry => entry.id === session.submittedId)
-		?.ignoreIdle ?? false
-)
-
-/**
- * Frame-difference threshold for the open timelapse's idle scan.
- * Like `ignoreIdle` it lives on the project entry, defaulting to the standard sensitivity when unset.
- */
-const idleThreshold = $derived(
-	workspace.projectEntries.find(entry => entry.id === session.submittedId)
-		?.idleThreshold ?? DEFAULT_IDLE_THRESHOLD
-)
 // Metadata for the open timelapse, resolved from Lapse so it can be added to the project automatically.
 // The id is kept alongside it so a late-resolving fetch can never be applied to a different timelapse.
 let currentMeta = $state<{
@@ -151,36 +125,6 @@ function sameIdleRanges(
 		)
 	)
 }
-
-/** Idle ranges that count towards the maths (none while overridden). */
-const activeIdleRanges = $derived(effectiveIdleRanges(ignoreIdle, idleRanges))
-
-/** Time removed from the actual duration as idle, in recorded seconds. */
-const idleDuration = $derived(idleRecordedSeconds(activeIdleRanges))
-
-/**
- * Seed the open timelapse's idle ranges from the project's cache when a scan has run before, so reopening a timelapse doesn't re-analyze its video.
- * A negative revision tells the timeline to reuse the cache instead of scanning.
- */
-let idleSeededFor = ""
-$effect(() => {
-	const id = session.submittedId
-	if (!id) {
-		idleSeededFor = ""
-		return
-	}
-	if (idleSeededFor === id) return
-	const entry = workspace.projectEntries.find(item => item.id === id)
-	idleSeededFor = id
-	idleAnalyzed = false
-	if (entry?.idleRanges) {
-		idleRanges = entry.idleRanges.map(range => ({ ...range }))
-		idleRevision = -1
-	} else {
-		idleRanges = []
-		idleRevision = 0
-	}
-})
 
 /** Resolve each new id against Lapse, grouping them into valid, missing and unchecked. */
 async function resolveIds(
@@ -408,9 +352,7 @@ const pendingAdds = new SvelteSet<string>()
 function closeTimelapse() {
 	if (!session.submittedId) return
 	session.close()
-	idleRanges = []
-	idleAnalyzing = false
-	idleAnalyzed = false
+	idleState.reset()
 }
 
 /** Remove a timelapse from the open project, closing it when it was open. */
@@ -441,99 +383,10 @@ $effect(() => {
 	saveSettings(settings)
 })
 
-/** Toggle whether idle time is ignored for the open timelapse. */
-function setIgnoreIdle(value: boolean) {
-	const index = workspace.projectEntries.findIndex(
-		entry => entry.id === session.submittedId
-	)
-	if (index === -1) return
-	workspace.updateCurrentProject(project => ({
-		...project,
-		timelapses: project.timelapses.map((entry, i) =>
-			i === index ? { ...entry, ignoreIdle: value } : entry
-		),
-	}))
-}
-
-/**
- * Set the idle-detection threshold for the open timelapse.
- * Changing it invalidates the cached scan, so a fresh one starts with the new sensitivity.
- */
-function setIdleThreshold(value: number) {
-	const index = workspace.projectEntries.findIndex(
-		entry => entry.id === session.submittedId
-	)
-	if (index === -1) return
-	if (value === idleThreshold) return
-	workspace.updateCurrentProject(project => ({
-		...project,
-		timelapses: project.timelapses.map((entry, i) =>
-			i === index ? { ...entry, idleThreshold: value } : entry
-		),
-	}))
-	recalculateIdle()
-}
-
-/** Restore the standard idle-detection sensitivity for the open timelapse. */
-function resetIdleThreshold() {
-	setIdleThreshold(DEFAULT_IDLE_THRESHOLD)
-}
-
-/** Force a fresh idle scan for the open timelapse, replacing the cached one. */
-function recalculateIdle() {
-	idleRevision = idleRevision < 0 ? 0 : idleRevision + 1
-}
-
-/** Totals for the current project, in recorded seconds. */
-const projectTotals = $derived.by(() => {
-	let recorded = 0
-	let idle = 0
-	let final = 0
-	for (const entry of workspace.projectEntries) {
-		recorded += entry.duration
-		idle += entry.idleDuration
-		final += entryFinalDuration(entry)
-	}
-	// Keep catalog order so the breakdown stays stable as entries change.
-	const annotations = ANNOTATION_REASONS.map(reason => ({
-		reason,
-		duration: workspace.projectEntries.reduce(
-			(sum, entry) =>
-				sum +
-				entry.annotations
-					.filter(annotation => annotation.reason === reason.id)
-					.reduce((sum, annotation) => sum + annotation.duration, 0),
-			0
-		),
-	})).filter(entry => entry.duration > 0)
-	const annotationDeflation = annotations.reduce(
-		(sum, annotation) => sum + annotation.duration,
-		0
-	)
-	return {
-		recorded,
-		idle,
-		annotations,
-		deducted: idle + annotationDeflation,
-		final,
-	}
-})
-
-/** The project's description: every timelapse's review text in order (without their individual share links), a summary of the project totals, and finally a share link for the whole project. */
-const projectDescription = $derived.by(() => {
-	if (workspace.projectEntries.length === 0) return ""
-	const parts = workspace.projectEntries.map(entry => entry.description)
-	const total = `${formatClock(projectTotals.final)} (${formatHours(projectTotals.final)})`
-	// With nothing deducted, original and final time are the same, so the breakdown would just repeat itself.
-	parts.push(
-		projectTotals.deducted === 0
-			? `Total time ${total}.`
-			: `Total original time ${formatClock(projectTotals.recorded)}, ` +
-					`total time deducted ${formatClock(projectTotals.deducted)}, ` +
-					`final total ${total}.`
-	)
-	if (session.encodedState) parts.push(session.shareUrl)
-	return parts.join("\n\n")
+// Totals and description for the current project.
+const summary = new ProjectSummary({
+	entries: () => workspace.projectEntries,
+	shareLink: () => (session.encodedState ? session.shareUrl : ""),
 })
 
 // Resolve the open timelapse's metadata from Lapse so it can be represented in the project.
@@ -589,9 +442,9 @@ function updatedEntry(
 	const index = workspace.projectEntries.findIndex(entry => entry.id === id)
 	const existing = index === -1 ? undefined : workspace.projectEntries[index]
 	// Only cache ranges once a scan has finished (or when reusing a previous cache), so a scan interrupted by navigation can't persist partial results that would then never be recalculated.
-	const cachedRanges = idleAnalyzing
+	const cachedRanges = idleState.analyzing
 		? existing?.idleRanges
-		: idleAnalyzed
+		: idleState.analyzed
 			? detected
 			: existing?.idleRanges
 	const annotations = deflationByReason(currentSelections, ranges)
@@ -609,8 +462,8 @@ function updatedEntry(
 		existing.name === name &&
 		existing.idleDuration === idle &&
 		sameAnnotations(existing.annotations, annotations) &&
-		existing.ignoreIdle === ignoreIdle &&
-		existing.idleThreshold === idleThreshold &&
+		existing.ignoreIdle === idleState.ignoreIdle &&
+		existing.idleThreshold === idleState.threshold &&
 		existing.description === description &&
 		sameIdleRanges(existing.idleRanges, cachedRanges)
 	) {
@@ -624,8 +477,8 @@ function updatedEntry(
 			duration,
 			idleDuration: idle,
 			annotations,
-			ignoreIdle,
-			idleThreshold,
+			ignoreIdle: idleState.ignoreIdle,
+			idleThreshold: idleState.threshold,
 			description,
 			...(cachedRanges !== undefined ? { idleRanges: cachedRanges } : {}),
 		},
@@ -636,11 +489,11 @@ function updatedEntry(
 $effect(() => {
 	const id = session.submittedId
 	const meta = currentMeta
-	const idle = idleDuration
+	const idle = idleState.duration
 	// Read the raw selection/idle state so reason-only edits still refresh the stored description and breakdown, even when the totals don't change.
-	const ranges = $state.snapshot(activeIdleRanges)
+	const ranges = $state.snapshot(idleState.activeRanges)
 	const currentSelections = $state.snapshot(session.selections)
-	const detected = $state.snapshot(idleRanges)
+	const detected = $state.snapshot(idleState.ranges)
 	if (!id || !session.loaded || !meta || meta.id !== id) return
 
 	const result = updatedEntry(
@@ -694,16 +547,17 @@ $effect(() => {
 		projectName={workspace.projectName}
 		projectEntries={workspace.projectEntries}
 		submittedId={session.submittedId}
-		{projectTotals}
-		{projectDescription}
+		projectTotals={summary.totals}
+		projectDescription={summary.description}
 		loadError={workspace.loadError}
 		onLoad={loadId}
 		onRemoveTimelapse={removeEntry}
-		onRenameProject={workspace.renameCurrentProject}
-		onReorderProject={workspace.reorderCurrentProject}
-		onSelectProject={workspace.selectProject}
-		onCreateProject={workspace.createNewProject}
-		onRemoveProject={workspace.removeProject}
+		onRenameProject={name => workspace.renameCurrentProject(name)}
+		onReorderProject={timelapses =>
+			workspace.reorderCurrentProject(timelapses)}
+		onSelectProject={id => workspace.selectProject(id)}
+		onCreateProject={() => workspace.createNewProject()}
+		onRemoveProject={id => workspace.removeProject(id)}
 		onNameFocused={() => (workspace.focusNameId = null)}
 	/>
 
@@ -712,15 +566,15 @@ $effect(() => {
 	<ReviewDetails
 		timelapse={currentTimelapse}
 		bind:selections={session.selections}
-		{idleRanges}
-		{idleAnalyzing}
-		{ignoreIdle}
-		{idleThreshold}
+		idleRanges={idleState.ranges}
+		idleAnalyzing={idleState.analyzing}
+		ignoreIdle={idleState.ignoreIdle}
+		idleThreshold={idleState.threshold}
 		{justifyTimeline}
-		onToggleIgnoreIdle={setIgnoreIdle}
-		onSetIdleThreshold={setIdleThreshold}
-		onResetIdleThreshold={resetIdleThreshold}
-		onRecalculateIdle={recalculateIdle}
+		onToggleIgnoreIdle={value => idleState.setIgnoreIdle(value)}
+		onSetIdleThreshold={value => idleState.setThreshold(value)}
+		onResetIdleThreshold={() => idleState.resetThreshold()}
+		onRecalculateIdle={() => idleState.recalculate()}
 		onToggleJustifyTimeline={value => (justifyTimeline = value)}
 	/>
 
@@ -761,12 +615,12 @@ $effect(() => {
 							thumbnailUrl={timelapse.thumbnailUrl}
 							{videoEl}
 							bind:selections={session.selections}
-							bind:idleRanges
-							bind:idleAnalyzing
-							bind:idleAnalyzed
-							{idleRevision}
-							{ignoreIdle}
-							{idleThreshold}
+							bind:idleRanges={idleState.ranges}
+							bind:idleAnalyzing={idleState.analyzing}
+							bind:idleAnalyzed={idleState.analyzed}
+							idleRevision={idleState.revision}
+							ignoreIdle={idleState.ignoreIdle}
+							idleThreshold={idleState.threshold}
 						/>
 
 						{@render resizeHandle("resize-handle-timeline", panes.startTimelineResize)}
@@ -794,7 +648,7 @@ $effect(() => {
 		projects={workspace.projects}
 		currentProjectId={workspace.currentProjectId}
 		currentTimelapseId={session.submittedId}
-		onSelect={workspace.selectProject}
+		onSelect={id => workspace.selectProject(id)}
 		onLoadTimelapse={openTimelapseFromSearch}
 		onClose={() => (searchOpen = false)}
 	/>

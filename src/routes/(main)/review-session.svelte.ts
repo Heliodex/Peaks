@@ -22,72 +22,98 @@ type ReviewSessionOptions = {
 	onResetIdle: () => void
 }
 
-export function createReviewSession(options: ReviewSessionOptions) {
-	let submittedId = $state("")
-	let selections = $state<TimelineSelection[]>([])
-	let encodedState = $state("")
-	let loaded = $state(false)
-	let loadToken = 0
-	let urlToken = 0
-	let urlTimer: ReturnType<typeof setTimeout> | undefined
+export class ReviewSession {
+	readonly #options: ReviewSessionOptions
+
+	submittedId = $state("")
+	selections = $state<TimelineSelection[]>([])
+	encodedState = $state("")
+	loaded = $state(false)
+
+	#loadToken = 0
+	#urlToken = 0
+	#urlTimer: ReturnType<typeof setTimeout> | undefined
 
 	/** Shareable link for the current review: the encoded state is the path. */
-	const shareUrl = $derived(
-		encodedState ? `${SITE_ORIGIN}/${encodedState}` : ""
+	shareUrl = $derived(
+		this.encodedState ? `${SITE_ORIGIN}/${this.encodedState}` : ""
 	)
 
-	// Load the state named by the path: it holds an encoded project state whose `openId` is the open timelapse.
-	// A path that doesn't decode is treated as stale or corrupt: the review stays closed and the URL sync rewrites the path from the locally stored project.
-	// Resets idle analysis because the underlying video changes.
-	$effect(() => {
-		const param = options.routeParam()
-		// Our own shallow URL writes already match the in-memory review, so skip decoding them (reading `encodedState` untracked keeps it from retriggering this effect).
-		// Comparing against the *current* state – rather than a value we wrote earlier – means a genuine navigation that happens to encode to the same string still loads.
-		if (param && param === untrack(() => encodedState)) return
-		const token = ++loadToken
-		loaded = false
-		encodedState = ""
-		options.onResetIdle()
-		if (!param) {
-			submittedId = ""
-			selections = []
-			loaded = true
-			return
-		}
-		void decodeShare(param).then(decoded => {
-			if (token !== loadToken) return
-			if (decoded) {
-				submittedId = decoded.openId
-				encodedState = param
-				selections = decoded.selections
-				options.onDecoded(decoded)
-			} else {
-				// Not an encoded project state.
-				// Leave the review closed rather than latching onto the slug, and let the URL sync rewrite the path from the locally stored project so a stale or corrupt link recovers.
-				submittedId = ""
-				selections = []
-			}
-			loaded = true
-		})
-	})
+	constructor(options: ReviewSessionOptions) {
+		this.#options = options
 
-	// Persist the open timelapse's selections (and their reasons) per timelapse.
-	$effect(() => {
-		const id = submittedId
-		const value = $state.snapshot(selections)
-		if (!id || !loaded) return
-		saveSelections(id, value)
-	})
+		// Load the state named by the path: it holds an encoded project state whose `openId` is the open timelapse.
+		// A path that doesn't decode is treated as stale or corrupt: the review stays closed and the URL sync rewrites the path from the locally stored project.
+		// Resets idle analysis because the underlying video changes.
+		$effect(() => {
+			const param = this.#options.routeParam()
+			// Our own shallow URL writes already match the in-memory review, so skip decoding them (reading `encodedState` untracked keeps it from retriggering this effect).
+			// Comparing against the *current* state – rather than a value we wrote earlier – means a genuine navigation that happens to encode to the same string still loads.
+			if (param && param === untrack(() => this.encodedState)) return
+			const token = ++this.#loadToken
+			this.loaded = false
+			this.encodedState = ""
+			this.#options.onResetIdle()
+			if (!param) {
+				this.submittedId = ""
+				this.selections = []
+				this.loaded = true
+				return
+			}
+			void decodeShare(param).then(decoded => {
+				if (token !== this.#loadToken) return
+				if (decoded) {
+					this.submittedId = decoded.openId
+					this.encodedState = param
+					this.selections = decoded.selections
+					this.#options.onDecoded(decoded)
+				} else {
+					// Not an encoded project state.
+					// Leave the review closed rather than latching onto the slug, and let the URL sync rewrite the path from the locally stored project so a stale or corrupt link recovers.
+					this.submittedId = ""
+					this.selections = []
+				}
+				this.loaded = true
+			})
+		})
+
+		// Persist the open timelapse's selections (and their reasons) per timelapse.
+		$effect(() => {
+			const id = this.submittedId
+			const value = $state.snapshot(this.selections)
+			if (!id || !this.loaded) return
+			saveSelections(id, value)
+		})
+
+		// Mirror the review – the open project and, when one is open, the timelapse – into the URL.
+		// Only the current project is encoded; the rest stay in storage.
+		$effect(() => {
+			const id = this.submittedId
+			const value = $state.snapshot(this.selections)
+			const projectId = this.#options.projectId()
+			const name = this.#options.projectName()
+			const entries = $state.snapshot(this.#options.project())
+			if (!this.#options.projectLoaded() || !this.loaded) return
+			void this.#syncShareUrl({
+				projectId,
+				id,
+				selections: value,
+				projectName: name,
+				project: entries,
+			})
+			return () => clearTimeout(this.#urlTimer)
+		})
+	}
 
 	/** Encode the review and project state, publish it to the description immediately, and (debounced) mirror it into the path so the whole session can be shared. */
-	async function syncShareUrl(state: {
+	async #syncShareUrl(state: {
 		projectId: string
 		id: string
 		selections: TimelineSelection[]
 		projectName: string
 		project: ProjectTimelapse[]
 	}) {
-		const token = ++urlToken
+		const token = ++this.#urlToken
 		const encoded = await encodeShare({
 			projectId: state.projectId,
 			selections: state.selections,
@@ -96,14 +122,14 @@ export function createReviewSession(options: ReviewSessionOptions) {
 			openId: state.id,
 		})
 		// Bail if a newer encode started, or the open timelapse changed underneath us (otherwise a stale payload could land on the wrong review).
-		if (token !== urlToken || state.id !== submittedId) return
-		encodedState = encoded
+		if (token !== this.#urlToken || state.id !== this.submittedId) return
+		this.encodedState = encoded
 		const target = `/${encoded}`
 		// Debounce only the history write, so editing doesn't spam entries.
 		const id = state.id
-		clearTimeout(urlTimer)
-		urlTimer = setTimeout(() => {
-			void applyShareUrl(id, target)
+		clearTimeout(this.#urlTimer)
+		this.#urlTimer = setTimeout(() => {
+			void this.#applyShareUrl(id, target)
 		}, 300)
 	}
 
@@ -112,57 +138,20 @@ export function createReviewSession(options: ReviewSessionOptions) {
 	 * Guards ensure a debounced update from a previously open timelapse can only rewrite the URL of the *current* route – it can never navigate back to (or re-apply the project snapshot of) a different timelapse.
 	 * The load effect recognises the write because it matches the state currently held in `encodedState`.
 	 */
-	async function applyShareUrl(id: string, target: string) {
-		if (id !== submittedId) return
+	async #applyShareUrl(id: string, target: string) {
+		if (id !== this.submittedId) return
 		if (target === window.location.pathname) return
 		await goto(target, { replace: true, shallow: true, reset: false })
 	}
 
-	// Mirror the review – the open project and, when one is open, the timelapse – into the URL.
-	// Only the current project is encoded; the rest stay in storage.
-	$effect(() => {
-		const id = submittedId
-		const value = $state.snapshot(selections)
-		const projectId = options.projectId()
-		const name = options.projectName()
-		const entries = $state.snapshot(options.project())
-		if (!options.projectLoaded() || !loaded) return
-		void syncShareUrl({
-			projectId,
-			id,
-			selections: value,
-			projectName: name,
-			project: entries,
-		})
-		return () => clearTimeout(urlTimer)
-	})
-
 	/** Close the open timelapse and forget its selections. */
-	function close() {
-		submittedId = ""
-		selections = []
+	close() {
+		this.submittedId = ""
+		this.selections = []
 	}
 
-	return {
-		get submittedId() {
-			return submittedId
-		},
-		get selections() {
-			return selections
-		},
-		set selections(value: TimelineSelection[]) {
-			selections = value
-		},
-		get loaded() {
-			return loaded
-		},
-		get encodedState() {
-			return encodedState
-		},
-		get shareUrl() {
-			return shareUrl
-		},
-		close,
-		clearPendingWrite: () => clearTimeout(urlTimer),
+	/** Cancel any debounced URL write. */
+	clearPendingWrite() {
+		clearTimeout(this.#urlTimer)
 	}
 }

@@ -36,13 +36,6 @@ export type FrameStripOptions = {
 	view: () => ViewWindow
 }
 
-export type FrameStrip = {
-	/** Thumbnails to render for the current view, positioned by absolute time. */
-	readonly layout: LayoutFrame[]
-	/** Capture one thumbnail from the shared capturer pool. */
-	captureAt: (time: number, epsilon?: number) => Promise<CapturedFrame>
-}
-
 // Number of thumbnails aimed for across the visible window
 const FRAME_COUNT = 12
 // Wait this long after the view stops changing before filling in new frames
@@ -229,25 +222,73 @@ function createCapturePool(targetSrc: () => string): CapturePool {
 	return { capturer, dispose }
 }
 
-export function createFrameStrip(options: FrameStripOptions): FrameStrip {
-	const { src, duration, frameRate, view } = options
+// Capturing is network-bound, so a small pool of hidden videos working in parallel fills the strip. Kept deliberately small (and shared with the navigator) to limit how many video elements load at once.
+const POOL_SIZE = 2
 
-	let queue: number[] = []
-	let capturing = false
-	let tolerance = 0.05
+export class FrameStrip {
+	readonly #options: FrameStripOptions
+	readonly #pool: CapturePool
+
+	#queue: number[] = []
+	#capturing = false
+	#tolerance = 0.05
 	// The source the capture pool should currently point at.
-	let targetSrc = ""
-	let settleTimers: ReturnType<typeof setTimeout>[] = []
+	#targetSrc = ""
+	#settleTimers: ReturnType<typeof setTimeout>[] = []
+	#captureIndex = 0
 
-	// Capturing is network-bound, so a small pool of hidden videos working in parallel fills the strip. Kept deliberately small (and shared with the navigator) to limit how many video elements load at once.
-	const POOL_SIZE = 2
-	const pool = createCapturePool(() => targetSrc)
+	constructor(options: FrameStripOptions) {
+		this.#options = options
+		this.#pool = createCapturePool(() => this.#targetSrc)
 
-	const isCached = (source: string, time: number): boolean =>
-		isTimeCached(source, time, tolerance)
+		// Fill in thumbnails for the visible window, debounced so panning and zooming don't kick off captures on every pointer move. Cached frames stay visible meanwhile, so the strip slides smoothly.
+		$effect(() => {
+			const url = this.#options.src()
+			const current = this.#options.view()
+			if (!url || !(current.end > current.start)) return
 
-	function addFrame(time: number, captured: CapturedFrame) {
-		const source = targetSrc
+			// Point the shared capture pool at the current video immediately, so other callers (the navigator) target the right source too.
+			this.#targetSrc = url
+
+			// Pull persisted thumbnails in alongside capture. This must be untracked: `hydrate` synchronously reads and mutates its `hydrating` guard, and tracking that would make this effect re-run each time hydration starts or finishes – an endless loop that keeps resetting the capture timer.
+			void untrack(() => hydrate(url))
+
+			// Start buffering the first capturer immediately so the initial frames aren't network-bound. Hydration from persistent storage merges in alongside; a source with nothing cached captures as it always did.
+			// `untrack` keeps adding frames from re-running this effect.
+			if (untrack(() => framesFor(url).length) === 0) {
+				void this.#pool.capturer(0)
+			}
+
+			const timer = setTimeout(() => {
+				this.#populate(url, current.start, current.end)
+			}, FRAME_REFRESH_MS)
+			return () => clearTimeout(timer)
+		})
+
+		// Release resources when the component is destroyed.
+		onDestroy(() => {
+			for (const timer of this.#settleTimers) clearTimeout(timer)
+			this.#settleTimers = []
+			this.#pool.dispose()
+		})
+	}
+
+	/** Thumbnails to render for the current view, positioned by absolute time. */
+	get layout(): LayoutFrame[] {
+		const current = this.#options.view()
+		const span = current.end - current.start
+		if (span <= 0) return []
+
+		const step = frameStepFor(span, this.#options.frameRate(), FRAME_COUNT)
+		return layoutFrames(framesFor(this.#options.src()), current, step)
+	}
+
+	#isCached(source: string, time: number): boolean {
+		return isTimeCached(source, time, this.#tolerance)
+	}
+
+	#addFrame(time: number, captured: CapturedFrame) {
+		const source = this.#targetSrc
 		const candidates = [
 			...framesFor(source),
 			{ time, url: captured.url, fresh: true },
@@ -255,7 +296,7 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 		let next = candidates
 		if (candidates.length > FRAME_CACHE_LIMIT) {
 			// Keep the thumbnails nearest the visible window.
-			const { start, end } = view()
+			const { start, end } = this.#options.view()
 			next = trimFramesNear(
 				candidates,
 				(start + end) / 2,
@@ -289,36 +330,38 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 						: frame
 				)
 			)
-			settleTimers = settleTimers.filter(t => t !== timer)
+			this.#settleTimers = this.#settleTimers.filter(t => t !== timer)
 		}, FADE_MS)
-		settleTimers = [...settleTimers, timer]
+		this.#settleTimers = [...this.#settleTimers, timer]
 	}
 
 	/** Fill the queue using the capture pool, adding each frame as it's ready. */
-	async function runQueue() {
-		if (capturing) return
-		capturing = true
+	async #runQueue() {
+		if (this.#capturing) return
+		this.#capturing = true
 		try {
 			await Promise.all(
-				Array.from({ length: POOL_SIZE }, (_, i) => captureLoop(i))
+				Array.from({ length: POOL_SIZE }, (_, i) =>
+					this.#captureLoop(i)
+				)
 			)
 		} finally {
-			capturing = false
+			this.#capturing = false
 		}
 	}
 
 	/** Pull frames from the shared queue until it's empty. */
-	async function captureLoop(index: number) {
-		while (queue.length > 0) {
-			const time = queue.shift() as number
-			if (isCached(targetSrc, time)) continue
+	async #captureLoop(index: number) {
+		while (this.#queue.length > 0) {
+			const time = this.#queue.shift() as number
+			if (this.#isCached(this.#targetSrc, time)) continue
 			try {
-				const fps = frameRate()
+				const fps = this.#options.frameRate()
 				const epsilon = Math.min(0.05, (fps > 0 ? 1 / fps : 0.05) / 2)
-				const captured = await pool
+				const captured = await this.#pool
 					.capturer(index)
 					.captureAt(time, epsilon)
-				addFrame(time, captured)
+				this.#addFrame(time, captured)
 			} catch {
 				// Leave a gap for any frame we couldn't capture.
 			}
@@ -326,75 +369,30 @@ export function createFrameStrip(options: FrameStripOptions): FrameStrip {
 	}
 
 	/** Queue captures for the grid points missing from the cache. */
-	function populate(url: string, start: number, end: number) {
+	#populate(url: string, start: number, end: number) {
 		const span = end - start
 		if (span <= 0) return
 
-		targetSrc = url
-		const step = frameStepFor(span, frameRate(), FRAME_COUNT)
-		tolerance = step / 2
-		queue = queueCaptureTimes(start, end, step, duration(), time =>
-			isCached(url, time)
+		this.#targetSrc = url
+		const step = frameStepFor(span, this.#options.frameRate(), FRAME_COUNT)
+		this.#tolerance = step / 2
+		this.#queue = queueCaptureTimes(
+			start,
+			end,
+			step,
+			this.#options.duration(),
+			time => this.#isCached(url, time)
 		)
-		void runQueue()
+		void this.#runQueue()
 	}
-
-	const layout = $derived.by((): LayoutFrame[] => {
-		const current = view()
-		const span = current.end - current.start
-		if (span <= 0) return []
-
-		const step = frameStepFor(span, frameRate(), FRAME_COUNT)
-		return layoutFrames(framesFor(src()), current, step)
-	})
-
-	// Fill in thumbnails for the visible window, debounced so panning and zooming don't kick off captures on every pointer move. Cached frames stay visible meanwhile, so the strip slides smoothly.
-	$effect(() => {
-		const url = src()
-		const current = view()
-		if (!url || !(current.end > current.start)) return
-
-		// Point the shared capture pool at the current video immediately, so other callers (the navigator) target the right source too.
-		targetSrc = url
-
-		// Pull persisted thumbnails in alongside capture. This must be untracked: `hydrate` synchronously reads and mutates its `hydrating` guard, and tracking that would make this effect re-run each time hydration starts or finishes – an endless loop that keeps resetting the capture timer.
-		void untrack(() => hydrate(url))
-
-		// Start buffering the first capturer immediately so the initial frames aren't network-bound. Hydration from persistent storage merges in alongside; a source with nothing cached captures as it always did.
-		// `untrack` keeps adding frames from re-running this effect.
-		if (untrack(() => framesFor(url).length) === 0) {
-			void pool.capturer(0)
-		}
-
-		const timer = setTimeout(() => {
-			populate(url, current.start, current.end)
-		}, FRAME_REFRESH_MS)
-		return () => clearTimeout(timer)
-	})
-
-	// Release resources when the component is destroyed.
-	onDestroy(() => {
-		for (const timer of settleTimers) clearTimeout(timer)
-		settleTimers = []
-		pool.dispose()
-	})
-
-	let captureIndex = 0
 
 	/**
 	 * Capture a single thumbnail from the shared pool. Callers that only need occasional frames (the navigator) use this instead of opening their own video element, so the whole app keeps a small number of videos in play.
 	 */
-	function captureAt(time: number, epsilon?: number): Promise<CapturedFrame> {
-		const url = src()
-		if (url && targetSrc !== url) targetSrc = url
-		const index = captureIndex++ % POOL_SIZE
-		return pool.capturer(index).captureAt(time, epsilon)
-	}
-
-	return {
-		get layout() {
-			return layout
-		},
-		captureAt,
+	captureAt(time: number, epsilon?: number): Promise<CapturedFrame> {
+		const url = this.#options.src()
+		if (url && this.#targetSrc !== url) this.#targetSrc = url
+		const index = this.#captureIndex++ % POOL_SIZE
+		return this.#pool.capturer(index).captureAt(time, epsilon)
 	}
 }

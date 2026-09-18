@@ -1,14 +1,9 @@
 <script lang="ts">
 import { prefersReducedMotion } from "svelte/motion"
-import {
-	type FlyParams,
-	fade,
-	fly,
-	type SlideParams,
-	slide,
-} from "svelte/transition"
+import { type SlideParams, slide } from "svelte/transition"
 import type { Project } from "#lib/project-storage.js"
-import { entryFinalDuration, formatDuration } from "./review-format.js"
+import ProjectSearchProjects from "./ProjectSearchProjects.svelte"
+import ProjectSearchTimelapses from "./ProjectSearchTimelapses.svelte"
 
 let {
 	projects,
@@ -64,13 +59,6 @@ const activeTimelapse = $derived(
 	Math.min(timelapseIndex, Math.max(0, filteredTimelapses.length - 1))
 )
 
-// Keep the highlighted row in view as it moves – attachments re-run when the state they read changes.
-// Since the index wraps, this also scrolls to the top or bottom when the selection crosses an end of the list.
-// Motion is skipped for reduced-motion users.
-const scrollBehavior = $derived(
-	prefersReducedMotion.current ? "auto" : "smooth"
-)
-
 // Appearance animations for the timelapse pane and its breadcrumb.
 // Both become instant for reduced-motion users.
 const breadcrumbTransition = $derived<SlideParams>(
@@ -78,25 +66,6 @@ const breadcrumbTransition = $derived<SlideParams>(
 		? { duration: 0 }
 		: { duration: 150, axis: "x" }
 )
-const paneTransition = $derived<FlyParams>(
-	prefersReducedMotion.current ? { duration: 0 } : { x: 16, duration: 200 }
-)
-
-function scrollProjectIntoView(node: HTMLDivElement) {
-	if (mode !== "projects" || filteredProjects.length === 0) return
-	node.children[activeProject]?.scrollIntoView({
-		block: "nearest",
-		behavior: scrollBehavior,
-	})
-}
-
-function scrollTimelapseIntoView(node: HTMLDivElement) {
-	if (mode !== "timelapses" || filteredTimelapses.length === 0) return
-	node.children[activeTimelapse]?.scrollIntoView({
-		block: "nearest",
-		behavior: scrollBehavior,
-	})
-}
 
 // The search field, so collapsing (or expanding) can put the caret back in it after a click moves focus to a row button.
 let inputEl: HTMLInputElement | null = null
@@ -255,116 +224,25 @@ function handleKeydown(event: KeyboardEvent) {
 		</div>
 
 		<div class="flex min-h-0">
-			<div
-				class="flex min-h-0 flex-col overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none {mode ===
-				"timelapses"
-					? "w-2/5 shrink-0 border-r border-neutral-700"
-					: "w-full"}"
-			>
-				<div
-					class="min-h-0 overflow-y-auto py-1"
-					role="listbox"
-					aria-label="Projects"
-					{@attach scrollProjectIntoView}
-				>
-					{#each filteredProjects as project, index (project.id)}
-						{@const selected =
-							mode === "projects"
-								? index === activeProject
-								: project.id === expandedProjectId}
-						<div
-							role="presentation"
-							class="flex h-9 items-center {selected
-								? 'bg-primary-600/30'
-								: ''}"
-						>
-							<button
-								type="button"
-								role="option"
-								aria-selected={selected}
-								onclick={() => openProject(project)}
-								onpointermove={() => {
-									if (mode === "projects" && projectIndex !== index)
-										projectIndex = index
-								}}
-								class="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-2 text-left text-sm"
-							>
-								<span
-									class="truncate {project.id ===
-									currentProjectId
-										? 'font-medium text-primary-400'
-										: ''}"
-								>
-									{project.name}
-								</span>
-								<span class="shrink-0 text-xs text-neutral-500">
-									{project.timelapses.length}
-								</span>
-							</button>
-							{#if mode === "projects" && project.timelapses.length > 0}
-								<button
-									type="button"
-									onclick={() => expand(project)}
-									title="Show timelapses"
-									aria-label="Show timelapses for {project.name}"
-									class="shrink-0 cursor-pointer px-2 py-2 text-sm text-neutral-500 hover:text-white"
-								>
-									›
-								</button>
-							{/if}
-						</div>
-					{:else}
-						<div class="px-3 py-2 text-sm text-neutral-500">
-							No projects found
-						</div>
-					{/each}
-				</div>
-			</div>
+			<ProjectSearchProjects
+				projects={filteredProjects}
+				{mode}
+				active={activeProject}
+				{expandedProjectId}
+				{currentProjectId}
+				onOpen={openProject}
+				onExpand={expand}
+				onHover={index => (projectIndex = index)}
+			/>
 
 			{#if mode === "timelapses"}
-				<div
-					class="flex min-h-0 flex-1 flex-col overflow-hidden"
-					transition:fly={paneTransition}
-				>
-					<div
-						class="min-h-0 overflow-y-auto py-1"
-						role="listbox"
-						aria-label="Timelapses"
-						{@attach scrollTimelapseIntoView}
-					>
-						{#each filteredTimelapses as entry, index (entry.id)}
-							<button
-								type="button"
-								role="option"
-								aria-selected={index === activeTimelapse}
-								onclick={() => openTimelapse(entry.id)}
-								onpointermove={() => {
-									if (timelapseIndex !== index)
-										timelapseIndex = index
-								}}
-								class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm {index ===
-								activeTimelapse
-									? 'bg-primary-600/30'
-									: ''}"
-							>
-								<span
-									class="truncate {entry.id === currentTimelapseId
-										? 'font-medium text-primary-400'
-										: ''}"
-								>
-									{entry.name || entry.id}
-								</span>
-								<span class="shrink-0 text-xs text-neutral-500">
-									{formatDuration(entryFinalDuration(entry))}
-								</span>
-							</button>
-						{:else}
-							<div class="px-3 py-2 text-sm text-neutral-500">
-								No timelapses in this project
-							</div>
-						{/each}
-					</div>
-				</div>
+				<ProjectSearchTimelapses
+					entries={filteredTimelapses}
+					active={activeTimelapse}
+					{currentTimelapseId}
+					onOpen={openTimelapse}
+					onHover={index => (timelapseIndex = index)}
+				/>
 			{/if}
 		</div>
 	</div>

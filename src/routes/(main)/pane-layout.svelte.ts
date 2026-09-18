@@ -44,49 +44,57 @@ function trackResize(
  * Track the three resizable panes: the stats pane's width, the project pane's width and the timeline's height.
  * The bottom row only takes up space once `hasTimeline` reports a video is shown, so the landing page doesn't reserve an empty strip.
  */
-export function createPaneLayout(hasTimeline: () => boolean) {
-	let leftWidth = $state(DEFAULT_LEFT_WIDTH)
-	let rightWidth = $state(DEFAULT_RIGHT_WIDTH)
-	let timelineHeight = $state(DEFAULT_TIMELINE_HEIGHT)
-	const timelineRowHeight = $derived(
-		hasTimeline() ? `${timelineHeight}px` : "0px"
-	)
+export class PaneLayout {
+	readonly #hasTimeline: () => boolean
+
+	leftWidth = $state(DEFAULT_LEFT_WIDTH)
+	rightWidth = $state(DEFAULT_RIGHT_WIDTH)
+	timelineHeight = $state(DEFAULT_TIMELINE_HEIGHT)
+
+	/** The bottom row only takes up space once a timeline is actually shown, so the landing page doesn't reserve an empty strip. */
+	get timelineRowHeight(): string {
+		return this.#hasTimeline() ? `${this.timelineHeight}px` : "0px"
+	}
+
+	constructor(hasTimeline: () => boolean) {
+		this.#hasTimeline = hasTimeline
+	}
 
 	/** Drag the stats pane's right (inner) border. */
-	function startLeftResize(event: PointerEvent) {
-		const start = leftWidth
+	startLeftResize = (event: PointerEvent) => {
+		const start = this.leftWidth
 		const max = Math.max(
 			DEFAULT_LEFT_WIDTH,
-			window.innerWidth - rightWidth - MIN_CENTER_WIDTH
+			window.innerWidth - this.rightWidth - MIN_CENTER_WIDTH
 		)
 		trackResize(
 			event,
 			dx => {
-				leftWidth = clamp(start + dx, DEFAULT_LEFT_WIDTH, max)
+				this.leftWidth = clamp(start + dx, DEFAULT_LEFT_WIDTH, max)
 			},
 			"col-resize"
 		)
 	}
 
 	/** Drag the project pane's left (inner) border. */
-	function startRightResize(event: PointerEvent) {
-		const start = rightWidth
+	startRightResize = (event: PointerEvent) => {
+		const start = this.rightWidth
 		const max = Math.max(
 			DEFAULT_RIGHT_WIDTH,
-			window.innerWidth - leftWidth - MIN_CENTER_WIDTH
+			window.innerWidth - this.leftWidth - MIN_CENTER_WIDTH
 		)
 		trackResize(
 			event,
 			dx => {
-				rightWidth = clamp(start - dx, DEFAULT_RIGHT_WIDTH, max)
+				this.rightWidth = clamp(start - dx, DEFAULT_RIGHT_WIDTH, max)
 			},
 			"col-resize"
 		)
 	}
 
 	/** Drag the timeline's top (inner) border. */
-	function startTimelineResize(event: PointerEvent) {
-		const start = timelineHeight
+	startTimelineResize = (event: PointerEvent) => {
+		const start = this.timelineHeight
 		const max = Math.max(
 			DEFAULT_TIMELINE_HEIGHT,
 			window.innerHeight - MIN_CENTER_HEIGHT - 120
@@ -94,24 +102,13 @@ export function createPaneLayout(hasTimeline: () => boolean) {
 		trackResize(
 			event,
 			(_dx, dy) => {
-				timelineHeight = clamp(start - dy, DEFAULT_TIMELINE_HEIGHT, max)
+				this.timelineHeight = clamp(
+					start - dy,
+					DEFAULT_TIMELINE_HEIGHT,
+					max
+				)
 			},
 			"row-resize"
 		)
-	}
-
-	return {
-		get leftWidth() {
-			return leftWidth
-		},
-		get rightWidth() {
-			return rightWidth
-		},
-		get timelineRowHeight() {
-			return timelineRowHeight
-		},
-		startLeftResize,
-		startRightResize,
-		startTimelineResize,
 	}
 }

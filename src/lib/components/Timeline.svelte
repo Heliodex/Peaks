@@ -3,7 +3,7 @@ import { prefersReducedMotion, Spring } from "svelte/motion"
 import { effectiveIdleRanges, selectionColors } from "#lib/annotations.js"
 import { detectFrameRate } from "#lib/frame-rate.js"
 import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
-import { createIdleAnalysis } from "#lib/idle-time.svelte.js"
+import { IdleAnalysis } from "#lib/idle-time.svelte.js"
 import {
 	clamp,
 	formatClock,
@@ -13,11 +13,11 @@ import {
 	type TimelineSelection,
 	type ViewWindow,
 } from "#lib/timeline.js"
-import { createFrameStrip } from "#lib/timeline-frames.svelte.js"
+import { FrameStrip } from "#lib/timeline-frames.svelte.js"
 import TimelineFrames from "./TimelineFrames.svelte"
 import TimelineNavigator from "./TimelineNavigator.svelte"
 import TimelineTicks from "./TimelineTicks.svelte"
-import { createSelectionEditor } from "./timeline-selection.svelte.js"
+import { SelectionEditor } from "./timeline-selection.svelte.js"
 
 let {
 	timelapse,
@@ -103,14 +103,14 @@ const hoverPercent = $derived(
 const hoverTooltipFlip = $derived(hoverPercent > HOVER_TOOLTIP_FLIP_PERCENT)
 
 // Thumbnails captured at absolute times, reused across zooming and panning so the strip can slide/scale smoothly instead of blanking on every view change.
-const frameStrip = createFrameStrip({
+const frameStrip = new FrameStrip({
 	src: () => timelapse.playbackUrl,
 	duration: () => duration,
 	frameRate: () => frameRate,
 	view: () => view,
 })
 
-const editor = createSelectionEditor({
+const editor = new SelectionEditor({
 	selections: () => selections,
 	setSelections: value => (selections = value),
 	duration: () => duration,
@@ -123,7 +123,7 @@ const editor = createSelectionEditor({
 })
 
 // Scan the video for stretches where the picture never changes (time spent AFK) and publish them to the parent so it can report an "actual" duration. Cached ranges are reused until the parent bumps `idleRevision`.
-const idle = createIdleAnalysis({
+const idle = new IdleAnalysis({
 	src: () => timelapse.playbackUrl,
 	duration: () => duration,
 	frameRate: () => frameRate,
@@ -462,10 +462,10 @@ function onKeyDown(event: KeyboardEvent) {
 					: editor.pan
 						? "cursor-grabbing"
 						: '']}
-			onpointerdown={editor.onPointerDown}
+			onpointerdown={event => editor.onPointerDown(event)}
 			onpointermove={onPointerMove}
-			onpointerup={editor.onPointerUp}
-			onpointercancel={editor.onPointerUp}
+			onpointerup={event => editor.onPointerUp(event)}
+			onpointercancel={event => editor.onPointerUp(event)}
 			onpointerleave={onPointerLeave}
 			{@attach timelineGestures}
 			role="presentation"

@@ -1,10 +1,7 @@
 <script lang="ts">
-import { untrack } from "svelte"
 import { effectiveIdleRanges, selectionColors } from "#lib/annotations.js"
 import type { CapturedFrame } from "#lib/frame-capture.js"
 import type { IdleRange } from "#lib/idle-time.js"
-import { createObjectUrlCache } from "#lib/object-url-cache.js"
-import { loadThumbnails, saveThumbnail } from "#lib/thumbnail-store.js"
 import {
 	clamp,
 	MIN_VISIBLE_FRAMES,
@@ -13,6 +10,7 @@ import {
 	type TimelineSelection,
 	type ViewWindow,
 } from "#lib/timeline.js"
+import { NAV_FRAME_COUNT, NavThumbnails } from "./nav-thumbnails.svelte.js"
 
 type NavDrag =
 	| { kind: "move"; offset: number; length: number }
@@ -51,87 +49,17 @@ let {
 
 // Smallest on-screen width (px) the zoom window may shrink to
 const MIN_WINDOW_PX = 10
-// Number of thumbnails captured across the whole video for the overview strip
-const NAV_FRAME_COUNT = 24
-// How many sources' overview frames to keep at once.
-const MAX_CACHED_NAV = 12
-// Persistent-storage namespace for overview thumbnails.
-const NAV_THUMBNAIL_KIND = "nav"
-// Overview thumbnails are stable per source, so keep them across mounts and skip re-capturing when the same timelapse is reopened.
-const navFrameCache = createObjectUrlCache<string[]>({
-	max: MAX_CACHED_NAV,
-	kind: NAV_THUMBNAIL_KIND,
-	urls: frames => frames,
+
+const nav = new NavThumbnails({
+	src: () => playbackUrl,
+	duration: () => duration,
+	captureFrame: (time, epsilon) => captureFrame(time, epsilon),
 })
 
 // Idle regions to draw: hidden while the reviewer overrides idle detection.
 const visibleIdleRanges = $derived(effectiveIdleRanges(ignoreIdle, idleRanges))
 
 let drag = $state<NavDrag>(null)
-let navFrames = $state<string[]>([])
-
-$effect(() => {
-	const src = playbackUrl
-	const total = duration
-	if (!src || total <= 0) return
-
-	const cached = untrack(() => navFrameCache.get(src))
-	if (cached) {
-		navFrames = cached
-		return
-	}
-
-	let cancelled = false
-	// Frames captured by this run. If the run is cancelled before its frames are cached, their object URLs are revoked so they can't leak.
-	let frames: string[] = []
-	let retained = false
-
-	void (async () => {
-		// Reuse thumbnails captured in a previous session, if any.
-		const stored = await loadThumbnails(NAV_THUMBNAIL_KIND, src)
-		if (cancelled) return
-		if (stored.length > 0) {
-			for (const { key, blob } of stored) {
-				frames[key] = URL.createObjectURL(blob)
-			}
-			navFrameCache.set(src, frames)
-			retained = true
-			navFrames = frames
-			return
-		}
-
-		navFrames = []
-		// Capture sequentially through the shared timeline pool, so the overview doesn't open a video element of its own.
-		for (let i = 0; i < NAV_FRAME_COUNT; i++) {
-			if (cancelled) return
-			const time = (total * i) / (NAV_FRAME_COUNT - 1)
-			try {
-				const captured = await captureFrame(time)
-				if (cancelled) {
-					URL.revokeObjectURL(captured.url)
-					return
-				}
-				const next = [...frames]
-				next[i] = captured.url
-				frames = next
-				navFrames = next
-				void saveThumbnail(NAV_THUMBNAIL_KIND, src, i, captured.blob)
-			} catch {
-				// Leave a gap for any frame we couldn't capture.
-			}
-		}
-		if (cancelled || frames.length === 0) return
-		navFrameCache.set(src, frames)
-		retained = true
-	})()
-
-	return () => {
-		cancelled = true
-		if (!retained) {
-			for (const url of frames) URL.revokeObjectURL(url)
-		}
-	}
-})
 
 function pointerToTime(clientX: number, target: HTMLElement): number {
 	const rect = target.getBoundingClientRect()
@@ -236,9 +164,9 @@ function onPointerUp(event: PointerEvent) {
 	<div class="pointer-events-none absolute inset-0 flex overflow-hidden">
 		{#each Array(NAV_FRAME_COUNT) as _, i (i)}
 			<div class="relative h-full min-w-0 flex-1">
-				{#if navFrames[i]}
+				{#if nav.frames[i]}
 					<img
-						src={navFrames[i]}
+						src={nav.frames[i]}
 						alt=""
 						class="h-full w-full object-cover"
 						draggable="false"

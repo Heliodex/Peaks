@@ -1,28 +1,17 @@
 <script lang="ts">
 import {
-	ANNOTATION_REASONS,
 	describeTimelapse,
 	effectiveIdleRanges,
 	idleRecordedSeconds,
 	selectionDeflation,
 } from "#lib/annotations.js"
 import CopyButton from "#lib/components/CopyButton.svelte"
-import {
-	DEFAULT_IDLE_THRESHOLD,
-	IDLE_THRESHOLD_SCALE,
-	type IdleRange,
-} from "#lib/idle-time.js"
-import {
-	formatClock,
-	formatHours,
-	type TimelineSelection,
-} from "#lib/timeline.js"
-import {
-	formatCreatedAt,
-	formatDuration,
-	formatTimeSince,
-} from "./review-format.js"
+import { IDLE_THRESHOLD_SCALE, type IdleRange } from "#lib/idle-time.js"
+import type { TimelineSelection } from "#lib/timeline.js"
 import type { ReviewTimelapse } from "./review-types.js"
+import TimelapseIdleControls from "./TimelapseIdleControls.svelte"
+import TimelapseSelections from "./TimelapseSelections.svelte"
+import TimelapseStatsCards from "./TimelapseStatsCards.svelte"
 
 let {
 	timelapse = null,
@@ -48,10 +37,6 @@ let {
 	onResetIdleThreshold: () => void
 	onRecalculateIdle: () => void
 } = $props()
-
-const sortedSelections = $derived(
-	[...selections].sort((a, b) => a.start - b.start)
-)
 
 /** Idle ranges that count towards the maths (none while overridden). */
 const activeIdleRanges = $derived(effectiveIdleRanges(ignoreIdle, idleRanges))
@@ -87,199 +72,31 @@ const description = $derived(
 			})
 		: ""
 )
-
-function setSelectionReason(id: string, reason: string) {
-	selections = selections.map(selection =>
-		selection.id === id ? { ...selection, reason } : selection
-	)
-}
-
-function removeSelection(id: string) {
-	selections = selections.filter(selection => selection.id !== id)
-}
 </script>
 
 {#if timelapse}
-	<dl class="grid grid-cols-2 gap-2">
-		<div class="border border-neutral-500 p-3">
-			<dt class="text-xs uppercase tracking-wide text-neutral-500">
-				Recorded
-			</dt>
-			<dd class="pt-1 font-medium">
-				{formatDuration(timelapse.duration)}
-			</dd>
-			<p class="pt-0.5 text-xs text-neutral-500">
-				{formatHours(timelapse.duration)}
-			</p>
-		</div>
-		<div class="border border-neutral-500 p-3">
-			<dt class="text-xs uppercase tracking-wide text-neutral-500">
-				Actual time
-			</dt>
-			<dd class="pt-1 font-medium">
-				{formatDuration(actualDuration)}
-			</dd>
-			<p class="pt-0.5 text-xs text-neutral-500">
-				{formatHours(actualDuration)}
-			</p>
-			{#if idleAnalyzing && !ignoreIdle}
-				<p class="pt-0.5 text-xs text-amber-600">
-					Analyzing idle frames…
-				</p>
-			{:else}
-				{#if idleDuration > 0}
-					<p class="pt-0.5 text-xs text-neutral-500">
-						-{formatDuration(idleDuration)}
-						idle
-					</p>
-				{/if}
-				{#if annotationDeflation > 0}
-					<p class="pt-0.5 text-xs text-neutral-500">
-						-{formatDuration(annotationDeflation)}
-						annotations
-					</p>
-				{/if}
-			{/if}
-		</div>
-		<div class="border border-neutral-500 p-3">
-			<dt class="text-xs uppercase tracking-wide text-neutral-500">
-				Created
-			</dt>
-			<dd class="pt-1 font-medium">
-				{formatCreatedAt(timelapse.createdAt)}
-			</dd>
-			<p class="pt-0.5 text-xs text-neutral-500">
-				{formatTimeSince(timelapse.createdAt)}
-			</p>
-		</div>
-		<div class="border border-neutral-500 p-3">
-			<dt class="text-xs uppercase tracking-wide text-neutral-500">
-				Visibility
-			</dt>
-			<dd class="pt-1 font-medium">
-				{timelapse.visibility}
-			</dd>
-		</div>
-	</dl>
+	<TimelapseStatsCards
+		{timelapse}
+		{actualDuration}
+		{idleDuration}
+		{annotationDeflation}
+		{idleAnalyzing}
+		{ignoreIdle}
+	/>
 
-	<section class="flex flex-col gap-1">
-		<h2 class="font-medium">Selections</h2>
-		{#if sortedSelections.length > 0}
-			<ul class="flex flex-col gap-1 text-sm">
-				{#each sortedSelections as sel, i (sel.id)}
-					{const deflation = $derived(
-						selectionDeflation(sel, activeIdleRanges)
-					)}
-					<li class="flex flex-wrap items-center gap-2">
-						<span>
-							Selection {i + 1}:
-							<span class="font-medium"
-								>{formatClock(sel.start)}</span
-							>-<span class="font-medium"
-								>{formatClock(sel.end)}</span
-							>
-						</span>
-						<select
-							aria-label="Annotation reason for selection {i +
-								1}"
-							value={sel.reason ?? ""}
-							onchange={e =>
-								setSelectionReason(
-									sel.id,
-									e.currentTarget.value
-								)}
-							class="border border-neutral-500 bg-neutral-800 px-1 py-0.5 text-sm"
-						>
-							<option value="">Select a reason…</option>
-							{#each ANNOTATION_REASONS as annotation (annotation.id)}
-								<option value={annotation.id}>
-									{annotation.label}
-								</option>
-							{/each}
-						</select>
-						<button
-							type="button"
-							onclick={() => removeSelection(sel.id)}
-							aria-label="Delete selection {i + 1}"
-							class="border border-neutral-500 px-1.5 py-0.5 text-xs text-neutral-500 hover:border-red-500 hover:text-red-500"
-						>
-							×
-						</button>
-						{#if deflation > 0}
-							<span class="text-xs text-neutral-500">
-								-{formatDuration(deflation)}
-							</span>
-						{/if}
-					</li>
-				{/each}
-			</ul>
-		{:else}
-			<p class="text-sm text-neutral-500">
-				Drag across the timeline to select an annotation.
-			</p>
-		{/if}
-	</section>
+	<TimelapseSelections bind:selections {activeIdleRanges} />
 
-	<div
-		class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-neutral-700 pt-2 text-xs text-neutral-500"
-	>
-		{#if idleRanges.length > 0 || ignoreIdle}
-			<label class="flex items-center gap-1.5">
-				<input
-					type="checkbox"
-					checked={ignoreIdle}
-					onchange={e =>
-						onToggleIgnoreIdle(e.currentTarget.checked)}
-					class="h-3.5 w-3.5 accent-primary-500"
-				>
-				Ignore idle time
-			</label>
-			{#if !ignoreIdle}
-				<p class="flex items-center gap-2">
-					<span
-						class="inline-block h-2 w-3 border border-amber-400/50 bg-amber-400/25"
-					></span>
-					Amber regions have no visual changes (time spent away).
-				</p>
-			{/if}
-		{/if}
-		<button
-			type="button"
-			onclick={onRecalculateIdle}
-			disabled={idleAnalyzing}
-			class="border border-neutral-500 px-1.5 py-0.5 text-neutral-500 hover:border-primary-500 hover:text-primary-400 disabled:opacity-50"
-		>
-			{idleAnalyzing ? "Recalculating…" : "Recalculate idle time"}
-		</button>
-		<label class="flex items-center gap-1.5">
-			<span>Idle sensitivity</span>
-			<input
-				type="range"
-				min="0"
-				max={IDLE_THRESHOLD_SCALE.length - 1}
-				step="1"
-				value={thresholdIndex}
-				onchange={e =>
-					onSetIdleThreshold(
-						IDLE_THRESHOLD_SCALE[e.currentTarget.valueAsNumber] ??
-							DEFAULT_IDLE_THRESHOLD
-					)}
-				title="Higher values treat more frames as idle"
-				aria-label="Idle detection sensitivity"
-				class="w-24 accent-primary-500"
-			>
-			<span class="w-12 tabular-nums">{idleThreshold}</span>
-		</label>
-		<button
-			type="button"
-			onclick={onResetIdleThreshold}
-			disabled={idleThreshold === DEFAULT_IDLE_THRESHOLD}
-			title="Reset to the standard sensitivity"
-			class="border border-neutral-500 px-1.5 py-0.5 text-neutral-500 hover:border-primary-500 hover:text-primary-400 disabled:opacity-50"
-		>
-			Reset
-		</button>
-	</div>
+	<TimelapseIdleControls
+		{idleRanges}
+		{idleAnalyzing}
+		{ignoreIdle}
+		{idleThreshold}
+		{thresholdIndex}
+		{onToggleIgnoreIdle}
+		{onSetIdleThreshold}
+		{onResetIdleThreshold}
+		{onRecalculateIdle}
+	/>
 
 	<section class="border-t border-neutral-700 pt-2">
 		<div class="flex items-center justify-between gap-2 pb-1">
