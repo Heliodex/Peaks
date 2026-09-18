@@ -108,7 +108,7 @@ let {
 
 <style>
 /*
- * Row actions (delete a project, remove a timelapse) stay out of the way until the row is hovered or a control inside it takes keyboard focus.
+ * Row actions (delete a project, delete a selection) stay out of the way until the row is hovered or a control inside it takes keyboard focus.
  * While hidden they collapse to nothing (and cancel the row's gap) so the row's text can use the full width.
  * They're only hidden on devices that can hover, so touch users always see them.
  * Rows render in child components, so these selectors are global.
@@ -125,7 +125,6 @@ let {
 
 @media (hover: hover) {
 	:global(.project-row .row-action),
-	:global(.entry-row .row-action),
 	:global(.selection-row .row-action) {
 		width: 0;
 		/* Pull the collapsed button over the row's gap. */
@@ -142,8 +141,6 @@ let {
 
 	:global(.project-row:hover .row-action),
 	:global(.project-row:focus-within .row-action),
-	:global(.entry-row:hover .row-action),
-	:global(.entry-row:focus-within .row-action),
 	:global(.selection-row:hover .row-action),
 	:global(.selection-row:focus-within .row-action) {
 		width: 1.5rem;
