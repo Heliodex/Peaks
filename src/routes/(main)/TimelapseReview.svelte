@@ -163,6 +163,23 @@ const onTimelineHandleKeydown = (event: KeyboardEvent) =>
 		key => (key === "ArrowUp" ? 1 : key === "ArrowDown" ? -1 : null)
 	)
 
+/** Move the resize grip to sit next to the pointer, so it reads as the grab point rather than a centred rail. */
+function moveGrip(event: PointerEvent, orientation: "vertical" | "horizontal") {
+	const handle = event.currentTarget as HTMLElement
+	const rect = handle.getBoundingClientRect()
+	const offset =
+		orientation === "vertical"
+			? event.clientY - rect.top
+			: event.clientX - rect.left
+	handle.style.setProperty("--grip-position", `${offset}px`)
+}
+
+/** Recentre the grip when the pointer leaves the handle. */
+function resetGrip(event: PointerEvent) {
+	const handle = event.currentTarget as HTMLElement
+	handle.style.removeProperty("--grip-position")
+}
+
 /**
  * Open timelapses by id.
  * The input may hold several space/comma-separated ids: each new one is resolved first so invalid ids are reported in the Project pane instead of being added and then disappearing.
@@ -293,6 +310,8 @@ const summary = new ProjectSummary({
 		aria-valuemin={Math.round(options.min)}
 		aria-valuemax={Math.round(options.max)}
 		onpointerdown={options.onpointerdown}
+		onpointermove={event => moveGrip(event, options.orientation)}
+		onpointerleave={resetGrip}
 		onkeydown={options.onkeydown}
 	>
 		<span class="resize-grip" aria-hidden="true"></span>
@@ -502,15 +521,19 @@ const summary = new ProjectSummary({
 		background-color 120ms ease;
 }
 
+/* On the vertical separators the grip tracks the pointer's height (falling back to the centre). */
 .resize-handle-left .resize-grip,
 .resize-handle-right .resize-grip {
 	width: 2px;
 	height: 2.5rem;
+	top: var(--grip-position, 50%);
 }
 
+/* On the timeline separator it tracks the pointer's horizontal position instead. */
 .resize-handle-timeline .resize-grip {
 	width: 2.5rem;
 	height: 2px;
+	left: var(--grip-position, 50%);
 }
 
 .resize-handle:hover .resize-grip,
