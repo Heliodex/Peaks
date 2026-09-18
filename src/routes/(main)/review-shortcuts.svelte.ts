@@ -16,6 +16,10 @@ type ReviewShortcutsOptions = {
 	openId: () => string
 	/** Open a timelapse by id. */
 	open: (id: string) => void
+	/** Step the workspace back through its history. */
+	undo: () => void
+	/** Step the workspace forward through its history. */
+	redo: () => void
 }
 
 /**
@@ -64,6 +68,22 @@ export class ReviewShortcuts {
 		}
 
 		if (isTyping(event.target)) return
+
+		// Ctrl/Cmd+Z and Ctrl/Cmd+Y (plus Ctrl+Shift+Z) drive the workspace history. Left to the browser while typing above.
+		if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+			const key = event.key.toLowerCase()
+			if (key === "z") {
+				event.preventDefault()
+				if (event.shiftKey) this.#options.redo()
+				else this.#options.undo()
+				return
+			}
+			if (key === "y") {
+				event.preventDefault()
+				this.#options.redo()
+				return
+			}
+		}
 
 		const key = event.key.toLowerCase()
 		const modified = event.metaKey || event.ctrlKey || event.altKey

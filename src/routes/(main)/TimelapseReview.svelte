@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onMount } from "svelte"
 import { SvelteSet } from "svelte/reactivity"
+import type { Project } from "#lib/project-storage.js"
 import {
 	clampSeekStep,
 	DEFAULT_SETTINGS,
@@ -8,6 +9,7 @@ import {
 	type Settings,
 	saveSettings,
 } from "#lib/settings-storage.js"
+import type { TimelineSelection } from "#lib/timeline.js"
 import { page } from "$app/state"
 import { getTimelapse } from "./api.remote.js"
 import ProjectPane from "./ProjectPane.svelte"
@@ -24,6 +26,10 @@ import { ReviewSync } from "./review-sync.svelte.js"
 import TimelinePane from "./TimelinePane.svelte"
 import { TimelapseLoader } from "./timelapse-loader.svelte.js"
 import VideoPane from "./VideoPane.svelte"
+import {
+	WorkspaceHistory,
+	type WorkspaceSnapshot,
+} from "./workspace-history.svelte.js"
 
 /** Decode a path segment, falling back to the raw text when it is malformed. */
 const decodePathParam = (pathname: string): string =>
@@ -63,6 +69,45 @@ const idleState = new ReviewIdle({
 	openId: () => session.submittedId,
 	entries: () => workspace.projectEntries,
 	updateProject: update => workspace.updateCurrentProject(update),
+})
+
+/** Restore a history snapshot into the workspace's stores. */
+function applySnapshot(snapshot: WorkspaceSnapshot) {
+	const previousOpenId = session.submittedId
+	// `$state.snapshot` un-wraps the stored snapshot's proxies; `structuredClone` can't clone them.
+	workspace.projects = $state.snapshot(snapshot.projects) as Project[]
+	workspace.currentProjectId = snapshot.currentProjectId
+	session.submittedId = snapshot.openId
+	session.selections = $state.snapshot(
+		snapshot.selections
+	) as TimelineSelection[]
+	// When the open timelapse changes, its own seeding effect reloads the idle ranges; otherwise refresh them here.
+	if (snapshot.openId === previousOpenId) {
+		const entry = snapshot.projects
+			.find(project => project.id === snapshot.currentProjectId)
+			?.timelapses.find(timelapse => timelapse.id === snapshot.openId)
+		idleState.restore(entry?.idleRanges)
+	}
+}
+
+// Whole-workspace undo/redo. Global settings are intentionally left out of the tracked state.
+const history = new WorkspaceHistory({
+	read: () => ({
+		projects: $state.snapshot(workspace.projects) as Project[],
+		currentProjectId: workspace.currentProjectId,
+		openId: session.submittedId,
+		selections: $state.snapshot(session.selections) as TimelineSelection[],
+	}),
+	apply: applySnapshot,
+})
+
+// Ask the history to record whenever any tracked slice changes, once everything has loaded.
+$effect(() => {
+	void workspace.projects
+	void workspace.currentProjectId
+	void session.submittedId
+	void session.selections
+	if (workspace.projectLoaded && session.loaded) history.observe()
 })
 
 // Whether the Ctrl+K project search dialog is open.
@@ -145,6 +190,8 @@ const shortcuts = new ReviewShortcuts({
 	entries: () => workspace.projectEntries,
 	openId: () => session.submittedId,
 	open: loadId,
+	undo: () => history.undo(),
+	redo: () => history.redo(),
 })
 
 // Ids added optimistically by the loader that still need confirming by Lapse.
@@ -310,6 +357,7 @@ const summary = new ProjectSummary({
 		idleThreshold={idleState.threshold}
 		{justifyTimeline}
 		{seekStep}
+		{history}
 		onToggleIgnoreIdle={value => idleState.setIgnoreIdle(value)}
 		onSetIdleThreshold={value => idleState.setThreshold(value)}
 		onResetIdleThreshold={() => idleState.resetThreshold()}

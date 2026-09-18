@@ -1,11 +1,13 @@
 <script lang="ts">
 import { MAX_SEEK_STEP, MIN_SEEK_STEP } from "#lib/settings-storage.js"
+import type { WorkspaceHistory } from "./workspace-history.svelte.js"
 
 let {
 	justifyTimeline,
 	onToggleJustifyTimeline,
 	seekStep,
 	onSetSeekStep,
+	history,
 }: {
 	/** Stretch the timeline across the full window when true. */
 	justifyTimeline: boolean
@@ -13,6 +15,8 @@ let {
 	/** Seconds the left/right arrow keys jump through the video. */
 	seekStep: number
 	onSetSeekStep: (value: number) => void
+	/** Whole-workspace undo/redo history. */
+	history: WorkspaceHistory
 } = $props()
 
 // The shortcuts the review route listens for; kept here so they're discoverable without a manual.
@@ -88,6 +92,57 @@ function normalizeSeekInput(
 				<span class="text-xs text-neutral-400">seconds</span>
 			</span>
 		</label>
+	</section>
+
+	<section class="border border-line-soft bg-surface-raised p-3">
+		<div class="flex items-center justify-between gap-2 pb-2">
+			<h2 class="text-xs uppercase tracking-wide text-neutral-400">
+				History
+			</h2>
+			<div class="flex gap-1">
+				<button
+					type="button"
+					onclick={() => history.undo()}
+					disabled={!history.canUndo}
+					title="Undo (Ctrl+Z)"
+					class="btn px-1.5 py-0.5 text-xs"
+				>
+					Undo
+				</button>
+				<button
+					type="button"
+					onclick={() => history.redo()}
+					disabled={!history.canRedo}
+					title="Redo (Ctrl+Y)"
+					class="btn px-1.5 py-0.5 text-xs"
+				>
+					Redo
+				</button>
+			</div>
+		</div>
+		{#if history.entries.length === 0}
+			<p class="text-xs text-neutral-400">No actions yet.</p>
+		{:else}
+			<ol class="flex max-h-72 flex-col-reverse gap-0.5 overflow-y-auto">
+				{#each history.entries as entry, i (i)}
+					<li>
+						<button
+							type="button"
+							onclick={() => history.jumpTo(i)}
+							title={entry.label}
+							class="w-full truncate px-2 py-1 text-left text-xs transition-colors {i ===
+							history.index
+								? 'bg-primary-500/15 text-primary-200'
+								: i > history.index
+									? 'text-neutral-600 hover:bg-neutral-800/40 hover:text-neutral-400'
+									: 'text-neutral-300 hover:bg-neutral-800/40 hover:text-white'}"
+						>
+							{entry.label}
+						</button>
+					</li>
+				{/each}
+			</ol>
+		{/if}
 	</section>
 
 	<section class="border border-line-soft bg-surface-raised p-3">

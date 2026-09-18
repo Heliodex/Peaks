@@ -5,6 +5,7 @@ import { getLapseData, logout } from "./api.remote.js"
 import type { ReviewTimelapse } from "./review-types.js"
 import TimelapseSettings from "./TimelapseSettings.svelte"
 import TimelapseStats from "./TimelapseStats.svelte"
+import type { WorkspaceHistory } from "./workspace-history.svelte.js"
 
 let {
 	timelapse = null,
@@ -16,6 +17,7 @@ let {
 	idleThreshold,
 	justifyTimeline,
 	seekStep,
+	history,
 	onToggleIgnoreIdle,
 	onSetIdleThreshold,
 	onResetIdleThreshold,
@@ -35,6 +37,8 @@ let {
 	justifyTimeline: boolean
 	/** Seconds the left/right arrow keys jump through the video. */
 	seekStep: number
+	/** Whole-workspace undo/redo, shown in the settings tab. */
+	history: WorkspaceHistory
 	onToggleIgnoreIdle: (value: boolean) => void
 	onSetIdleThreshold: (value: number) => void
 	onResetIdleThreshold: () => void
@@ -150,6 +154,7 @@ function onTabKeydown(event: KeyboardEvent) {
 				{onToggleJustifyTimeline}
 				{seekStep}
 				{onSetSeekStep}
+				{history}
 			/>
 		{/if}
 	</div>

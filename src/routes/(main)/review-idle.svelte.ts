@@ -86,6 +86,17 @@ export class ReviewIdle {
 		this.analyzed = false
 	}
 
+	/**
+	 * Replace the scan state from a restored project entry (history undo).
+	 * Reuses the cached ranges rather than rescanning, matching how the entries are seeded on open.
+	 */
+	restore(ranges: IdleRange[] | undefined) {
+		this.analyzing = false
+		this.analyzed = ranges !== undefined
+		this.revision = -1
+		this.ranges = ranges ? ranges.map(range => ({ ...range })) : []
+	}
+
 	#updateEntry(patch: (entry: ProjectTimelapse) => ProjectTimelapse) {
 		const id = this.#openId()
 		const index = this.#entries().findIndex(entry => entry.id === id)
