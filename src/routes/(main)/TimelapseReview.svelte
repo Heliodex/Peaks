@@ -33,13 +33,8 @@ import TimelinePane from "./TimelinePane.svelte"
 import VideoPane from "./VideoPane.svelte"
 
 /** Decode a path segment, falling back to the raw text when it is malformed. */
-function decodePathParam(pathname: string): string {
-	try {
-		return decodeURIComponent(pathname.slice(1))
-	} catch {
-		return pathname.slice(1)
-	}
-}
+const decodePathParam = (pathname: string): string =>
+	decodeURIComponent(pathname.slice(1))
 
 /**
  * Encoded project state taken from the `/{state}` path (empty on the `/home` landing).
