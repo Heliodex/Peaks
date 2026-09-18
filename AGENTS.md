@@ -13,8 +13,11 @@
 	- If required, for example where a statement starts with a parenthesis, see if it can be split up with a constant declaration
 	- If a IIFE is needed, use `void` instead of a semicolon
 - Blocks or conditionals with 1 statement should omit braces
+	- This includes nested blocks, like `if (x) for (const y of z) ...`
 - Arrow functions with only a single return expression should omit braces and the return keyword
 - Function declarations should use arrow functions if they have only a single return expression, and standard function declarations otherwise
+	- This also applies for top-level functions
+	- Use `const` to declare arrow function variables
 - Prefer `for (const x of y) ...` over `y.forEach(x => ...)`
 - Prefer `const` over `let`
 	- Avoid `var`
