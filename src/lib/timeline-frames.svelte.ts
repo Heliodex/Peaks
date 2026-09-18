@@ -385,8 +385,9 @@ export class FrameStrip {
 
 	/**
 	 * Capture a single thumbnail from the shared pool. Callers that only need occasional frames (the navigator) use this instead of opening their own video element, so the whole app keeps a small number of videos in play.
+	 * Declared as a bound field because the navigator receives it as a bare reference, where a prototype method would lose `this`.
 	 */
-	captureAt(time: number, epsilon?: number): Promise<CapturedFrame> {
+	captureAt = (time: number, epsilon?: number): Promise<CapturedFrame> => {
 		const url = this.#options.src()
 		if (url && this.#targetSrc !== url) this.#targetSrc = url
 		const index = this.#captureIndex++ % POOL_SIZE
