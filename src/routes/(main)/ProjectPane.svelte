@@ -65,7 +65,8 @@ let {
 			aria-label="New project"
 			class="btn px-1.5 py-0.5 text-xs"
 		>
-			+
+			<span class="pr-1">+</span>
+			New
 		</button>
 	</header>
 
@@ -124,7 +125,8 @@ let {
 
 @media (hover: hover) {
 	:global(.project-row .row-action),
-	:global(.entry-row .row-action) {
+	:global(.entry-row .row-action),
+	:global(.selection-row .row-action) {
 		width: 0;
 		/* Pull the collapsed button over the row's gap. */
 		margin-left: -0.5rem;
@@ -141,7 +143,9 @@ let {
 	:global(.project-row:hover .row-action),
 	:global(.project-row:focus-within .row-action),
 	:global(.entry-row:hover .row-action),
-	:global(.entry-row:focus-within .row-action) {
+	:global(.entry-row:focus-within .row-action),
+	:global(.selection-row:hover .row-action),
+	:global(.selection-row:focus-within .row-action) {
 		width: 1.5rem;
 		margin-left: 0;
 		padding-left: 0.375rem;

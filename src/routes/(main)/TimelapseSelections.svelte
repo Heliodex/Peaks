@@ -48,11 +48,11 @@ function removeSelection(id: string) {
 				)}
 				{const color = $derived(selectionColors(sel.reason))}
 				<li
-					class="flex flex-col gap-1.5 border border-transparent px-1 py-1.5 transition-colors hover:border-line-soft hover:bg-surface-raised"
+					class="selection-row flex flex-col gap-1.5 border border-transparent px-1 py-1.5 transition-colors hover:border-line-soft hover:bg-surface-raised"
 				>
-					<div class="flex items-center justify-between gap-2">
+					<div class="flex items-center gap-2">
 						<span
-							class="flex items-center gap-1.5 whitespace-nowrap"
+							class="flex min-w-0 flex-1 items-center gap-1.5 whitespace-nowrap"
 						>
 							<span
 								class="h-2 w-2 shrink-0 {color.marker}"
@@ -67,24 +67,22 @@ function removeSelection(id: string) {
 								>{formatClock(sel.end)}</span
 							>
 						</span>
-						<span class="flex shrink-0 items-center gap-1.5">
-							{#if deflation > 0}
-								<span
-									class="border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-400 tabular-nums"
-								>
-									-{formatDuration(deflation)}
-								</span>
-							{/if}
-							<button
-								type="button"
-								onclick={() => removeSelection(sel.id)}
-								title="Delete selection {i + 1}"
-								aria-label="Delete selection {i + 1}"
-								class="btn btn-danger px-1.5 py-0.5 text-xs"
+						{#if deflation > 0}
+							<span
+								class="shrink-0 border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-400 tabular-nums"
 							>
-								×
-							</button>
-						</span>
+								-{formatDuration(deflation)}
+							</span>
+						{/if}
+						<button
+							type="button"
+							onclick={() => removeSelection(sel.id)}
+							title="Delete selection {i + 1}"
+							aria-label="Delete selection {i + 1}"
+							class="row-action btn btn-danger px-1.5 py-0.5 text-xs"
+						>
+							×
+						</button>
 					</div>
 					<select
 						aria-label="Annotation reason for selection {i + 1}"
