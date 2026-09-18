@@ -87,7 +87,7 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 						onclick={() => onExpand(project)}
 						title="Show timelapses"
 						aria-label="Show timelapses for {project.name}"
-						class="shrink-0 cursor-pointer px-2 py-2 text-sm text-neutral-500 hover:text-white"
+						class="shrink-0 cursor-pointer p-2 pr-4 text-sm text-neutral-500 hover:text-white"
 					>
 						›
 					</button>
