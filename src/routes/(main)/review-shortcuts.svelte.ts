@@ -1,4 +1,6 @@
 // Global review shortcuts, handled while the review route is mounted.
+import { isTyping } from "#lib/dom.js"
+
 type ReviewShortcutsOptions = {
 	/** Toggle the project search dialog. */
 	toggleSearch: () => void
@@ -14,16 +16,6 @@ type ReviewShortcutsOptions = {
 	openId: () => string
 	/** Open a timelapse by id. */
 	open: (id: string) => void
-}
-
-/** Whether the event target is somewhere the user is typing. */
-function isTyping(target: EventTarget | null): boolean {
-	const el = target as HTMLElement | null
-	if (!el) return false
-	return Boolean(
-		el.isContentEditable ||
-			el.closest("input, textarea, select, [contenteditable]")
-	)
 }
 
 /**

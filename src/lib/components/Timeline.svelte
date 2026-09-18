@@ -1,6 +1,7 @@
 <script lang="ts">
 import { prefersReducedMotion, Spring } from "svelte/motion"
 import { effectiveIdleRanges, selectionColors } from "#lib/annotations.js"
+import { isTyping } from "#lib/dom.js"
 import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
 import { IdleAnalysis } from "#lib/idle-time.svelte.js"
 import {
@@ -174,16 +175,6 @@ function onPointerLeave() {
 	if (editor.drag || editor.pan) return
 	viewport.hoverTime = null
 	editor.hoveredSelectionId = null
-}
-
-/** Whether the event target is somewhere the user is typing. */
-function isTyping(target: EventTarget | null): boolean {
-	const el = target as HTMLElement | null
-	if (!el) return false
-	return Boolean(
-		el.isContentEditable ||
-			el.closest("input, textarea, select, [contenteditable]")
-	)
 }
 
 /**
