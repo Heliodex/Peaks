@@ -18,6 +18,8 @@
 - Function declarations should use arrow functions if they have only a single return expression, and standard function declarations otherwise
 	- This also applies for top-level functions
 	- Use `const` to declare arrow function variables
+- Use guard statements to reduce nesting everywhere possible
+	- Do this in functions with `return`, and in loops with `continue`
 - Prefer `for (const x of y) ...` over `y.forEach(x => ...)`
 - Prefer `const` over `let`
 	- Avoid `var`
