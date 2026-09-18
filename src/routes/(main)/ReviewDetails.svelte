@@ -15,11 +15,13 @@ let {
 	ignoreIdle,
 	idleThreshold,
 	justifyTimeline,
+	seekStep,
 	onToggleIgnoreIdle,
 	onSetIdleThreshold,
 	onResetIdleThreshold,
 	onRecalculateIdle,
 	onToggleJustifyTimeline,
+	onSetSeekStep,
 }: {
 	/** The open timelapse, or `null` while none is selected. */
 	timelapse?: ReviewTimelapse | null
@@ -31,11 +33,14 @@ let {
 	ignoreIdle: boolean
 	idleThreshold: number
 	justifyTimeline: boolean
+	/** Seconds the left/right arrow keys jump through the video. */
+	seekStep: number
 	onToggleIgnoreIdle: (value: boolean) => void
 	onSetIdleThreshold: (value: number) => void
 	onResetIdleThreshold: () => void
 	onRecalculateIdle: () => void
 	onToggleJustifyTimeline: (value: boolean) => void
+	onSetSeekStep: (value: number) => void
 } = $props()
 
 type Tab = "data" | "settings"
@@ -140,7 +145,12 @@ function onTabKeydown(event: KeyboardEvent) {
 				/>
 			{/key}
 		{:else}
-			<TimelapseSettings {justifyTimeline} {onToggleJustifyTimeline} />
+			<TimelapseSettings
+				{justifyTimeline}
+				{onToggleJustifyTimeline}
+				{seekStep}
+				{onSetSeekStep}
+			/>
 		{/if}
 	</div>
 

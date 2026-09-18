@@ -4,6 +4,7 @@ import { effectiveIdleRanges, selectionColors } from "#lib/annotations.js"
 import { isTyping } from "#lib/dom.js"
 import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
 import { IdleAnalysis } from "#lib/idle-time.svelte.js"
+import { DEFAULT_SETTINGS } from "#lib/settings-storage.js"
 import {
 	clamp,
 	formatClock,
@@ -28,6 +29,7 @@ let {
 	idleRevision = 0,
 	ignoreIdle = false,
 	idleThreshold = DEFAULT_IDLE_THRESHOLD,
+	seekStep = DEFAULT_SETTINGS.seekStep,
 }: {
 	timelapse: { playbackUrl: string; thumbnailUrl?: string | null }
 	video: HTMLVideoElement | undefined
@@ -39,11 +41,11 @@ let {
 	ignoreIdle?: boolean
 	/** Frame-difference threshold for the idle scan; see `idle-time.ts`. */
 	idleThreshold?: number
+	/** Seconds to skip when the left/right arrow keys are pressed. */
+	seekStep?: number
 } = $props()
 
 const FRAME_COUNT = 12
-// Seconds to skip when the left/right arrow keys are pressed
-const ARROW_SEEK_SECONDS = 5
 
 let videoDuration = $state(0)
 const duration = $derived(videoDuration)
@@ -178,7 +180,7 @@ function onPointerLeave() {
 }
 
 /**
- * Spacebar plays/pauses the video, the left/right arrow keys seek ±5s, and the up/down arrow keys step one frame, instead of scrolling the page. Ignored while typing in a form field or contenteditable element.
+ * Spacebar plays/pauses the video, the left/right arrow keys seek by the configured step, and the up/down arrow keys step one frame, instead of scrolling the page. Ignored while typing in a form field or contenteditable element.
  */
 function onKeyDown(event: KeyboardEvent) {
 	const actions: Record<string, () => void> = {
@@ -188,11 +190,11 @@ function onKeyDown(event: KeyboardEvent) {
 		ArrowDown: () => playback.stepFrame(-1),
 		ArrowLeft: () =>
 			playback.seekTo(
-				clamp(playback.currentTime - ARROW_SEEK_SECONDS, 0, duration)
+				clamp(playback.currentTime - seekStep, 0, duration)
 			),
 		ArrowRight: () =>
 			playback.seekTo(
-				clamp(playback.currentTime + ARROW_SEEK_SECONDS, 0, duration)
+				clamp(playback.currentTime + seekStep, 0, duration)
 			),
 	}
 	const action = actions[event.key]

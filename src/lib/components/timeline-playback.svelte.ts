@@ -5,8 +5,6 @@ import { snapToFrame } from "#lib/timeline.js"
 
 // Assumed frame rate for single-frame stepping if detection hasn't finished
 export const FALLBACK_FRAME_RATE = 30
-// Seconds to skip when the left/right arrow keys are pressed
-export const ARROW_SEEK_SECONDS = 5
 
 type TimelinePlaybackOptions = {
 	video: () => HTMLVideoElement | undefined
@@ -157,7 +155,7 @@ export class TimelinePlayback {
 		this.flushPendingSeek()
 	}
 
-	/** Seek by whole frames, or by `ARROW_SEEK_SECONDS` for the left/right arrows. */
+	/** Seek one whole frame in the given direction. */
 	stepFrame(direction: 1 | -1) {
 		const el = this.#options.video()
 		if (!el) return

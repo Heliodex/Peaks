@@ -6,24 +6,41 @@ export type Settings = {
 	 * When off, it only spans the space between the timelapse stats and projects panels.
 	 */
 	justifyTimeline: boolean
+	/** Seconds the left/right arrow keys jump through the video. */
+	seekStep: number
 }
+
+/** Bounds for the arrow-key seek step, in seconds. */
+export const MIN_SEEK_STEP = 1
+export const MAX_SEEK_STEP = 60
 
 export const DEFAULT_SETTINGS: Settings = {
 	justifyTimeline: true,
+	seekStep: 5,
 }
 
 const STORAGE_KEY = "peaks:settings"
 
+/** Round a seek step to a whole number of seconds within the supported range. */
+export function clampSeekStep(value: number): number {
+	if (!Number.isFinite(value)) return DEFAULT_SETTINGS.seekStep
+	return Math.min(MAX_SEEK_STEP, Math.max(MIN_SEEK_STEP, Math.round(value)))
+}
+
 /** Validate a value read back from storage, filling in any missing fields. */
 function parseSettings(value: unknown): Settings | null {
 	if (typeof value !== "object" || value === null) return null
-	const { justifyTimeline } = value as Record<string, unknown>
+	const { justifyTimeline, seekStep } = value as Record<string, unknown>
 	return {
 		...DEFAULT_SETTINGS,
 		justifyTimeline:
 			typeof justifyTimeline === "boolean"
 				? justifyTimeline
 				: DEFAULT_SETTINGS.justifyTimeline,
+		seekStep:
+			typeof seekStep === "number"
+				? clampSeekStep(seekStep)
+				: DEFAULT_SETTINGS.seekStep,
 	}
 }
 

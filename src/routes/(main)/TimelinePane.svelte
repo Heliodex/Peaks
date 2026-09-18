@@ -14,6 +14,7 @@ let {
 	idleRevision = 0,
 	ignoreIdle,
 	idleThreshold,
+	seekStep,
 }: {
 	playbackUrl: string
 	thumbnailUrl?: string | null
@@ -25,6 +26,8 @@ let {
 	idleRevision?: number
 	ignoreIdle: boolean
 	idleThreshold: number
+	/** Seconds the left/right arrow keys jump through the video. */
+	seekStep: number
 } = $props()
 </script>
 
@@ -39,6 +42,7 @@ let {
 		{idleRevision}
 		{ignoreIdle}
 		{idleThreshold}
+		{seekStep}
 		timelapse={{ playbackUrl, thumbnailUrl }}
 		video={videoEl}
 	/>

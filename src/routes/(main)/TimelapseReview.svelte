@@ -2,6 +2,8 @@
 import { onMount } from "svelte"
 import { SvelteSet } from "svelte/reactivity"
 import {
+	clampSeekStep,
+	DEFAULT_SETTINGS,
 	loadSettings,
 	type Settings,
 	saveSettings,
@@ -69,7 +71,13 @@ let searchOpen = $state(false)
 // Review preferences (timeline layout, …).
 // Loaded once from local storage and persisted on change; never mirrored into the URL.
 let justifyTimeline = $state(true)
+let seekStep = $state(DEFAULT_SETTINGS.seekStep)
 let settingsLoaded = $state(false)
+
+/** Store the arrow-key seek step, clamped to the supported range. */
+function setSeekStep(value: number) {
+	seekStep = clampSeekStep(value)
+}
 
 /** Pixels a pane separator moves per arrow-key press (tripled while Shift is held). */
 const RESIZE_STEP = 16
@@ -192,14 +200,16 @@ function openTimelapseFromSearch(projectId: string, timelapseId: string) {
 
 // Load review preferences once on the client; local storage isn't available during SSR, so this must not run in the initial render.
 onMount(() => {
-	justifyTimeline = loadSettings().justifyTimeline
+	const settings = loadSettings()
+	justifyTimeline = settings.justifyTimeline
+	seekStep = settings.seekStep
 	settingsLoaded = true
 })
 
 // Persist review preferences whenever they change.
 $effect(() => {
 	if (!settingsLoaded) return
-	const settings: Settings = { justifyTimeline }
+	const settings: Settings = { justifyTimeline, seekStep }
 	saveSettings(settings)
 })
 
@@ -300,11 +310,13 @@ const summary = new ProjectSummary({
 		ignoreIdle={idleState.ignoreIdle}
 		idleThreshold={idleState.threshold}
 		{justifyTimeline}
+		{seekStep}
 		onToggleIgnoreIdle={value => idleState.setIgnoreIdle(value)}
 		onSetIdleThreshold={value => idleState.setThreshold(value)}
 		onResetIdleThreshold={() => idleState.resetThreshold()}
 		onRecalculateIdle={() => idleState.recalculate()}
 		onToggleJustifyTimeline={value => (justifyTimeline = value)}
+		onSetSeekStep={setSeekStep}
 	/>
 
 	{@render resizeHandle({
@@ -352,6 +364,7 @@ const summary = new ProjectSummary({
 							playbackUrl={timelapse.playbackUrl}
 							thumbnailUrl={timelapse.thumbnailUrl}
 							{videoEl}
+							{seekStep}
 							bind:selections={session.selections}
 							bind:idleRanges={idleState.ranges}
 							bind:idleAnalyzing={idleState.analyzing}
