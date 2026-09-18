@@ -4,12 +4,20 @@ import { formatClock, percentWithin, type ViewWindow } from "#lib/timeline.js"
 let {
 	view,
 	ticks,
-	tickTrackWidth = $bindable(0),
+	ontrackwidth,
 }: {
 	view: ViewWindow
 	ticks: number[]
-	tickTrackWidth?: number
+	ontrackwidth: (width: number) => void
 } = $props()
+
+/** Report the measured width so the parent can hide ticks when they get too dense. */
+function measureTrack(node: HTMLDivElement) {
+	ontrackwidth(node.clientWidth)
+	const observer = new ResizeObserver(() => ontrackwidth(node.clientWidth))
+	observer.observe(node)
+	return () => observer.disconnect()
+}
 </script>
 
 <div class="w-full shrink-0 pt-1">
@@ -19,7 +27,7 @@ let {
 	</div>
 	<div
 		class="relative h-3 w-full overflow-hidden -top-3"
-		bind:clientWidth={tickTrackWidth}
+		{@attach measureTrack}
 	>
 		{#each ticks as tick (tick)}
 			<div

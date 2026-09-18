@@ -2,21 +2,10 @@
 import { onMount } from "svelte"
 import { SvelteSet } from "svelte/reactivity"
 import {
-	type AnnotationDeflation,
-	deflationByReason,
-	describeTimelapse,
-} from "#lib/annotations.js"
-import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
-import type { ProjectTimelapse } from "#lib/project-storage.js"
-import { loadSelections } from "#lib/selection-storage.js"
-import {
 	loadSettings,
 	type Settings,
 	saveSettings,
 } from "#lib/settings-storage.js"
-import { encodeShare } from "#lib/share.js"
-import { type TimelineSelection } from "#lib/timeline.js"
-import { goto } from "$app/navigation"
 import { page } from "$app/state"
 import { getTimelapse } from "./api.remote.js"
 import ProjectPane from "./ProjectPane.svelte"
@@ -28,8 +17,10 @@ import { ProjectWorkspace } from "./project-workspace.svelte.js"
 import ReviewDetails from "./ReviewDetails.svelte"
 import { ReviewIdle } from "./review-idle.svelte.js"
 import { ReviewSession } from "./review-session.svelte.js"
-import type { ReviewTimelapse } from "./review-types.js"
+import { ReviewShortcuts } from "./review-shortcuts.svelte.js"
+import { ReviewSync } from "./review-sync.svelte.js"
 import TimelinePane from "./TimelinePane.svelte"
+import { TimelapseLoader } from "./timelapse-loader.svelte.js"
 import VideoPane from "./VideoPane.svelte"
 
 /** Decode a path segment, falling back to the raw text when it is malformed. */
@@ -80,174 +71,14 @@ let searchOpen = $state(false)
 let justifyTimeline = $state(true)
 let settingsLoaded = $state(false)
 
-// Metadata for the open timelapse, resolved from Lapse so it can be added to the project automatically.
-// The id is kept alongside it so a late-resolving fetch can never be applied to a different timelapse.
-let currentMeta = $state<{
-	id: string
-	name?: string
-	duration: number
-} | null>(null)
-
-// The fully resolved timelapse for the info panel.
-// The center panes await the same cached query, but the panel renders even before (or without) one.
-let currentTimelapse = $state<ReviewTimelapse | null>(null)
-
-/** Whether two annotation breakdowns carry the same reasons and durations. */
-function sameAnnotations(
-	a: AnnotationDeflation[],
-	b: AnnotationDeflation[]
-): boolean {
-	return (
-		a.length === b.length &&
-		a.every(
-			(annotation, i) =>
-				annotation.reason === b[i].reason &&
-				annotation.duration === b[i].duration
-		)
-	)
-}
-
-/** Whether two cached idle-range lists match (including both being absent). */
-function sameIdleRanges(
-	a: IdleRange[] | undefined,
-	b: IdleRange[] | undefined
-): boolean {
-	if (a === undefined || b === undefined) return a === b
-	return (
-		a.length === b.length &&
-		a.every(
-			(range, i) => range.start === b[i].start && range.end === b[i].end
-		)
-	)
-}
-
-/** Resolve each new id against Lapse, grouping them into valid, missing and unchecked. */
-async function resolveIds(
-	ids: string[],
-	current: string,
-	known: Set<string>
-): Promise<{
-	valid: { id: string; meta: ReviewTimelapse | null }[]
-	missing: string[]
-	unchecked: string[]
-}> {
-	const valid: { id: string; meta: ReviewTimelapse | null }[] = []
-	const missing: string[] = []
-	const unchecked: string[] = []
-	await Promise.all(
-		ids.map(async id => {
-			if (id === current || known.has(id)) {
-				valid.push({ id, meta: null })
-				return
-			}
-			try {
-				const meta = await getTimelapse(id)
-				if (meta) valid.push({ id, meta })
-				else missing.push(id)
-			} catch {
-				unchecked.push(id)
-			}
-		})
-	)
-	return { valid, missing, unchecked }
-}
-
-/** Comparator that restores the order ids appeared in the pasted input. */
-function inputOrderComparator(ids: string[]) {
-	const order = new Map(ids.map((id, index) => [id, index] as const))
-	return (a: string, b: string) => (order.get(a) ?? 0) - (order.get(b) ?? 0)
-}
-
-/** Human-readable errors for ids that couldn't be resolved. */
-function idProblems(missing: string[], unchecked: string[]): string[] {
-	const problems: string[] = []
-	if (missing.length > 0)
-		problems.push(
-			`No timelapse found for ID${missing.length > 1 ? "s" : ""} ${formatIdList(missing)}.`
-		)
-
-	if (unchecked.length > 0)
-		problems.push(
-			`Couldn't check ID${unchecked.length > 1 ? "s" : ""} ${formatIdList(unchecked)}. Please try again.`
-		)
-
-	return problems
-}
-
-/** Add newly resolved timelapses to the open project, seeding their names and durations. */
-function seedResolvedEntries(
-	valid: { id: string; meta: ReviewTimelapse | null }[]
-): ProjectTimelapse[] {
-	const entries = $state.snapshot(workspace.projectEntries)
-	let added = false
-	for (const { id, meta } of valid)
-		if (meta && !entries.some(entry => entry.id === id)) {
-			entries.push({
-				...emptyTimelapse(id),
-				name: meta.name?.trim() ?? "",
-				duration: meta.duration,
-			})
-			pendingAdds.add(id)
-			added = true
-		}
-
-	if (added)
-		workspace.updateCurrentProject(project => ({
-			...project,
-			timelapses: entries,
-		}))
-
-	return entries
-}
-
 /**
  * Open timelapses by id.
  * The input may hold several space/comma-separated ids: each new one is resolved first so invalid ids are reported in the Project pane instead of being added and then disappearing.
  * Every id that resolves is added to the project and the first of them opens.
  * The URL carries the project state, so the current project is encoded with that timelapse open (using its saved selections) and the app navigates to `/{state}` rather than a bare `/{id}`.
  */
-async function loadId(value: string) {
-	const ids = [...new Set(value.split(/[\s,]+/).filter(Boolean))]
-	if (ids.length === 0) return
-	const current = session.submittedId
-	if (ids.length === 1 && ids[0] === current) return
-	workspace.loadError = null
-	// Ids already in the project were validated when added (and the metadata effect re-checks on open), so only new ids need resolving.
-	// Everything resolves in parallel; pasted order is restored afterwards.
-	const known = new Set(
-		$state.snapshot(workspace.projectEntries).map(entry => entry.id)
-	)
-	const { valid, missing, unchecked } = await resolveIds(ids, current, known)
-	const byInputOrder = inputOrderComparator(ids)
-	valid.sort((a, b) => byInputOrder(a.id, b.id))
-	missing.sort(byInputOrder)
-	unchecked.sort(byInputOrder)
-	const problems = idProblems(missing, unchecked)
-	if (valid.length === 0) {
-		// Nothing resolved, so there is nothing to open; just report.
-		workspace.loadError = problems.join(" ")
-		return
-	}
-	if (problems.length > 0) workspace.loadError = problems.join(" ")
-	const open = valid[0]
-	// Add the new timelapses to the open project straight away, so they show up (and travel in the encoded URL) even before the project sync fills in their review data.
-	// Names and durations are already known, so seed those.
-	const entries = seedResolvedEntries(valid)
-	const encoded = await encodeShare({
-		projectId: workspace.activeProjectId,
-		selections: loadSelections(open.id),
-		projectName: workspace.projectName,
-		project: entries,
-		openId: open.id,
-	})
-	// Drop any debounced write queued while we were encoding so it can't race this explicit navigation to the new state.
-	session.clearPendingWrite()
-	void goto(`/${encoded}`)
-}
-
-/** Quote ids for an error message: `“a”, “b”`. */
-function formatIdList(ids: string[]): string {
-	return ids.map(id => `"${id}"`).join(", ")
+function loadId(value: string) {
+	void loader.load(value)
 }
 
 /** Toggle fullscreen playback of the open timelapse's video. */
@@ -259,81 +90,41 @@ function toggleFullscreen() {
 	else void el.requestFullscreen().catch(() => {})
 }
 
-/**
- * Ctrl+K (or Cmd+K) toggles the project search dialog – from anywhere, including while a field is focused, so the shortcut can both open and close it.
- * F toggles fullscreen for the open timelapse's video, and N creates a new project (with its name field focused).
- * Tab and Shift+Tab cycle through the open project's timelapses – forwards and backwards respectively, wrapping around at either end.
- * With none open, forwards opens the first entry and backwards the last.
- * These are ignored while a modifier is held (so browser shortcuts still work) and while typing in a form field or contenteditable element, so focus can leave inputs natively.
- */
-function onKeyDown(event: KeyboardEvent) {
-	if (event.defaultPrevented) return
-
-	if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
-		event.preventDefault()
-		searchOpen = !searchOpen
-		return
-	}
-
-	const target = event.target as HTMLElement | null
-	if (
-		target &&
-		(target.isContentEditable ||
-			target.closest("input, textarea, select, [contenteditable]"))
-	)
-		return
-
-	if (event.key.toLowerCase() === "f") {
-		if (event.metaKey || event.ctrlKey || event.altKey) return
-		if (!videoEl) return
-		event.preventDefault()
-		toggleFullscreen()
-		return
-	}
-
-	if (event.key.toLowerCase() === "n") {
-		if (event.metaKey || event.ctrlKey || event.altKey) return
-		event.preventDefault()
-		workspace.createNewProject()
-		return
-	}
-
-	if (event.key !== "Tab") return
-	if (event.metaKey || event.ctrlKey || event.altKey) return
-
-	const entries = workspace.projectEntries
-	if (entries.length === 0) return
-
-	const current = entries.findIndex(entry => entry.id === session.submittedId)
-	const step = event.shiftKey ? -1 : 1
-	// Wrapping keeps the cycle self-contained; with none open, step towards the appropriate end of the list instead.
-	const next =
-		current === -1
-			? event.shiftKey
-				? entries.length - 1
-				: 0
-			: (current + step + entries.length) % entries.length
-	// Nothing to cycle to (a lone open timelapse): leave Tab to move focus.
-	if (next === current) return
-
-	event.preventDefault()
-	void loadId(entries[next].id)
-}
-
-/** A project entry for a timelapse whose metadata hasn't resolved yet. */
-const emptyTimelapse = (id: string): ProjectTimelapse => ({
-	id,
-	name: "",
-	duration: 0,
-	idleDuration: 0,
-	annotations: [],
-	ignoreIdle: false,
-	idleThreshold: DEFAULT_IDLE_THRESHOLD,
-	description: "",
+const shortcuts = new ReviewShortcuts({
+	toggleSearch: () => (searchOpen = !searchOpen),
+	hasVideo: () => Boolean(videoEl),
+	toggleFullscreen,
+	createProject: () => workspace.createNewProject(),
+	entries: () => workspace.projectEntries,
+	openId: () => session.submittedId,
+	open: loadId,
 })
 
-// Ids added optimistically by `loadId` that still need confirming by Lapse.
+// Ids added optimistically by the loader that still need confirming by Lapse.
 const pendingAdds = new SvelteSet<string>()
+
+const loader = new TimelapseLoader({
+	openId: () => session.submittedId,
+	entries: () => workspace.projectEntries,
+	projectId: () => workspace.activeProjectId,
+	projectName: () => workspace.projectName,
+	setError: error => (workspace.loadError = error),
+	updateProject: update => workspace.updateCurrentProject(update),
+	markPending: id => pendingAdds.add(id),
+	clearPendingWrites: () => session.clearPendingWrite(),
+})
+
+// The project is the single home for every timelapse: opening one adds it (or refreshes its review data), and edits keep its entry in sync.
+const sync = new ReviewSync({
+	openId: () => session.submittedId,
+	loaded: () => session.loaded,
+	entries: () => workspace.projectEntries,
+	selections: () => session.selections,
+	idle: idleState,
+	pendingAdds,
+	updateProject: update => workspace.updateCurrentProject(update),
+	removeEntry: id => removeEntry(id),
+})
 
 /**
  * Close the open timelapse, if any.
@@ -378,136 +169,9 @@ const summary = new ProjectSummary({
 	entries: () => workspace.projectEntries,
 	shareLink: () => (session.encodedState ? session.shareUrl : ""),
 })
-
-// Resolve the open timelapse's metadata from Lapse so it can be represented in the project.
-// The query is cached, so this dedupes with the template's await.
-$effect(() => {
-	const id = session.submittedId
-	currentMeta = null
-	currentTimelapse = null
-	if (!id) return
-	void getTimelapse(id)
-		.then(timelapse => {
-			if (session.submittedId === id) {
-				currentTimelapse = timelapse ?? null
-				currentMeta = timelapse
-					? {
-							id,
-							name: timelapse.name,
-							duration: timelapse.duration,
-						}
-					: null
-			}
-			if (timelapse) pendingAdds.delete(id)
-			else if (pendingAdds.has(id)) {
-				// The id couldn't be resolved, so drop the optimistic entry.
-				pendingAdds.delete(id)
-				removeEntry(id)
-			}
-		})
-		.catch(() => {
-			if (session.submittedId === id) {
-				currentTimelapse = null
-				currentMeta = null
-			}
-			if (pendingAdds.has(id)) {
-				pendingAdds.delete(id)
-				removeEntry(id)
-			}
-		})
-})
-
-/**
- * Build the project entry for a resolved timelapse, or null when the stored entry already matches.
- */
-function updatedEntry(
-	id: string,
-	meta: { id: string; name?: string; duration: number },
-	idle: number,
-	ranges: IdleRange[],
-	currentSelections: TimelineSelection[],
-	detected: IdleRange[]
-): { index: number; entry: ProjectTimelapse } | null {
-	const index = workspace.projectEntries.findIndex(entry => entry.id === id)
-	const existing = index === -1 ? undefined : workspace.projectEntries[index]
-	// Only cache ranges once a scan has finished (or when reusing a previous cache), so a scan interrupted by navigation can't persist partial results that would then never be recalculated.
-	const cachedRanges = idleState.analyzing
-		? existing?.idleRanges
-		: idleState.analyzed
-			? detected
-			: existing?.idleRanges
-	const annotations = deflationByReason(currentSelections, ranges)
-	const name = meta.name?.trim() ?? ""
-	const { duration } = meta
-	const description = describeTimelapse({
-		id,
-		duration,
-		idleRanges: ranges,
-		selections: currentSelections,
-	})
-	if (
-		existing &&
-		existing.duration === duration &&
-		existing.name === name &&
-		existing.idleDuration === idle &&
-		sameAnnotations(existing.annotations, annotations) &&
-		existing.ignoreIdle === idleState.ignoreIdle &&
-		existing.idleThreshold === idleState.threshold &&
-		existing.description === description &&
-		sameIdleRanges(existing.idleRanges, cachedRanges)
-	)
-		return null
-
-	return {
-		index,
-		entry: {
-			id,
-			name,
-			duration,
-			idleDuration: idle,
-			annotations,
-			ignoreIdle: idleState.ignoreIdle,
-			idleThreshold: idleState.threshold,
-			description,
-			...(cachedRanges !== undefined ? { idleRanges: cachedRanges } : {}),
-		},
-	}
-}
-
-// The project is the single home for every timelapse: opening one adds it (or refreshes its review data), and edits keep its entry in sync.
-$effect(() => {
-	const id = session.submittedId
-	const meta = currentMeta
-	const idle = idleState.duration
-	// Read the raw selection/idle state so reason-only edits still refresh the stored description and breakdown, even when the totals don't change.
-	const ranges = $state.snapshot(idleState.activeRanges)
-	const currentSelections = $state.snapshot(session.selections)
-	const detected = $state.snapshot(idleState.ranges)
-	if (!id || !session.loaded || !meta || meta.id !== id) return
-
-	const result = updatedEntry(
-		id,
-		meta,
-		idle,
-		ranges,
-		currentSelections,
-		detected
-	)
-	if (!result) return
-	const { index, entry } = result
-	workspace.updateCurrentProject(project => ({
-		...project,
-		timelapses:
-			index === -1
-				? [...project.timelapses, entry]
-				: project.timelapses.map((item, i) =>
-						i === index ? entry : item
-					),
-	}))
-})
 </script>
 
-<svelte:window onkeydown={onKeyDown} />
+<svelte:window onkeydown={shortcuts.onKeyDown} />
 
 {#snippet resizeHandle(modifier: string, onpointerdown: (event: PointerEvent) => void)}
 	<div
@@ -553,7 +217,7 @@ $effect(() => {
 	{@render resizeHandle("resize-handle-right", panes.startRightResize)}
 
 	<ReviewDetails
-		timelapse={currentTimelapse}
+		timelapse={sync.timelapse}
 		bind:selections={session.selections}
 		idleRanges={idleState.ranges}
 		idleAnalyzing={idleState.analyzing}
