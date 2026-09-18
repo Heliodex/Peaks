@@ -139,7 +139,7 @@ function copyId(id: string, x: number, y: number) {
 		<li
 			animate:flip={{ duration: 180 }}
 			oncontextmenu={event => openMenu(event, entry)}
-			class="entry-row -mx-1.5 flex items-start gap-2 border-b border-line-soft px-1.5 py-0.5 transition-colors hover:bg-neutral-800/40 {entry.id ===
+			class="entry-row group -mx-1.5 flex items-stretch gap-1 border-b border-line-soft px-1.5 transition-colors hover:bg-neutral-800/40 {entry.id ===
 			submittedId
 				? 'bg-primary-500/5'
 				: ''} {draggingId === entry.id ? 'opacity-50' : ''}"
@@ -177,38 +177,31 @@ function copyId(id: string, x: number, y: number) {
 				ondragend={() => {
 					draggingId = null
 				}}
-				class="cursor-grab px-0.5 select-none text-neutral-500 transition-colors hover:text-neutral-300 active:cursor-grabbing"
+				class="flex cursor-grab items-center px-0.5 select-none text-neutral-500 transition-colors hover:text-neutral-300 active:cursor-grabbing"
 			>
 				⠿
 			</button>
-			<div
-				class="flex min-w-0 flex-1 flex-col border-l-2 border-l-transparent pl-1.5 {entry.id ===
+			<button
+				type="button"
+				onclick={() => onLoad(entry.id)}
+				title={entry.name || entry.id}
+				aria-current={entry.id === submittedId ? "true" : undefined}
+				class="flex min-w-0 flex-1 flex-col justify-center border-l-2 py-1 pr-1 pl-1.5 text-left transition-colors {entry.id ===
 				submittedId
 					? 'border-l-primary-500'
-					: ''}"
+					: 'border-l-transparent'}"
 			>
-				{#if entry.id === submittedId}
-					<span
-						class="w-full truncate font-medium text-primary-300"
-						title={entry.name || entry.id}
-						aria-current="true"
-					>
-						{entry.name || entry.id}
-					</span>
-				{:else}
-					<button
-						type="button"
-						onclick={() => onLoad(entry.id)}
-						title={entry.name || entry.id}
-						class="w-full cursor-pointer truncate text-left text-neutral-300 transition-colors hover:text-white"
-					>
-						{entry.name || entry.id}
-					</button>
-				{/if}
+				<span
+					class="truncate text-sm font-medium {entry.id === submittedId
+						? 'text-primary-300'
+						: 'text-neutral-300 group-hover:text-white'}"
+				>
+					{entry.name || entry.id}
+				</span>
 				<span class="text-xs text-neutral-400 tabular-nums">
 					{formatDuration(entryFinalDuration(entry))}
 				</span>
-			</div>
+			</button>
 		</li>
 	{/each}
 </ul>
