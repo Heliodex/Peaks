@@ -163,9 +163,23 @@ const onTimelineHandleKeydown = (event: KeyboardEvent) =>
 		key => (key === "ArrowUp" ? 1 : key === "ArrowDown" ? -1 : null)
 	)
 
+/** Matches the grip's CSS fade-out, so a recentre doesn't happen mid-transition. */
+const GRIP_RESET_DELAY_MS = 120
+// Pending recentres, per handle, so leaving one handle can't cancel another's.
+const gripResetTimers = new WeakMap<
+	HTMLElement,
+	ReturnType<typeof setTimeout>
+>()
+
 /** Move the resize grip to sit next to the pointer, so it reads as the grab point rather than a centred rail. */
 function moveGrip(event: PointerEvent, orientation: "vertical" | "horizontal") {
 	const handle = event.currentTarget as HTMLElement
+	const pending = gripResetTimers.get(handle)
+	if (pending !== undefined) {
+		clearTimeout(pending)
+		gripResetTimers.delete(handle)
+	}
+
 	const rect = handle.getBoundingClientRect()
 	const offset =
 		orientation === "vertical"
@@ -174,10 +188,17 @@ function moveGrip(event: PointerEvent, orientation: "vertical" | "horizontal") {
 	handle.style.setProperty("--grip-position", `${offset}px`)
 }
 
-/** Recentre the grip when the pointer leaves the handle. */
+/** Recentre the grip once the pointer has left and its fade-out has finished. */
 function resetGrip(event: PointerEvent) {
 	const handle = event.currentTarget as HTMLElement
-	handle.style.removeProperty("--grip-position")
+	clearTimeout(gripResetTimers.get(handle))
+	gripResetTimers.set(
+		handle,
+		setTimeout(() => {
+			gripResetTimers.delete(handle)
+			handle.style.removeProperty("--grip-position")
+		}, GRIP_RESET_DELAY_MS)
+	)
 }
 
 /**
