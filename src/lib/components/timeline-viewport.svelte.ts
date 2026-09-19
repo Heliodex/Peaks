@@ -51,7 +51,7 @@ export class TimelineViewport {
 		// Reset the visible window to the whole video whenever the source changes.
 		$effect(() => {
 			this.#options.src()
-			void this.#spring.set({ start: 0, end: 0 }, { instant: true })
+			this.#spring.set({ start: 0, end: 0 }, { instant: true })
 		})
 	}
 
@@ -101,7 +101,7 @@ export class TimelineViewport {
 
 	/** Snap the visible window immediately (used by drags and the navigator). */
 	setView = (next: ViewWindow) => {
-		void this.#spring.set(next, { instant: true })
+		this.#spring.set(next, { instant: true })
 	}
 
 	/**
@@ -141,7 +141,7 @@ export class TimelineViewport {
 			0,
 			Math.max(0, duration - span)
 		)
-		void this.#spring.set(
+		this.#spring.set(
 			{ start, end: start + span },
 			{ instant: prefersReducedMotion.current }
 		)

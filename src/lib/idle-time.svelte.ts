@@ -110,7 +110,7 @@ export class IdleAnalysis {
 			},
 		})
 		this.#job = current
-		void current.promise
+		current.promise
 			.then(result => {
 				if (token !== this.#token) return
 				this.ranges = result

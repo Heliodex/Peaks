@@ -249,12 +249,12 @@ export class FrameStrip {
 			this.#targetSrc = url
 
 			// Pull persisted thumbnails in alongside capture. This must be untracked: `hydrate` synchronously reads and mutates its `hydrating` guard, and tracking that would make this effect re-run each time hydration starts or finishes – an endless loop that keeps resetting the capture timer.
-			void untrack(() => hydrate(url))
+			untrack(() => hydrate(url))
 
 			// Start buffering the first capturer immediately so the initial frames aren't network-bound. Hydration from persistent storage merges in alongside; a source with nothing cached captures as it always did.
 			// `untrack` keeps adding frames from re-running this effect.
 			if (untrack(() => framesFor(url).length) === 0)
-				void this.#pool.capturer(0)
+				this.#pool.capturer(0)
 
 			const timer = setTimeout(
 				() => this.#populate(url, current.start, current.end),
@@ -380,7 +380,7 @@ export class FrameStrip {
 			this.#options.duration(),
 			time => this.#isCached(url, time)
 		)
-		void this.#runQueue()
+		this.#runQueue()
 	}
 
 	/**

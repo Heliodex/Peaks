@@ -78,7 +78,7 @@ export class NavThumbnails {
 						next[i] = captured.url
 						frames = next
 						this.frames = next
-						void saveThumbnail(
+						saveThumbnail(
 							NAV_THUMBNAIL_KIND,
 							src,
 							i,

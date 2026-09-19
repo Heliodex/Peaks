@@ -39,7 +39,7 @@ $effect(() => {
 		return
 	}
 	let cancelled = false
-	void getTimelapseThumbnails(ids)
+	getTimelapseThumbnails(ids)
 		.then(result => {
 			if (!cancelled) thumbnails = result
 		})

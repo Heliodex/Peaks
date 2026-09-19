@@ -58,7 +58,7 @@ function closeMenu(restoreFocus = false) {
 /** Copy the id, showing the confirmation where the menu was. */
 function copyId(id: string, x: number, y: number) {
 	copiedAt = { x, y }
-	void clipboard.copy(id)
+	clipboard.copy(id)
 }
 </script>
 

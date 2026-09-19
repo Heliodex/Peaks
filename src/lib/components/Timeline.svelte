@@ -119,7 +119,7 @@ $effect(() => {
 	const analyzing = idle.analyzing
 	// Reset instantly when a new scan starts, then animate towards the frontier.
 	if (analyzing && !wasAnalyzing)
-		void idleProgressSpring.set(0, { instant: true })
+		idleProgressSpring.set(0, { instant: true })
 
 	wasAnalyzing = analyzing
 
@@ -130,7 +130,7 @@ $effect(() => {
 		idleAnalyzing = analyzing
 		idleAnalyzed = idle.complete
 	}
-	void idleProgressSpring.set(idle.progress, {
+	idleProgressSpring.set(idle.progress, {
 		instant: prefersReducedMotion.current,
 	})
 })

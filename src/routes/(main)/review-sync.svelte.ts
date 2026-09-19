@@ -69,7 +69,7 @@ export class ReviewSync {
 			this.timelapse = null
 			this.#meta = null
 			if (!id) return
-			void getTimelapse(id)
+			getTimelapse(id)
 				.then(timelapse => {
 					if (this.#options.openId() === id) {
 						this.timelapse = timelapse ?? null

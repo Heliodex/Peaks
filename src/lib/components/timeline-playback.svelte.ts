@@ -39,7 +39,7 @@ export class TimelinePlayback {
 		this.#options = options
 
 		$effect(() => {
-			void this.#playheadSpring.set(this.currentTime, {
+			this.#playheadSpring.set(this.currentTime, {
 				instant: prefersReducedMotion.current,
 			})
 		})
@@ -58,7 +58,7 @@ export class TimelinePlayback {
 			this.frameRateReady = false
 			if (!src) return
 			let cancelled = false
-			void detectFrameRate(src).then(rate => {
+			detectFrameRate(src).then(rate => {
 				if (cancelled) return
 				if (rate > 0) this.frameRate = rate
 				this.frameRateReady = true
@@ -168,7 +168,7 @@ export class TimelinePlayback {
 	togglePlay() {
 		const el = this.#options.video()
 		if (!el) return
-		if (el.paused) void el.play().catch(() => {})
+		if (el.paused) el.play().catch(() => {})
 		else el.pause()
 	}
 }

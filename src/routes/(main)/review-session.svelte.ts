@@ -60,7 +60,7 @@ export class ReviewSession {
 				this.loaded = true
 				return
 			}
-			void decodeShare(param).then(decoded => {
+			decodeShare(param).then(decoded => {
 				if (token !== this.#loadToken) return
 				if (decoded) {
 					this.submittedId = decoded.openId
@@ -94,7 +94,7 @@ export class ReviewSession {
 			const name = this.#options.projectName()
 			const entries = $state.snapshot(this.#options.project())
 			if (!this.#options.projectLoaded() || !this.loaded) return
-			void this.#syncShareUrl({
+			this.#syncShareUrl({
 				projectId,
 				id,
 				selections: value,
@@ -129,7 +129,7 @@ export class ReviewSession {
 		const id = state.id
 		clearTimeout(this.#urlTimer)
 		this.#urlTimer = setTimeout(() => {
-			void this.#applyShareUrl(id, target)
+			this.#applyShareUrl(id, target)
 		}, 300)
 	}
 

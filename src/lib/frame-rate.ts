@@ -92,7 +92,7 @@ function measureWithPolling(
 	finish: (fps: number) => void
 ): () => void {
 	let interval: ReturnType<typeof setInterval> | undefined
-	void video
+	video
 		.play()
 		.then(() => {
 			const start = video.getVideoPlaybackQuality()
