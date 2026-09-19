@@ -22,21 +22,27 @@ export type HistoryNode = {
 	children: string[]
 }
 
-/** A node flattened for the settings tree. */
-export type HistoryRow = {
+/** A node placed in the settings graph: rows run top-to-bottom, branches grow to the right. */
+export type HistoryGraphRow = {
 	id: string
 	label: string
-	depth: number
-	/** Whether the node is the last child of its parent, for the elbow connector. */
-	isLast: boolean
-	/** Whether the node has children, so its trunk line runs down to them. */
-	hasChildren: boolean
+	/** The column the node sits in. */
+	lane: number
+	/** Lanes this node forks into (children that open a new lane below it). */
+	forks: number[]
 	/** The node the live state is at. */
 	current: boolean
 	/** An ancestor of the current node (the branch we're on). */
 	onPath: boolean
 	/** A direct child of the current node, reachable with redo. */
 	redoable: boolean
+}
+
+export type HistoryGraph = {
+	rows: HistoryGraphRow[]
+	laneCount: number
+	/** Whether each lane's line runs through each row, indexed by row then lane. */
+	active: boolean[][]
 }
 
 type WorkspaceHistoryOptions = {
@@ -221,36 +227,111 @@ export class WorkspaceHistory {
 		return (this.nodes[this.currentId]?.children.length ?? 0) > 0
 	}
 
-	/** Depth-first rows for the settings tree, marking the current branch. */
-	get rows(): HistoryRow[] {
-		const root = Object.values(this.nodes).find(
-			node => node.parent === null
-		)
-		if (!root) return []
+	/**
+	 * The history laid out as a 2D graph: one row per node in creation order, with the current lineage in lane 0 and undone branches in lanes to its right.
+	 * Rows run top-to-bottom, so a deep lineage stays a linear list and only branches widen the graph – a branch's lane is reused once it ends.
+	 */
+	get graph(): HistoryGraph {
+		const nodes = this.nodes
+		const root = Object.values(nodes).find(node => node.parent === null)
+		if (!root) return { rows: [], laneCount: 0, active: [] }
 
-		const onPath = pathIds(this.nodes, this.currentId)
-		const redoable = new Set(this.nodes[this.currentId]?.children ?? [])
+		const onPath = pathIds(nodes, this.currentId)
+		const redoable = new Set(nodes[this.currentId]?.children ?? [])
 
-		const rows: HistoryRow[] = []
-		const walk = (node: HistoryNode, depth: number, isLast: boolean) => {
-			rows.push({
-				id: node.id,
-				label: node.label,
-				depth,
-				isLast,
-				hasChildren: node.children.length > 0,
-				current: node.id === this.currentId,
-				onPath: onPath.has(node.id),
-				redoable: redoable.has(node.id),
-			})
-			node.children.forEach((childId, index) => {
-				const child = this.nodes[childId]
-				if (child)
-					walk(child, depth + 1, index === node.children.length - 1)
+		// Rows are nodes in creation order, so the graph reads top-to-bottom like a log.
+		const ordered = Object.values(nodes).sort((a, b) => a.seq - b.seq)
+		const rowOf = new Map(ordered.map((node, index) => [node.id, index]))
+
+		/** Children with the lineage's child first, so the current path keeps lane 0. */
+		const childrenInOrder = (node: HistoryNode): HistoryNode[] => {
+			const children = node.children
+				.map(id => nodes[id])
+				.filter((child): child is HistoryNode => Boolean(child))
+			if (!onPath.has(node.id)) return children
+			const index = children.findIndex(child => onPath.has(child.id))
+			if (index > 0) {
+				const [lineageChild] = children.splice(index, 1)
+				if (lineageChild) children.unshift(lineageChild)
+			}
+			return children
+		}
+
+		// First pass: the lineage keeps lane 0 and each branch gets a fresh lane, forking at its parent's row.
+		const rawLane = new Map<string, number>()
+		const forks = new Map<string, number[]>()
+		const laneStart = [0]
+		let rawLaneCount = 0
+		const assign = (node: HistoryNode, lane: number) => {
+			rawLane.set(node.id, lane)
+			childrenInOrder(node).forEach((child, index) => {
+				if (index === 0) assign(child, lane)
+				else {
+					rawLaneCount += 1
+					laneStart[rawLaneCount] = rowOf.get(node.id) ?? 0
+					const lanes = forks.get(node.id) ?? []
+					lanes.push(rawLaneCount)
+					forks.set(node.id, lanes)
+					assign(child, rawLaneCount)
+				}
 			})
 		}
-		walk(root, 0, true)
-		return rows
+		assign(root, 0)
+		const rawLanes = rawLaneCount + 1
+
+		// The row span each raw lane occupies: from its fork row down to its last node.
+		const spans = Array.from({ length: rawLanes }, (_, lane) => ({
+			min: laneStart[lane] ?? 0,
+			max: -1,
+		}))
+		for (const node of ordered) {
+			const span = spans[rawLane.get(node.id) ?? 0]
+			span.max = Math.max(span.max, rowOf.get(node.id) ?? 0)
+		}
+
+		// Compact: branches whose spans don't overlap share a lane, keeping the graph narrow.
+		const remapped = new Map<number, number>()
+		const occupiedUntil: number[] = []
+		const byStart = spans
+			.map((span, lane) => ({ span, lane }))
+			.filter(item => item.span.max >= 0)
+			.sort((a, b) => a.span.min - b.span.min)
+		for (const item of byStart) {
+			let lane = 0
+			while (
+				lane < occupiedUntil.length &&
+				occupiedUntil[lane] >= item.span.min
+			)
+				lane += 1
+			remapped.set(item.lane, lane)
+			occupiedUntil[lane] = item.span.max
+		}
+		const laneCount = occupiedUntil.length
+		const toLane = (lane: number): number => remapped.get(lane) ?? 0
+
+		const rows: HistoryGraphRow[] = ordered.map(node => ({
+			id: node.id,
+			label: node.label,
+			lane: toLane(rawLane.get(node.id) ?? 0),
+			forks: (forks.get(node.id) ?? []).map(toLane),
+			current: node.id === this.currentId,
+			onPath: onPath.has(node.id),
+			redoable: redoable.has(node.id),
+		}))
+
+		// Which lanes are drawn on each row: each raw lane's span mapped onto its compacted lane.
+		const active = ordered.map(() =>
+			Array.from({ length: laneCount }, () => false)
+		)
+		for (let lane = 0; lane < rawLanes; lane++) {
+			const span = spans[lane]
+			if (span.max < 0) continue
+			const target = toLane(lane)
+			for (let row = span.min; row <= span.max; row++)
+				active[row][target] = true
+		}
+
+		return { rows, laneCount, active }
 	}
 
 	/** Note that tracked state changed; the change is recorded once edits settle. */

@@ -33,6 +33,16 @@ const shortcuts = $derived<{ description: string; keys: string[] }[]>([
 	{ description: "New project", keys: ["N"] },
 ])
 
+let historyListEl = $state<HTMLOListElement>()
+
+// Keep the active entry in view as the history grows or the user undoes/redoes/jumps.
+$effect(() => {
+	void history.currentId
+	historyListEl
+		?.querySelector<HTMLElement>('[data-current="true"]')
+		?.scrollIntoView({ block: "nearest", inline: "nearest" })
+})
+
 /** Snap the field back to the stored value when it loses focus, so a cleared or out-of-range entry doesn't linger. */
 function normalizeSeekInput(
 	event: FocusEvent & { currentTarget: HTMLInputElement }
@@ -120,18 +130,25 @@ function normalizeSeekInput(
 				</button>
 			</div>
 		</div>
-		{#if history.rows.length === 0}
+		{#if history.graph.rows.length === 0}
 			<p class="text-xs text-neutral-400">No actions yet.</p>
 		{:else}
-			<ol class="flex max-h-72 flex-col overflow-y-auto">
-				{#each history.rows as row (row.id)}
-					<li>
+			{const graph = history.graph}
+			<ol
+				bind:this={historyListEl}
+				class="flex max-h-72 min-w-0 flex-col overflow-auto"
+			>
+				{#each graph.rows as row, rowIndex (row.id)}
+					{const forkTo =
+						row.forks.length > 0 ? Math.max(...row.forks) : null}
+					<li class="flex min-w-full">
 						<button
 							type="button"
 							onclick={() => history.jumpTo(row.id)}
 							title={row.label}
+							data-current={row.current ? "true" : undefined}
 							class={[
-								"flex w-full items-stretch text-left text-xs transition-colors",
+								"flex min-w-full flex-1 items-stretch text-left text-xs transition-colors",
 								row.current
 									? "bg-primary-500/15 text-primary-200"
 									: row.onPath || row.redoable
@@ -139,45 +156,37 @@ function normalizeSeekInput(
 										: "text-neutral-500 hover:bg-neutral-800/40 hover:text-neutral-300",
 							]}
 						>
-							<!-- One trunk column per ancestor level, so every branch runs continuously down to its rows. -->
-							{#each Array(Math.max(0, row.depth - 1)) as _, level (level)}
+							<!-- Lanes run down the graph; each row draws its verticals, the fork connector and its node. -->
+							{#each Array(graph.laneCount) as _, lane (lane)}
 								<span
-									class="relative w-3 shrink-0 self-stretch"
+									class="relative w-5 shrink-0 self-stretch"
 								>
-									<span
-										class="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-neutral-700"
-										aria-hidden="true"
-									></span>
-								</span>
-							{/each}
-							<span class="relative w-3 shrink-0 self-stretch">
-								{#if row.depth === 0}
-									<span
-										class="absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-500"
-										aria-hidden="true"
-									></span>
-									{#if row.hasChildren}
+									{#if graph.active[rowIndex][lane]}
 										<span
-											class="absolute top-1/2 bottom-0 left-1/2 w-px -translate-x-1/2 bg-neutral-700"
+											class="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-neutral-700"
 											aria-hidden="true"
 										></span>
 									{/if}
-								{:else}
-									<span
-										class="absolute top-0 left-1/2 w-px -translate-x-1/2 bg-neutral-700 {row.isLast &&
-										!row.hasChildren
-											? 'h-1/2'
-											: 'bottom-0'}"
-										aria-hidden="true"
-									></span>
-									<span
-										class="absolute top-1/2 right-0 left-1/2 h-px -translate-y-1/2 bg-neutral-700"
-										aria-hidden="true"
-									></span>
-								{/if}
-							</span>
+									{#if forkTo !== null && lane >= Math.min(row.lane, forkTo) && lane <= Math.max(row.lane, forkTo)}
+										<span
+											class="absolute top-1/2 right-0 left-0 h-px -translate-y-1/2 bg-neutral-700"
+											aria-hidden="true"
+										></span>
+									{/if}
+									{#if lane === row.lane}
+										<span
+											class="absolute top-1/2 left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full {row.current
+												? 'bg-primary-400'
+												: row.onPath
+													? 'bg-neutral-400'
+													: 'bg-neutral-600'}"
+											aria-hidden="true"
+										></span>
+									{/if}
+								</span>
+							{/each}
 							<span
-								class="flex min-w-0 flex-1 items-center py-1 pr-2 pl-1.5"
+								class="flex min-w-0 max-w-64 flex-1 items-center py-1 pr-2 pl-1.5"
 							>
 								<span class="truncate">{row.label}</span>
 							</span>
