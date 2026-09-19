@@ -97,10 +97,12 @@ function onTabKeydown(event: KeyboardEvent) {
 				tabindex={activeTab === "data" ? 0 : -1}
 				onclick={() => (tab = "data")}
 				onkeydown={onTabKeydown}
-				class="-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors {activeTab ===
-				'data'
-					? 'border-primary-500 bg-primary-500/5 font-medium text-primary-300'
-					: 'border-transparent text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200'}"
+				class={[
+					"-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors",
+					activeTab === "data"
+						? "border-primary-500 bg-primary-500/5 font-medium text-primary-300"
+						: "border-transparent text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200",
+				]}
 			>
 				Timelapse data
 			</button>
@@ -114,10 +116,12 @@ function onTabKeydown(event: KeyboardEvent) {
 			tabindex={activeTab === "settings" ? 0 : -1}
 			onclick={() => (tab = "settings")}
 			onkeydown={onTabKeydown}
-			class="-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors {activeTab ===
-			'settings'
-				? 'border-primary-500 bg-primary-500/5 font-medium text-primary-300'
-				: 'border-transparent text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200'}"
+			class={[
+				"-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors",
+				activeTab === "settings"
+					? "border-primary-500 bg-primary-500/5 font-medium text-primary-300"
+					: "border-transparent text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200",
+			]}
 		>
 			Settings
 		</button>

@@ -57,15 +57,20 @@ function scrollTimelapseIntoView(node: HTMLDivElement) {
 				onpointermove={() => {
 					if (active !== index) onHover(index)
 				}}
-				class="flex w-full cursor-pointer items-center justify-between gap-3 border-l-2 border-l-transparent px-3 py-2 text-left text-sm transition-colors {index ===
-				active
-					? 'border-l-primary-500 bg-primary-600/20'
-					: 'hover:bg-neutral-800/40'}"
+				class={[
+					"flex w-full cursor-pointer items-center justify-between gap-3 border-l-2 border-l-transparent px-3 py-2 text-left text-sm transition-colors",
+					index === active
+						? "border-l-primary-500 bg-primary-600/20"
+						: "hover:bg-neutral-800/40",
+				]}
 			>
 				<span
-					class="truncate {entry.id === currentTimelapseId
-						? 'font-medium text-primary-300'
-						: 'text-neutral-300'}"
+					class={[
+						"truncate",
+						entry.id === currentTimelapseId
+							? "font-medium text-primary-300"
+							: "text-neutral-300",
+					]}
 				>
 					{entry.name || entry.id}
 				</span>

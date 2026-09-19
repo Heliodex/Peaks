@@ -130,12 +130,14 @@ function normalizeSeekInput(
 							type="button"
 							onclick={() => history.jumpTo(i)}
 							title={entry.label}
-							class="w-full truncate px-2 py-1 text-left text-xs transition-colors {i ===
-							history.index
-								? 'bg-primary-500/15 text-primary-200'
-								: i > history.index
-									? 'text-neutral-600 hover:bg-neutral-800/40 hover:text-neutral-400'
-									: 'text-neutral-300 hover:bg-neutral-800/40 hover:text-white'}"
+							class={[
+								"w-full truncate px-2 py-1 text-left text-xs transition-colors",
+								i === history.index
+									? "bg-primary-500/15 text-primary-200"
+									: i > history.index
+										? "text-neutral-600 hover:bg-neutral-800/40 hover:text-neutral-400"
+										: "text-neutral-300 hover:bg-neutral-800/40 hover:text-white",
+							]}
 						>
 							{entry.label}
 						</button>

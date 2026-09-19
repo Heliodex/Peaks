@@ -322,7 +322,11 @@ const summary = new ProjectSummary({
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<!-- biome-ignore lint/a11y/useSemanticElements: A window splitter is not an <hr>. -->
 	<div
-		class="resize-handle {options.modifier} hidden hover:bg-primary-500/10 lg:block"
+		class={[
+			"resize-handle",
+			options.modifier,
+			"hidden hover:bg-primary-500/10 lg:block",
+		]}
 		role="separator"
 		tabindex="0"
 		aria-orientation={options.orientation}

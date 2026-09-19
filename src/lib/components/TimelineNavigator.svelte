@@ -221,7 +221,7 @@ function onPointerUp(event: PointerEvent) {
 		{#each selections as sel (sel.id)}
 			{const color = $derived(selectionColors(sel.reason))}
 			<div
-				class="absolute inset-y-0 min-w-0.5 rounded-full {color.marker}"
+				class={["absolute inset-y-0 min-w-0.5 rounded-full", color.marker]}
 				style:left="{percentOf(sel.start, duration)}%"
 				style:width="{percentOf(sel.end - sel.start, duration)}%"
 			></div>

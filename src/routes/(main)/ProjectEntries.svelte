@@ -139,10 +139,13 @@ function copyId(id: string, x: number, y: number) {
 		<li
 			animate:flip={{ duration: 180 }}
 			oncontextmenu={event => openMenu(event, entry)}
-			class="entry-row group -mx-1.5 flex items-stretch gap-1 border-b border-l-2 border-line-soft px-1.5 transition-colors hover:bg-neutral-800/40 {entry.id ===
-			submittedId
-				? 'border-l-primary-500 bg-primary-500/5'
-				: 'border-l-transparent'} {draggingId === entry.id ? 'opacity-50' : ''}"
+			class={[
+				"entry-row group -mx-1.5 flex items-stretch gap-1 border-b border-l-2 border-line-soft px-1.5 transition-colors hover:bg-neutral-800/40",
+				entry.id === submittedId
+					? "border-l-primary-500 bg-primary-500/5"
+					: "border-l-transparent",
+				draggingId === entry.id ? "opacity-50" : "",
+			]}
 		>
 			<button
 				type="button"
@@ -189,9 +192,12 @@ function copyId(id: string, x: number, y: number) {
 				class="flex min-w-0 flex-1 flex-col justify-center py-1 pr-1 pl-1.5 text-left"
 			>
 				<span
-					class="truncate text-sm font-medium {entry.id === submittedId
-						? 'text-primary-300'
-						: 'text-neutral-300 group-hover:text-white'}"
+					class={[
+						"truncate text-sm font-medium",
+						entry.id === submittedId
+							? "text-primary-300"
+							: "text-neutral-300 group-hover:text-white",
+					]}
 				>
 					{entry.name || entry.id}
 				</span>

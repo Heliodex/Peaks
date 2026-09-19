@@ -39,9 +39,10 @@ let { totals }: { totals: ProjectTotals } = $props()
 			<div class="flex items-center justify-between gap-2 pl-3 text-xs">
 				<dt class="flex items-center gap-1.5 text-neutral-400">
 					<span
-						class="h-2 w-2 shrink-0 {selectionColors(
-							annotation.reason.id
-						).marker}"
+						class={[
+							"h-2 w-2 shrink-0",
+							selectionColors(annotation.reason.id).marker,
+						]}
 						aria-hidden="true"
 					></span>
 					{annotation.reason.label}

@@ -105,10 +105,12 @@ function closeMenu(restoreFocus = false) {
 					type="button"
 					onclick={() => onSelectProject(project.id)}
 					title={project.name}
-					class="min-w-0 flex-1 cursor-pointer truncate border-l-2 px-1.5 py-0.5 text-left transition-colors {project.id ===
-					currentProjectId
-						? 'border-l-primary-500 font-medium text-primary-300'
-						: 'border-l-transparent text-neutral-300 hover:border-l-primary-500/60 hover:text-white'}"
+					class={[
+						"min-w-0 flex-1 cursor-pointer truncate border-l-2 px-1.5 py-0.5 text-left transition-colors",
+						project.id === currentProjectId
+							? "border-l-primary-500 font-medium text-primary-300"
+							: "border-l-transparent text-neutral-300 hover:border-l-primary-500/60 hover:text-white",
+					]}
 				>
 					{project.name}
 				</button>

@@ -224,7 +224,7 @@ function onKeyDown(event: KeyboardEvent) {
 		class={["absolute inset-y-0", side === "start" ? "-left-1" : "-right-1", "flex w-2 cursor-ew-resize items-center justify-center transition-opacity", editor.controlsClass(sel.id)]}
 		role="presentation"
 	>
-		<span class="h-6 w-1 {handleClass} shadow"></span>
+		<span class={["h-6 w-1", handleClass, "shadow"]}></span>
 	</div>
 {/snippet}
 
@@ -288,16 +288,23 @@ function onKeyDown(event: KeyboardEvent) {
 				{const color = $derived(selectionColors(sel.reason))}
 				{#if visibleEnd > visibleStart}
 					<div
-						class="group absolute inset-y-0 {editor.isCreating(sel.id)
-							? 'cursor-text'
-							: 'cursor-grab active:cursor-grabbing'}"
+						class={[
+							"group absolute inset-y-0",
+							editor.isCreating(sel.id)
+								? "cursor-text"
+								: "cursor-grab active:cursor-grabbing",
+						]}
 						data-selection-id={sel.id}
 						style:left="{percentWithin(visibleStart, viewport.view)}%"
 						style:width="{percentWithin(visibleEnd, viewport.view) -
 							percentWithin(visibleStart, viewport.view)}%"
 					>
 						<div
-							class="pointer-events-none absolute inset-0 border-x-2 transition-[filter] group-hover:brightness-125 {color.border} {color.fill}"
+							class={[
+								"pointer-events-none absolute inset-0 border-x-2 transition-[filter] group-hover:brightness-125",
+								color.border,
+								color.fill,
+							]}
 						></div>
 
 						{#if sel.start >= viewport.view.start}
@@ -314,9 +321,10 @@ function onKeyDown(event: KeyboardEvent) {
 							aria-label="Delete selection"
 							title="Delete selection"
 							onclick={e => editor.deleteSelection(sel.id, e)}
-							class="btn btn-danger absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-surface text-xs shadow transition-[color,background-color,border-color,opacity] {editor.controlsClass(
-								sel.id
-							)}"
+							class={[
+								"btn btn-danger absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-surface text-xs shadow transition-[color,background-color,border-color,opacity]",
+								editor.controlsClass(sel.id),
+							]}
 						>
 							×
 						</button>

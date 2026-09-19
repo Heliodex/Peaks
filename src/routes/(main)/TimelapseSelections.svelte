@@ -55,7 +55,7 @@ function removeSelection(id: string) {
 							class="flex min-w-0 flex-1 items-center gap-1.5 whitespace-nowrap"
 						>
 							<span
-								class="h-2 w-2 shrink-0 {color.marker}"
+								class={["h-2 w-2 shrink-0", color.marker]}
 								aria-hidden="true"
 							></span>
 							Selection {i + 1}:

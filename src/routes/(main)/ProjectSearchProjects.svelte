@@ -37,10 +37,12 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 </script>
 
 <div
-	class="flex min-h-0 flex-col overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none {mode ===
-	"timelapses"
-		? 'w-2/5 shrink-0 border-r border-line-soft'
-		: 'w-full'}"
+	class={[
+		"flex min-h-0 flex-col overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none",
+		mode === "timelapses"
+			? "w-2/5 shrink-0 border-r border-line-soft"
+			: "w-full",
+	]}
 >
 	<div
 		class="min-h-0 overflow-y-auto py-1"
@@ -57,9 +59,12 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 			)}
 			<div
 				role="presentation"
-				class="flex h-9 items-center border-l-2 border-l-transparent transition-colors {selected
-					? 'border-l-primary-500 bg-primary-600/20'
-					: 'hover:bg-neutral-800/40'}"
+				class={[
+					"flex h-9 items-center border-l-2 border-l-transparent transition-colors",
+					selected
+						? "border-l-primary-500 bg-primary-600/20"
+						: "hover:bg-neutral-800/40",
+				]}
 			>
 				<button
 					type="button"
@@ -75,9 +80,12 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 					class="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-2 text-left text-sm"
 				>
 					<span
-						class="truncate {project.id === currentProjectId
-							? 'font-medium text-primary-300'
-							: 'text-neutral-300'}"
+						class={[
+							"truncate",
+							project.id === currentProjectId
+								? "font-medium text-primary-300"
+								: "text-neutral-300",
+						]}
 					>
 						{project.name}
 					</span>

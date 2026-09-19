@@ -117,9 +117,12 @@ $effect(() => {
 				item.onSelect()
 				onClose()
 			}}
-			class="flex cursor-pointer items-center gap-2 px-3 py-1 text-left text-sm transition-colors {item.danger
-				? 'text-neutral-300 hover:bg-red-500/10 hover:text-red-400 focus:bg-red-500/10 focus:text-red-400 active:bg-red-500/20 active:text-red-300'
-				: 'text-neutral-300 hover:bg-neutral-800/70 hover:text-white focus:bg-neutral-800/70 focus:text-white active:bg-primary-500/20 active:text-primary-200'}"
+			class={[
+				"flex cursor-pointer items-center gap-2 px-3 py-1 text-left text-sm transition-colors text-neutral-300",
+				item.danger
+					? "hover:bg-red-500/10 hover:text-red-400 focus:bg-red-500/10 focus:text-red-400 active:bg-red-500/20 active:text-red-300"
+					: "hover:bg-neutral-800/70 hover:text-white focus:bg-neutral-800/70 focus:text-white active:bg-primary-500/20 active:text-primary-200",
+			]}
 		>
 			{item.label}
 		</button>
