@@ -43,6 +43,7 @@ const graph = $derived(history.graph)
 const currentLabel = $derived(history.nodes[history.currentId]?.label ?? "")
 
 let canvasEl = $state<HTMLDivElement>()
+// The view glides to its target through a CSS transform transition (disabled while dragging).
 let view = $state({ x: 0, y: 0, scale: 1 })
 let dragging = $state<{
 	pointerId: number
@@ -86,6 +87,8 @@ $effect(() => {
 
 function startPan(event: PointerEvent) {
 	if (event.button !== 0) return
+	// Pan only from the empty canvas, so pressing a node still delivers its click.
+	if ((event.target as HTMLElement).closest("button")) return
 	const el = event.currentTarget as HTMLElement
 	dragging = {
 		pointerId: event.pointerId,
@@ -137,14 +140,18 @@ function canvasGestures(node: HTMLDivElement) {
 	const onWheel = (event: WheelEvent) => {
 		event.preventDefault()
 		const rect = node.getBoundingClientRect()
+		const current = view
 		const scale = Math.min(
 			MAX_SCALE,
-			Math.max(MIN_SCALE, view.scale * Math.exp(-event.deltaY * 0.0015))
+			Math.max(
+				MIN_SCALE,
+				current.scale * Math.exp(-event.deltaY * 0.0015)
+			)
 		)
 		const cursorX = event.clientX - rect.left
 		const cursorY = event.clientY - rect.top
-		const worldX = (cursorX - view.x) / view.scale
-		const worldY = (cursorY - view.y) / view.scale
+		const worldX = (cursorX - current.x) / current.scale
+		const worldY = (cursorY - current.y) / current.scale
 		view = {
 			scale,
 			x: cursorX - worldX * scale,
@@ -267,7 +274,12 @@ function normalizeSeekInput(
 				{@attach canvasGestures}
 			>
 				<div
-					class="absolute top-0 left-0 origin-top-left"
+					class={[
+						"absolute top-0 left-0 origin-top-left motion-reduce:transition-none",
+						dragging
+							? "transition-none"
+							: "transition-transform duration-200 ease-out",
+					]}
 					style:transform="translate({view.x}px, {view.y}px) scale({view.scale})"
 				>
 					<svg
