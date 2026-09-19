@@ -43,7 +43,7 @@ None of this should conflict with the formatting or linting rules of Biome.
 
 - Use Svelte 5 syntax and runes
 - Prefer Svelte's attribute interpolation `"test {x} test"` over standard JS string interpolation `` `test ${x} test` `` where available
-- Svelte classes can take an object or array as a value. Prefer this syntax `class={["test", x ? "test2" : "test3"]}` over any kind of string interpolation `class="test {x ? 'test2' : 'test3'}"`
+- Svelte classes can take an object or array as a value. Always use this syntax `class={["test", x ? "test2" : "test3"]}` instead of string interpolation `class="test {x ? 'test2' : 'test3'}"`
 	- There is no need to use single quotes for the class names in the array, as they aren't inside a string interpolation
 	- See https://svelte.dev/docs/svelte/class/llms.txt
 - Prefer declaration tags `{let x = 5}`, `{const x = 5}` over @const directives `{@const x = 5}`
