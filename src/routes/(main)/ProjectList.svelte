@@ -77,7 +77,12 @@ function closeMenu(restoreFocus = false) {
 	{#each projects as project (project.id)}
 		<li
 			oncontextmenu={event => openMenu(event, project)}
-			class="project-row -mx-1.5 flex items-center gap-2 border-b border-line-soft px-1.5 py-0.5 transition-colors hover:bg-neutral-800/40"
+			class={[
+				"project-row -mx-1.5 flex items-center gap-2 border-b border-l-2 border-line-soft px-1.5 py-0.5 transition-colors hover:bg-neutral-800/40",
+				project.id === currentProjectId
+					? "border-l-primary-500"
+					: "border-l-transparent",
+			]}
 		>
 			{#if renamingId === project.id}
 				<input
@@ -98,7 +103,7 @@ function closeMenu(restoreFocus = false) {
 					placeholder={DEFAULT_PROJECT_NAME}
 					title={project.name}
 					aria-label="Project name"
-					class="field flex-1 border-l-2 border-l-primary-500 px-1.5 py-0.5 font-medium text-primary-300"
+					class="field flex-1 px-1.5 py-0.5 font-medium text-primary-300"
 				>
 			{:else}
 				<button
@@ -106,10 +111,10 @@ function closeMenu(restoreFocus = false) {
 					onclick={() => onSelectProject(project.id)}
 					title={project.name}
 					class={[
-						"min-w-0 flex-1 cursor-pointer truncate border-l-2 px-1.5 py-0.5 text-left transition-colors",
+						"min-w-0 flex-1 cursor-pointer truncate px-1.5 py-0.5 text-left transition-colors",
 						project.id === currentProjectId
-							? "border-l-primary-500 font-medium text-primary-300"
-							: "border-l-transparent text-neutral-300 hover:border-l-primary-500/60 hover:text-white",
+							? "font-medium text-primary-300"
+							: "text-neutral-300 hover:text-white",
 					]}
 				>
 					{project.name}
