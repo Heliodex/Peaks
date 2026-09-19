@@ -123,16 +123,15 @@ function normalizeSeekInput(
 		{#if history.rows.length === 0}
 			<p class="text-xs text-neutral-400">No actions yet.</p>
 		{:else}
-			<ol class="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
+			<ol class="flex max-h-72 flex-col overflow-y-auto">
 				{#each history.rows as row (row.id)}
 					<li>
 						<button
 							type="button"
 							onclick={() => history.jumpTo(row.id)}
 							title={row.label}
-							style:padding-left="{0.5 + row.depth * 0.9}rem"
 							class={[
-								"flex w-full items-center gap-1.5 py-1 pr-2 text-left text-xs transition-colors",
+								"flex w-full items-stretch text-left text-xs transition-colors",
 								row.current
 									? "bg-primary-500/15 text-primary-200"
 									: row.onPath || row.redoable
@@ -140,17 +139,48 @@ function normalizeSeekInput(
 										: "text-neutral-500 hover:bg-neutral-800/40 hover:text-neutral-300",
 							]}
 						>
-							<span
-								class="shrink-0 select-none text-neutral-600"
-								aria-hidden="true"
-							>
-								{row.depth === 0
-									? "•"
-									: row.isLast
-										? "└"
-										: "├"}
+							<!-- One trunk column per ancestor level, so every branch runs continuously down to its rows. -->
+							{#each Array(Math.max(0, row.depth - 1)) as _, level (level)}
+								<span
+									class="relative w-3 shrink-0 self-stretch"
+								>
+									<span
+										class="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-neutral-700"
+										aria-hidden="true"
+									></span>
+								</span>
+							{/each}
+							<span class="relative w-3 shrink-0 self-stretch">
+								{#if row.depth === 0}
+									<span
+										class="absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-500"
+										aria-hidden="true"
+									></span>
+									{#if row.hasChildren}
+										<span
+											class="absolute top-1/2 bottom-0 left-1/2 w-px -translate-x-1/2 bg-neutral-700"
+											aria-hidden="true"
+										></span>
+									{/if}
+								{:else}
+									<span
+										class="absolute top-0 left-1/2 w-px -translate-x-1/2 bg-neutral-700 {row.isLast &&
+										!row.hasChildren
+											? 'h-1/2'
+											: 'bottom-0'}"
+										aria-hidden="true"
+									></span>
+									<span
+										class="absolute top-1/2 right-0 left-1/2 h-px -translate-y-1/2 bg-neutral-700"
+										aria-hidden="true"
+									></span>
+								{/if}
 							</span>
-							<span class="truncate">{row.label}</span>
+							<span
+								class="flex min-w-0 flex-1 items-center py-1 pr-2 pl-1.5"
+							>
+								<span class="truncate">{row.label}</span>
+							</span>
 						</button>
 					</li>
 				{/each}

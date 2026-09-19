@@ -27,8 +27,10 @@ export type HistoryRow = {
 	id: string
 	label: string
 	depth: number
-	/** Whether the node is the last child of its parent, for tree connectors. */
+	/** Whether the node is the last child of its parent, for the elbow connector. */
 	isLast: boolean
+	/** Whether the node has children, so its trunk line runs down to them. */
+	hasChildren: boolean
 	/** The node the live state is at. */
 	current: boolean
 	/** An ancestor of the current node (the branch we're on). */
@@ -236,6 +238,7 @@ export class WorkspaceHistory {
 				label: node.label,
 				depth,
 				isLast,
+				hasChildren: node.children.length > 0,
 				current: node.id === this.currentId,
 				onPath: onPath.has(node.id),
 				redoable: redoable.has(node.id),
