@@ -253,13 +253,13 @@ export class FrameStrip {
 
 			// Start buffering the first capturer immediately so the initial frames aren't network-bound. Hydration from persistent storage merges in alongside; a source with nothing cached captures as it always did.
 			// `untrack` keeps adding frames from re-running this effect.
-			if (untrack(() => framesFor(url).length) === 0) {
+			if (untrack(() => framesFor(url).length) === 0)
 				void this.#pool.capturer(0)
-			}
 
-			const timer = setTimeout(() => {
-				this.#populate(url, current.start, current.end)
-			}, FRAME_REFRESH_MS)
+			const timer = setTimeout(
+				() => this.#populate(url, current.start, current.end),
+				FRAME_REFRESH_MS
+			)
 			return () => clearTimeout(timer)
 		})
 

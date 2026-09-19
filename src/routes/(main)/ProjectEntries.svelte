@@ -5,6 +5,7 @@ import { fade } from "svelte/transition"
 import { createCopyToClipboard } from "#lib/copy.svelte.js"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
 import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
+import { ListReorder } from "./list-reorder.svelte.js"
 import { entryFinalDuration, formatDuration } from "./review-format.js"
 
 let {
@@ -32,80 +33,11 @@ let previousFocus: HTMLElement | null = null
 // Where the copy confirmation shows, captured before the menu closes.
 let copiedAt = $state<{ x: number; y: number } | null>(null)
 
-let draggingId = $state<string | null>(null)
-
-/**
- * Move the entry at `from` so it lands at `insert`.
- * Only asks the parent to update the order (its persistence effect saves it) so drag-over can call it repeatedly while `animate:flip` animates each shift.
- * Returns whether it moved.
- */
-function moveEntryTo(from: number, insert: number): boolean {
-	if (
-		from === -1 ||
-		insert < 0 ||
-		insert >= entries.length ||
-		insert === from
-	)
-		return false
-
-	const updated = [...entries]
-	const [moved] = updated.splice(from, 1)
-	updated.splice(insert, 0, moved)
-	onReorderProject(updated)
-	return true
-}
-
-/** Move `sourceId` so it lands before the entry currently at `targetIndex`. */
-function moveToIndex(sourceId: string, targetIndex: number): boolean {
-	const from = entries.findIndex(entry => entry.id === sourceId)
-	if (from === -1) return false
-	let insert = targetIndex
-	if (from < insert) insert -= 1
-	return moveEntryTo(from, insert)
-}
-
-// Reordering on every dragover would thrash the FLIP animations, so wait for the current shift to settle before allowing the next one.
-const REORDER_COOLDOWN = 160
-let lastReorder = 0
-
-/** Reorder the dragged entry from the pointer's vertical position. */
-function reorderFromPointer(event: DragEvent, force: boolean) {
-	if (!draggingId) return
-	if (!force && performance.now() - lastReorder < REORDER_COOLDOWN) return
-	const list = event.currentTarget as HTMLElement
-	const items = Array.from(list.children) as HTMLElement[]
-	let targetIndex = items.length
-	for (let i = 0; i < items.length; i++) {
-		const rect = items[i].getBoundingClientRect()
-		if (event.clientY < rect.top + rect.height / 2) {
-			targetIndex = i
-			break
-		}
-	}
-	if (moveToIndex(draggingId, targetIndex)) lastReorder = performance.now()
-}
-
-/** Live-reorder while the pointer moves over the list. */
-function handleDragOver(event: DragEvent) {
-	if (!draggingId) return
-	event.preventDefault()
-	if (event.dataTransfer) event.dataTransfer.dropEffect = "move"
-	reorderFromPointer(event, false)
-}
-
-/** Finish a drag, keeping whatever order the pointer reached. */
-function handleDrop(event: DragEvent) {
-	event.preventDefault()
-	reorderFromPointer(event, true)
-	draggingId = null
-}
-
-/** Nudge an entry by one slot, for keyboard reordering. */
-function moveEntryBy(id: string, delta: number) {
-	const from = entries.findIndex(entry => entry.id === id)
-	if (from === -1) return
-	moveEntryTo(from, from + delta)
-}
+// Drag-and-drop / keyboard reordering of the project's timelapses.
+const reorder = new ListReorder(
+	() => entries,
+	updated => onReorderProject(updated)
+)
 
 /** Open an entry's context menu at the pointer, or beside the row when triggered from the keyboard. */
 function openMenu(event: MouseEvent, entry: ProjectTimelapse) {
@@ -132,8 +64,8 @@ function copyId(id: string, x: number, y: number) {
 
 <ul
 	class="flex flex-col gap-1 text-sm"
-	ondragover={handleDragOver}
-	ondrop={handleDrop}
+	ondragover={reorder.onDragOver}
+	ondrop={reorder.onDrop}
 >
 	{#each entries as entry (entry.id)}
 		<li
@@ -144,7 +76,7 @@ function copyId(id: string, x: number, y: number) {
 				entry.id === submittedId
 					? "border-l-primary-500 bg-primary-500/5"
 					: "border-l-transparent",
-				draggingId === entry.id ? "opacity-50" : "",
+				reorder.draggingId === entry.id ? "opacity-50" : "",
 			]}
 		>
 			<button
@@ -152,34 +84,9 @@ function copyId(id: string, x: number, y: number) {
 				draggable="true"
 				title="Drag to reorder"
 				aria-label="Reorder {entry.name || entry.id}"
-				onkeydown={e => {
-					if (e.key === "ArrowUp") {
-						e.preventDefault()
-						moveEntryBy(entry.id, -1)
-					} else if (e.key === "ArrowDown") {
-						e.preventDefault()
-						moveEntryBy(entry.id, 1)
-					}
-				}}
-				ondragstart={e => {
-					draggingId = entry.id
-					if (!e.dataTransfer) return
-
-					const row = e.currentTarget.closest("li")
-					e.dataTransfer.effectAllowed = "move"
-					e.dataTransfer.setData("text/plain", entry.id)
-					if (!row) return
-
-					const rect = row.getBoundingClientRect()
-					e.dataTransfer.setDragImage(
-						row,
-						e.clientX - rect.left,
-						e.clientY - rect.top
-					)
-				}}
-				ondragend={() => {
-					draggingId = null
-				}}
+				onkeydown={reorder.gripKeydown(entry.id)}
+				ondragstart={event => reorder.startDrag(event, entry.id)}
+				ondragend={reorder.endDrag}
 				class="flex cursor-grab items-center px-0.5 select-none text-neutral-500 transition-colors hover:text-neutral-300 active:cursor-grabbing"
 			>
 				⠿

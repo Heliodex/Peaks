@@ -67,9 +67,9 @@ export function idleSampleTimes(duration: number, frameRate: number): number[] {
 	const step = Math.max(FALLBACK_STEP, duration / MAX_SAMPLES)
 	const times: number[] = []
 	for (let time = 0; time < duration; time += step) times.push(time)
-	if (times.length === 0 || times[times.length - 1] < duration) {
+	if (times.length === 0 || times[times.length - 1] < duration)
 		times.push(duration)
-	}
+
 	return times
 }
 
@@ -312,9 +312,8 @@ async function scanIdleFrames(
 				end: times[i] + frameDuration,
 			})
 			previousIdle = true
-		} else {
-			previousIdle = false
-		}
+		} else previousIdle = false
+
 		previous = sample
 		previousTarget = target
 		callbacks.onProgress?.((i + 1) / times.length)

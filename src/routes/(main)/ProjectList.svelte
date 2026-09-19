@@ -1,12 +1,15 @@
 <script lang="ts">
+import { flip } from "svelte/animate"
 import { DEFAULT_PROJECT_NAME, type Project } from "#lib/project-storage.js"
 import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
+import { ListReorder } from "./list-reorder.svelte.js"
 
 let {
 	projects,
 	currentProjectId,
 	focusNameId = null,
 	onRenameProject,
+	onReorderProjects,
 	onSelectProject,
 	onRemoveProject,
 	onNameFocused,
@@ -16,6 +19,7 @@ let {
 	/** Project whose name field should take focus, set right after creating one. */
 	focusNameId?: string | null
 	onRenameProject: (id: string, name: string) => void
+	onReorderProjects: (projects: Project[]) => void
 	onSelectProject: (id: string) => void
 	onRemoveProject: (id: string) => void
 	onNameFocused: () => void
@@ -28,6 +32,12 @@ let menu = $state<{ id: string; name: string; x: number; y: number } | null>(
 )
 // Focus to restore when the menu is dismissed with Escape.
 let previousFocus: HTMLElement | null = null
+
+// Drag-and-drop / keyboard reordering of the projects.
+const reorder = new ListReorder(
+	() => projects,
+	updated => onReorderProjects(updated)
+)
 
 // A freshly created project asks for its name field; start renaming it so the request isn't lost.
 $effect(() => {
@@ -73,17 +83,35 @@ function closeMenu(restoreFocus = false) {
 }
 </script>
 
-<ul class="flex flex-col gap-1 text-sm">
+<ul
+	class="flex flex-col gap-1 text-sm"
+	ondragover={reorder.onDragOver}
+	ondrop={reorder.onDrop}
+>
 	{#each projects as project (project.id)}
 		<li
+			animate:flip={{ duration: 180 }}
 			oncontextmenu={event => openMenu(event, project)}
 			class={[
-				"project-row -mx-1.5 flex items-center gap-2 border-b border-l-2 border-line-soft px-1.5 py-0.5 transition-colors hover:bg-neutral-800/40",
+				"project-row -mx-1.5 flex items-center gap-1 border-b border-l-2 border-line-soft px-1.5 py-0.5 transition-colors hover:bg-neutral-800/40",
 				project.id === currentProjectId
 					? "border-l-primary-500"
 					: "border-l-transparent",
+				reorder.draggingId === project.id ? "opacity-50" : "",
 			]}
 		>
+			<button
+				type="button"
+				draggable="true"
+				title="Drag to reorder"
+				aria-label="Reorder {project.name}"
+				onkeydown={reorder.gripKeydown(project.id)}
+				ondragstart={event => reorder.startDrag(event, project.id)}
+				ondragend={reorder.endDrag}
+				class="flex cursor-grab items-center px-0.5 select-none text-neutral-500 transition-colors hover:text-neutral-300 active:cursor-grabbing"
+			>
+				⠿
+			</button>
 			{#if renamingId === project.id}
 				<input
 					type="text"

@@ -152,9 +152,7 @@ export async function pruneThumbnails(): Promise<void> {
 
 // Trim anything left over from previous sessions, once per page load, but wait until after first paint so pruning can't delay the initial thumbnails.
 if (typeof window !== "undefined") {
-	if (typeof requestIdleCallback === "function") {
+	if (typeof requestIdleCallback === "function")
 		requestIdleCallback(() => void pruneThumbnails())
-	} else {
-		setTimeout(() => void pruneThumbnails(), 3000)
-	}
+	else setTimeout(() => void pruneThumbnails(), 3000)
 }

@@ -20,6 +20,7 @@ let {
 	onRemoveTimelapse,
 	onRenameProject,
 	onReorderProject,
+	onReorderProjects,
 	onSelectProject,
 	onCreateProject,
 	onRemoveProject,
@@ -39,6 +40,7 @@ let {
 	onRemoveTimelapse: (id: string) => void
 	onRenameProject: (id: string, name: string) => void
 	onReorderProject: (entries: ProjectTimelapse[]) => void
+	onReorderProjects: (projects: Project[]) => void
 	onSelectProject: (id: string) => void
 	onCreateProject: () => void
 	onRemoveProject: (id: string) => void
@@ -74,6 +76,7 @@ let {
 			{currentProjectId}
 			{focusNameId}
 			{onRenameProject}
+			{onReorderProjects}
 			{onSelectProject}
 			{onRemoveProject}
 			{onNameFocused}

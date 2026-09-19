@@ -70,9 +70,8 @@ function describeEntryChange(
 			before.timelapses.some(
 				(entry, i) => entry.id !== project.timelapses[i]?.id
 			)
-		) {
+		)
 			return "Reorder timelapses"
-		}
 
 		for (const entry of project.timelapses) {
 			const beforeEntry = before.timelapses.find(
@@ -87,9 +86,8 @@ function describeEntryChange(
 				beforeEntry.idleDuration !== entry.idleDuration ||
 				JSON.stringify(beforeEntry.idleRanges) !==
 					JSON.stringify(entry.idleRanges)
-			) {
+			)
 				return "Recalculate idle time"
-			}
 		}
 	}
 	return null
@@ -108,6 +106,12 @@ export function describeChange(
 		const before = prev.projects.find(item => item.id === project.id)
 		if (before && before.name !== project.name) return "Rename project"
 	}
+	if (
+		next.projects.length === prev.projects.length &&
+		prev.projects.some((project, i) => project.id !== next.projects[i]?.id)
+	)
+		return "Reorder projects"
+
 	if (prev.openId !== next.openId)
 		return next.openId ? "Open timelapse" : "Close timelapse"
 	if (prev.currentProjectId !== next.currentProjectId) return "Switch project"
@@ -276,9 +280,9 @@ function parseSnapshot(value: unknown): WorkspaceSnapshot | null {
 		typeof currentProjectId !== "string" ||
 		typeof openId !== "string" ||
 		!Array.isArray(selections)
-	) {
+	)
 		return null
-	}
+
 	return {
 		projects: projects as Project[],
 		currentProjectId,

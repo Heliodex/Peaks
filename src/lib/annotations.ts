@@ -265,11 +265,9 @@ function mergeSpans(spans: { start: number; end: number }[]): {
 	const merged: { start: number; end: number }[] = []
 	for (const span of sorted) {
 		const last = merged[merged.length - 1]
-		if (last && span.start <= last.end) {
+		if (last && span.start <= last.end)
 			last.end = Math.max(last.end, span.end)
-		} else {
-			merged.push({ start: span.start, end: span.end })
-		}
+		else merged.push({ start: span.start, end: span.end })
 	}
 	return merged
 }

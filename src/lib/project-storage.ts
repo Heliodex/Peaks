@@ -97,9 +97,9 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		typeof description !== "string" ||
 		!isFiniteNonNegative(duration) ||
 		!isFiniteNonNegative(idleDuration)
-	) {
+	)
 		return null
-	}
+
 	const idleRanges = parseIdleRanges(rawIdleRanges)
 	return {
 		id,

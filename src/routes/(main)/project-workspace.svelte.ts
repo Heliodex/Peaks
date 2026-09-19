@@ -77,6 +77,11 @@ export class ProjectWorkspace {
 		this.updateCurrentProject(project => ({ ...project, timelapses }))
 	}
 
+	/** Replace the project order. */
+	reorderProjects(projects: Project[]) {
+		this.projects = projects
+	}
+
 	/** Open a different project. */
 	selectProject(id: string) {
 		if (id === this.currentProjectId) return

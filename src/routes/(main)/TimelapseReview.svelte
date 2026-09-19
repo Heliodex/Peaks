@@ -374,6 +374,7 @@ const summary = new ProjectSummary({
 		onRenameProject={(id, name) => workspace.renameProject(id, name)}
 		onReorderProject={timelapses =>
 			workspace.reorderCurrentProject(timelapses)}
+		onReorderProjects={projects => workspace.reorderProjects(projects)}
 		onSelectProject={id => workspace.selectProject(id)}
 		onCreateProject={() => workspace.createNewProject()}
 		onRemoveProject={id => workspace.removeProject(id)}
