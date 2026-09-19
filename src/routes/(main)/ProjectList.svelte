@@ -100,18 +100,20 @@ function closeMenu(restoreFocus = false) {
 				reorder.draggingId === project.id ? "opacity-50" : "",
 			]}
 		>
-			<button
-				type="button"
-				draggable="true"
-				title="Drag to reorder"
-				aria-label="Reorder {project.name}"
-				onkeydown={reorder.gripKeydown(project.id)}
-				ondragstart={event => reorder.startDrag(event, project.id)}
-				ondragend={reorder.endDrag}
-				class="flex cursor-grab items-center px-0.5 select-none text-neutral-500 transition-colors hover:text-neutral-300 active:cursor-grabbing"
-			>
-				⠿
-			</button>
+			{#if projects.length > 1}
+				<button
+					type="button"
+					draggable="true"
+					title="Drag to reorder"
+					aria-label="Reorder {project.name}"
+					onkeydown={reorder.gripKeydown(project.id)}
+					ondragstart={event => reorder.startDrag(event, project.id)}
+					ondragend={reorder.endDrag}
+					class="flex cursor-grab items-center px-0.5 select-none text-neutral-500 transition-colors hover:text-neutral-300 active:cursor-grabbing"
+				>
+					⠿
+				</button>
+			{/if}
 			{#if renamingId === project.id}
 				<input
 					type="text"

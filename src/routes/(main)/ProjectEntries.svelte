@@ -79,18 +79,20 @@ function copyId(id: string, x: number, y: number) {
 				reorder.draggingId === entry.id ? "opacity-50" : "",
 			]}
 		>
-			<button
-				type="button"
-				draggable="true"
-				title="Drag to reorder"
-				aria-label="Reorder {entry.name || entry.id}"
-				onkeydown={reorder.gripKeydown(entry.id)}
-				ondragstart={event => reorder.startDrag(event, entry.id)}
-				ondragend={reorder.endDrag}
-				class="flex cursor-grab items-center px-0.5 select-none text-neutral-500 transition-colors hover:text-neutral-300 active:cursor-grabbing"
-			>
-				⠿
-			</button>
+			{#if entries.length > 1}
+				<button
+					type="button"
+					draggable="true"
+					title="Drag to reorder"
+					aria-label="Reorder {entry.name || entry.id}"
+					onkeydown={reorder.gripKeydown(entry.id)}
+					ondragstart={event => reorder.startDrag(event, entry.id)}
+					ondragend={reorder.endDrag}
+					class="flex cursor-grab items-center px-0.5 select-none text-neutral-500 transition-colors hover:text-neutral-300 active:cursor-grabbing"
+				>
+					⠿
+				</button>
+			{/if}
 			<button
 				type="button"
 				onclick={() => onLoad(entry.id)}
