@@ -22,14 +22,13 @@ export type HistoryNode = {
 	children: string[]
 }
 
-/** A node placed in the settings graph: rows run top-to-bottom, branches grow to the right. */
-export type HistoryGraphRow = {
+/** A node placed in the settings graph. */
+export type HistoryGraphNode = {
 	id: string
 	label: string
-	/** The column the node sits in. */
-	lane: number
-	/** Lanes this node forks into (children that open a new lane below it). */
-	forks: number[]
+	/** Centre position in layout pixels. */
+	x: number
+	y: number
 	/** The node the live state is at. */
 	current: boolean
 	/** An ancestor of the current node (the branch we're on). */
@@ -38,11 +37,22 @@ export type HistoryGraphRow = {
 	redoable: boolean
 }
 
+export type HistoryGraphEdge = {
+	from: string
+	to: string
+	x1: number
+	y1: number
+	x2: number
+	y2: number
+	/** Whether the edge belongs to the current lineage. */
+	onPath: boolean
+}
+
 export type HistoryGraph = {
-	rows: HistoryGraphRow[]
-	laneCount: number
-	/** Whether each lane's line runs through each row, indexed by row then lane. */
-	active: boolean[][]
+	nodes: HistoryGraphNode[]
+	edges: HistoryGraphEdge[]
+	width: number
+	height: number
 }
 
 type WorkspaceHistoryOptions = {
@@ -58,6 +68,9 @@ const SETTLE_MS = 200
 const INITIAL_SETTLE_MS = 800
 // Cap the tree so a long session (with many branches) can't grow without bound.
 const MAX_NODES = 100
+// Spacing of the settings graph, in layout pixels.
+const COLUMN_GAP = 64
+const ROW_GAP = 48
 
 const sameSnapshot = (a: WorkspaceSnapshot, b: WorkspaceSnapshot): boolean =>
 	JSON.stringify(a) === JSON.stringify(b)
@@ -228,22 +241,18 @@ export class WorkspaceHistory {
 	}
 
 	/**
-	 * The history laid out as a 2D graph: one row per node in creation order, with the current lineage in lane 0 and undone branches in lanes to its right.
-	 * Rows run top-to-bottom, so a deep lineage stays a linear list and only branches widen the graph – a branch's lane is reused once it ends.
+	 * The history laid out as a tree of nodes: depth runs down, siblings spread across, and the current lineage's edges are highlighted.
+	 * Positions are in layout pixels; the settings view pans and zooms over them.
 	 */
 	get graph(): HistoryGraph {
 		const nodes = this.nodes
 		const root = Object.values(nodes).find(node => node.parent === null)
-		if (!root) return { rows: [], laneCount: 0, active: [] }
+		if (!root) return { nodes: [], edges: [], width: 0, height: 0 }
 
 		const onPath = pathIds(nodes, this.currentId)
 		const redoable = new Set(nodes[this.currentId]?.children ?? [])
 
-		// Rows are nodes in creation order, so the graph reads top-to-bottom like a log.
-		const ordered = Object.values(nodes).sort((a, b) => a.seq - b.seq)
-		const rowOf = new Map(ordered.map((node, index) => [node.id, index]))
-
-		/** Children with the lineage's child first, so the current path keeps lane 0. */
+		/** Children with the lineage's child first, so the current path reads consistently. */
 		const childrenInOrder = (node: HistoryNode): HistoryNode[] => {
 			const children = node.children
 				.map(id => nodes[id])
@@ -257,81 +266,72 @@ export class WorkspaceHistory {
 			return children
 		}
 
-		// First pass: the lineage keeps lane 0 and each branch gets a fresh lane, forking at its parent's row.
-		const rawLane = new Map<string, number>()
-		const forks = new Map<string, number[]>()
-		const laneStart = [0]
-		let rawLaneCount = 0
-		const assign = (node: HistoryNode, lane: number) => {
-			rawLane.set(node.id, lane)
-			childrenInOrder(node).forEach((child, index) => {
-				if (index === 0) assign(child, lane)
-				else {
-					rawLaneCount += 1
-					laneStart[rawLaneCount] = rowOf.get(node.id) ?? 0
-					const lanes = forks.get(node.id) ?? []
-					lanes.push(rawLaneCount)
-					forks.set(node.id, lanes)
-					assign(child, rawLaneCount)
+		// Tidy tree: leaves take sequential columns, each parent centres over its children.
+		const positions = new Map<string, { x: number; y: number }>()
+		let nextColumn = 0
+		const place = (node: HistoryNode, depth: number): number => {
+			const children = childrenInOrder(node)
+			let column: number
+			if (children.length === 0) {
+				column = nextColumn++
+			} else {
+				const columns = children.map(child => place(child, depth + 1))
+				column = (columns[0] + columns[columns.length - 1]) / 2
+			}
+			positions.set(node.id, { x: column, y: depth })
+			return column
+		}
+		place(root, 0)
+
+		const graphNodes: HistoryGraphNode[] = []
+		const edges: HistoryGraphEdge[] = []
+		const walk = (node: HistoryNode) => {
+			const position = positions.get(node.id)
+			if (position) {
+				graphNodes.push({
+					id: node.id,
+					label: node.label,
+					x: (position.x + 0.5) * COLUMN_GAP,
+					y: (position.y + 0.5) * ROW_GAP,
+					current: node.id === this.currentId,
+					onPath: onPath.has(node.id),
+					redoable: redoable.has(node.id),
+				})
+			}
+			for (const childId of node.children) {
+				const child = nodes[childId]
+				if (!child) continue
+				const from = positions.get(node.id)
+				const to = positions.get(child.id)
+				if (from && to) {
+					edges.push({
+						from: node.id,
+						to: child.id,
+						x1: (from.x + 0.5) * COLUMN_GAP,
+						y1: (from.y + 0.5) * ROW_GAP,
+						x2: (to.x + 0.5) * COLUMN_GAP,
+						y2: (to.y + 0.5) * ROW_GAP,
+						onPath: onPath.has(node.id) && onPath.has(child.id),
+					})
 				}
-			})
+				walk(child)
+			}
 		}
-		assign(root, 0)
-		const rawLanes = rawLaneCount + 1
+		walk(root)
 
-		// The row span each raw lane occupies: from its fork row down to its last node.
-		const spans = Array.from({ length: rawLanes }, (_, lane) => ({
-			min: laneStart[lane] ?? 0,
-			max: -1,
-		}))
-		for (const node of ordered) {
-			const span = spans[rawLane.get(node.id) ?? 0]
-			span.max = Math.max(span.max, rowOf.get(node.id) ?? 0)
+		let maxColumn = 0
+		let maxDepth = 0
+		for (const position of positions.values()) {
+			maxColumn = Math.max(maxColumn, position.x)
+			maxDepth = Math.max(maxDepth, position.y)
 		}
 
-		// Compact: branches whose spans don't overlap share a lane, keeping the graph narrow.
-		const remapped = new Map<number, number>()
-		const occupiedUntil: number[] = []
-		const byStart = spans
-			.map((span, lane) => ({ span, lane }))
-			.filter(item => item.span.max >= 0)
-			.sort((a, b) => a.span.min - b.span.min)
-		for (const item of byStart) {
-			let lane = 0
-			while (
-				lane < occupiedUntil.length &&
-				occupiedUntil[lane] >= item.span.min
-			)
-				lane += 1
-			remapped.set(item.lane, lane)
-			occupiedUntil[lane] = item.span.max
+		return {
+			nodes: graphNodes,
+			edges,
+			width: (maxColumn + 1) * COLUMN_GAP,
+			height: (maxDepth + 1) * ROW_GAP,
 		}
-		const laneCount = occupiedUntil.length
-		const toLane = (lane: number): number => remapped.get(lane) ?? 0
-
-		const rows: HistoryGraphRow[] = ordered.map(node => ({
-			id: node.id,
-			label: node.label,
-			lane: toLane(rawLane.get(node.id) ?? 0),
-			forks: (forks.get(node.id) ?? []).map(toLane),
-			current: node.id === this.currentId,
-			onPath: onPath.has(node.id),
-			redoable: redoable.has(node.id),
-		}))
-
-		// Which lanes are drawn on each row: each raw lane's span mapped onto its compacted lane.
-		const active = ordered.map(() =>
-			Array.from({ length: laneCount }, () => false)
-		)
-		for (let lane = 0; lane < rawLanes; lane++) {
-			const span = spans[lane]
-			if (span.max < 0) continue
-			const target = toLane(lane)
-			for (let row = span.min; row <= span.max; row++)
-				active[row][target] = true
-		}
-
-		return { rows, laneCount, active }
 	}
 
 	/** Note that tracked state changed; the change is recorded once edits settle. */

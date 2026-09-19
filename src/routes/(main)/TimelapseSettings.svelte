@@ -1,4 +1,5 @@
 <script lang="ts">
+import { untrack } from "svelte"
 import { MAX_SEEK_STEP, MIN_SEEK_STEP } from "#lib/settings-storage.js"
 import type { WorkspaceHistory } from "./workspace-history.svelte.js"
 
@@ -33,15 +34,126 @@ const shortcuts = $derived<{ description: string; keys: string[] }[]>([
 	{ description: "New project", keys: ["N"] },
 ])
 
-let historyListEl = $state<HTMLOListElement>()
+// The graph is drawn as dots on a pannable, zoomable canvas.
+const NODE = 16
+const MIN_SCALE = 0.3
+const MAX_SCALE = 2
 
-// Keep the active entry in view as the history grows or the user undoes/redoes/jumps.
+const graph = $derived(history.graph)
+const currentLabel = $derived(history.nodes[history.currentId]?.label ?? "")
+
+let canvasEl = $state<HTMLDivElement>()
+let view = $state({ x: 0, y: 0, scale: 1 })
+let dragging = $state<{
+	pointerId: number
+	startX: number
+	startY: number
+	originX: number
+	originY: number
+	moved: boolean
+} | null>(null)
+// Set while a drag finishes, so the click it emits doesn't also jump.
+let suppressClick = false
+let hovered = $state<{ label: string; x: number; y: number } | null>(null)
+
+/** Centre the viewport on the current node. */
+function centreOnCurrent() {
+	const el = canvasEl
+	const node = graph.nodes.find(item => item.id === history.currentId)
+	if (!el || !node) return
+	const rect = el.getBoundingClientRect()
+	const scale = view.scale
+	view = {
+		x: rect.width / 2 - node.x * scale,
+		y: rect.height / 2 - node.y * scale,
+		scale,
+	}
+}
+
+// Keep the current node centred as the history grows or the user undoes/redoes/jumps.
 $effect(() => {
-	void history.currentId
-	historyListEl
-		?.querySelector<HTMLElement>('[data-current="true"]')
-		?.scrollIntoView({ block: "nearest", inline: "nearest" })
+	const el = canvasEl
+	const node = graph.nodes.find(item => item.id === history.currentId)
+	if (!el || !node) return
+	const scale = untrack(() => view.scale)
+	const rect = el.getBoundingClientRect()
+	view = {
+		x: rect.width / 2 - node.x * scale,
+		y: rect.height / 2 - node.y * scale,
+		scale,
+	}
 })
+
+function startPan(event: PointerEvent) {
+	if (event.button !== 0) return
+	const el = event.currentTarget as HTMLElement
+	dragging = {
+		pointerId: event.pointerId,
+		startX: event.clientX,
+		startY: event.clientY,
+		originX: view.x,
+		originY: view.y,
+		moved: false,
+	}
+	try {
+		el.setPointerCapture(event.pointerId)
+	} catch {
+		// A pointer that's already released can't be captured; dragging still works without it.
+	}
+}
+
+function movePan(event: PointerEvent) {
+	const state = dragging
+	if (!state || event.pointerId !== state.pointerId) return
+	const dx = event.clientX - state.startX
+	const dy = event.clientY - state.startY
+	if (Math.abs(dx) > 3 || Math.abs(dy) > 3) state.moved = true
+	view = { ...view, x: state.originX + dx, y: state.originY + dy }
+}
+
+function endPan(event: PointerEvent) {
+	const state = dragging
+	if (!state || event.pointerId !== state.pointerId) return
+	const el = event.currentTarget as HTMLElement
+	if (el.hasPointerCapture(event.pointerId))
+		el.releasePointerCapture(event.pointerId)
+	dragging = null
+	if (!state.moved) return
+	suppressClick = true
+	setTimeout(() => (suppressClick = false), 0)
+}
+
+function handleNodeClick(id: string) {
+	if (suppressClick) return
+	history.jumpTo(id)
+}
+
+function showLabel(label: string, event: PointerEvent) {
+	hovered = { label, x: event.clientX, y: event.clientY }
+}
+
+/** Wheel-to-zoom around the cursor; an attachment keeps the listener non-passive. */
+function canvasGestures(node: HTMLDivElement) {
+	const onWheel = (event: WheelEvent) => {
+		event.preventDefault()
+		const rect = node.getBoundingClientRect()
+		const scale = Math.min(
+			MAX_SCALE,
+			Math.max(MIN_SCALE, view.scale * Math.exp(-event.deltaY * 0.0015))
+		)
+		const cursorX = event.clientX - rect.left
+		const cursorY = event.clientY - rect.top
+		const worldX = (cursorX - view.x) / view.scale
+		const worldY = (cursorY - view.y) / view.scale
+		view = {
+			scale,
+			x: cursorX - worldX * scale,
+			y: cursorY - worldY * scale,
+		}
+	}
+	node.addEventListener("wheel", onWheel, { passive: false })
+	return () => node.removeEventListener("wheel", onWheel)
+}
 
 /** Snap the field back to the stored value when it loses focus, so a cleared or out-of-range entry doesn't linger. */
 function normalizeSeekInput(
@@ -112,6 +224,14 @@ function normalizeSeekInput(
 			<div class="flex gap-1">
 				<button
 					type="button"
+					onclick={centreOnCurrent}
+					title="Centre on the current step"
+					class="btn px-1.5 py-0.5 text-xs"
+				>
+					Centre
+				</button>
+				<button
+					type="button"
 					onclick={() => history.undo()}
 					disabled={!history.canUndo}
 					title="Undo (Ctrl+Z)"
@@ -130,70 +250,89 @@ function normalizeSeekInput(
 				</button>
 			</div>
 		</div>
-		{#if history.graph.rows.length === 0}
+		{#if graph.nodes.length === 0}
 			<p class="text-xs text-neutral-400">No actions yet.</p>
 		{:else}
-			{const graph = history.graph}
-			<ol
-				bind:this={historyListEl}
-				class="flex max-h-72 min-w-0 flex-col overflow-auto"
+			<div
+				bind:this={canvasEl}
+				role="application"
+				aria-label="History graph. Drag to pan, scroll to zoom, and activate a node to jump to it."
+				class="relative h-72 touch-none overflow-hidden border border-line-soft bg-black select-none {dragging
+					? 'cursor-grabbing'
+					: 'cursor-grab'}"
+				onpointerdown={startPan}
+				onpointermove={movePan}
+				onpointerup={endPan}
+				onpointercancel={endPan}
+				{@attach canvasGestures}
 			>
-				{#each graph.rows as row, rowIndex (row.id)}
-					{const forkTo =
-						row.forks.length > 0 ? Math.max(...row.forks) : null}
-					<li class="flex min-w-full">
+				<div
+					class="absolute top-0 left-0 origin-top-left"
+					style:transform="translate({view.x}px, {view.y}px) scale({view.scale})"
+				>
+					<svg
+						class="pointer-events-none absolute top-0 left-0 overflow-visible"
+						width={graph.width}
+						height={graph.height}
+						aria-hidden="true"
+					>
+						{#each graph.edges as edge (`${edge.from}→${edge.to}`)}
+							<line
+								x1={edge.x1}
+								y1={edge.y1}
+								x2={edge.x2}
+								y2={edge.y2}
+								stroke-width="1.5"
+								class={edge.onPath
+									? "stroke-primary-500"
+									: "stroke-neutral-600"}
+							/>
+						{/each}
+					</svg>
+					{#each graph.nodes as node (node.id)}
 						<button
 							type="button"
-							onclick={() => history.jumpTo(row.id)}
-							title={row.label}
-							data-current={row.current ? "true" : undefined}
+							onclick={() => handleNodeClick(node.id)}
+							onpointerenter={event =>
+								showLabel(node.label, event)}
+							onpointermove={event =>
+								showLabel(node.label, event)}
+							onpointerleave={() => (hovered = null)}
+							aria-label={node.label}
 							class={[
-								"flex min-w-full flex-1 items-stretch text-left text-xs transition-colors",
-								row.current
-									? "bg-primary-500/15 text-primary-200"
-									: row.onPath || row.redoable
-										? "text-neutral-300 hover:bg-neutral-800/40 hover:text-white"
-										: "text-neutral-500 hover:bg-neutral-800/40 hover:text-neutral-300",
+								"absolute rounded-full border transition-colors",
+								node.current
+									? "border-primary-300 bg-primary-500"
+									: node.onPath
+										? "border-neutral-300 bg-neutral-400"
+										: node.redoable
+											? "border-neutral-400 bg-neutral-600"
+											: "border-neutral-700 bg-neutral-800 hover:border-neutral-500",
 							]}
-						>
-							<!-- Lanes run down the graph; each row draws its verticals, the fork connector and its node. -->
-							{#each Array(graph.laneCount) as _, lane (lane)}
-								<span
-									class="relative w-5 shrink-0 self-stretch"
-								>
-									{#if graph.active[rowIndex][lane]}
-										<span
-											class="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-neutral-700"
-											aria-hidden="true"
-										></span>
-									{/if}
-									{#if forkTo !== null && lane >= Math.min(row.lane, forkTo) && lane <= Math.max(row.lane, forkTo)}
-										<span
-											class="absolute top-1/2 right-0 left-0 h-px -translate-y-1/2 bg-neutral-700"
-											aria-hidden="true"
-										></span>
-									{/if}
-									{#if lane === row.lane}
-										<span
-											class="absolute top-1/2 left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full {row.current
-												? 'bg-primary-400'
-												: row.onPath
-													? 'bg-neutral-400'
-													: 'bg-neutral-600'}"
-											aria-hidden="true"
-										></span>
-									{/if}
-								</span>
-							{/each}
-							<span
-								class="flex min-w-0 max-w-64 flex-1 items-center py-1 pr-2 pl-1.5"
-							>
-								<span class="truncate">{row.label}</span>
-							</span>
-						</button>
-					</li>
-				{/each}
-			</ol>
+							style:left="{node.x - NODE / 2}px"
+							style:top="{node.y - NODE / 2}px"
+							style:width="{NODE}px"
+							style:height="{NODE}px"
+						></button>
+					{/each}
+				</div>
+				{#if currentLabel}
+					<p
+						class="pointer-events-none absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate border border-line bg-black/80 px-1.5 py-0.5 text-xs text-neutral-300"
+					>
+						{currentLabel}
+					</p>
+				{/if}
+			</div>
+			{#if hovered}
+				<div
+					class="pointer-events-none fixed z-50 border border-line bg-surface-raised px-1.5 py-0.5 text-xs whitespace-nowrap text-neutral-200 shadow-lg shadow-black/50"
+					style:left="{hovered.x + 12}px"
+					style:top="{hovered.y + 12}px"
+				>
+					{hovered.label}
+				</div>
+			{/if}
 		{/if}
 	</section>
 
