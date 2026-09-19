@@ -131,6 +131,12 @@ export class WorkspaceHistory {
 	constructor(options: WorkspaceHistoryOptions) {
 		this.#read = options.read
 		this.#apply = options.apply
+		// Restore the previous session's history so undo/redo survives reloads.
+		const persisted = loadHistory()
+		if (persisted) {
+			this.entries = persisted.entries
+			this.index = persisted.index
+		}
 	}
 
 	get canUndo(): boolean {
@@ -170,6 +176,11 @@ export class WorkspaceHistory {
 	#restore(index: number) {
 		this.index = index
 		this.#apply(this.entries[index].snapshot)
+		this.#persist()
+	}
+
+	#persist() {
+		saveHistory(this.entries, this.index)
 	}
 
 	#flush() {
@@ -187,6 +198,7 @@ export class WorkspaceHistory {
 		if (!current) {
 			this.entries = [{ label: "Session start", snapshot: next }]
 			this.index = 0
+			this.#persist()
 			return
 		}
 
@@ -198,5 +210,112 @@ export class WorkspaceHistory {
 			this.entries = this.entries.slice(this.entries.length - MAX_ENTRIES)
 		}
 		this.index = this.entries.length - 1
+		this.#persist()
+	}
+}
+
+// Persistence lives in localStorage alongside the projects, but is kept to a bounded, size-capped window around the current entry so a big workspace can't crowd out the projects' own storage.
+const STORAGE_KEY = "peaks:history"
+const MAX_PERSISTED = 40
+const MAX_PERSISTED_BYTES = 1_500_000
+
+/** A window of up to `size` entries centred on `index`, with the index remapped into it. */
+function historyWindow(
+	entries: HistoryEntry[],
+	index: number,
+	size: number
+): { entries: HistoryEntry[]; index: number } {
+	const half = Math.floor(size / 2)
+	const start = Math.max(0, Math.min(index - half, entries.length - size))
+	const windowed = entries.slice(start, start + size)
+	return {
+		entries: windowed,
+		index: Math.max(0, Math.min(index - start, windowed.length - 1)),
+	}
+}
+
+/** Persist the history, shrinking the retained window until it fits the storage budget. */
+export function saveHistory(entries: HistoryEntry[], index: number): void {
+	if (typeof localStorage === "undefined") return
+	let size = Math.min(MAX_PERSISTED, entries.length)
+	while (size >= 1) {
+		const windowed = historyWindow(entries, index, size)
+		const json = JSON.stringify(windowed)
+		if (json.length <= MAX_PERSISTED_BYTES) {
+			try {
+				localStorage.setItem(STORAGE_KEY, json)
+				return
+			} catch {
+				// Storage full: retry with a smaller window below.
+			}
+		}
+		size = Math.floor(size / 2)
+	}
+	try {
+		localStorage.removeItem(STORAGE_KEY)
+	} catch {
+		// Nothing more to do.
+	}
+}
+
+const isProject = (value: unknown): boolean => {
+	if (typeof value !== "object" || value === null) return false
+	const { id, timelapses } = value as Record<string, unknown>
+	return typeof id === "string" && Array.isArray(timelapses)
+}
+
+function parseSnapshot(value: unknown): WorkspaceSnapshot | null {
+	if (typeof value !== "object" || value === null) return null
+	const { projects, currentProjectId, openId, selections } = value as Record<
+		string,
+		unknown
+	>
+	if (
+		!Array.isArray(projects) ||
+		!projects.every(isProject) ||
+		typeof currentProjectId !== "string" ||
+		typeof openId !== "string" ||
+		!Array.isArray(selections)
+	) {
+		return null
+	}
+	return {
+		projects: projects as Project[],
+		currentProjectId,
+		openId,
+		selections: selections as TimelineSelection[],
+	}
+}
+
+function parseEntry(value: unknown): HistoryEntry | null {
+	if (typeof value !== "object" || value === null) return null
+	const { label, snapshot } = value as Record<string, unknown>
+	if (typeof label !== "string") return null
+	const parsed = parseSnapshot(snapshot)
+	return parsed ? { label, snapshot: parsed } : null
+}
+
+/** Load a persisted history, discarding anything malformed. */
+function loadHistory(): { entries: HistoryEntry[]; index: number } | null {
+	if (typeof localStorage === "undefined") return null
+	try {
+		const raw = localStorage.getItem(STORAGE_KEY)
+		if (!raw) return null
+		const data = JSON.parse(raw) as Record<string, unknown>
+		if (!Array.isArray(data.entries)) return null
+		const entries = data.entries
+			.map(parseEntry)
+			.filter((entry): entry is HistoryEntry => Boolean(entry))
+		if (entries.length === 0) return null
+		const rawIndex =
+			typeof data.index === "number"
+				? Math.round(data.index)
+				: entries.length - 1
+		return {
+			entries,
+			index: Math.max(0, Math.min(rawIndex, entries.length - 1)),
+		}
+	} catch {
+		return null
 	}
 }
