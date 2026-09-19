@@ -1,5 +1,6 @@
-// Snapshot-based undo/redo for the whole workspace: the projects, the open project/timelapse and the open timelapse's selections.
+// Tree-based undo/redo for the whole workspace: the projects, the open project/timelapse and the open timelapse's selections.
 // Global settings (timeline layout, seek step) are deliberately excluded – they live outside the tracked slices.
+// Unlike a linear stack, branching (undo, then a new change) keeps the abandoned branch, so the history forms a tree.
 import type { Project } from "#lib/project-storage.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 
@@ -11,9 +12,29 @@ export type WorkspaceSnapshot = {
 	selections: TimelineSelection[]
 }
 
-export type HistoryEntry = {
+export type HistoryNode = {
+	id: string
+	/** Monotonic creation order, used for pruning and stable ordering. */
+	seq: number
 	label: string
 	snapshot: WorkspaceSnapshot
+	parent: string | null
+	children: string[]
+}
+
+/** A node flattened for the settings tree. */
+export type HistoryRow = {
+	id: string
+	label: string
+	depth: number
+	/** Whether the node is the last child of its parent, for tree connectors. */
+	isLast: boolean
+	/** The node the live state is at. */
+	current: boolean
+	/** An ancestor of the current node (the branch we're on). */
+	onPath: boolean
+	/** A direct child of the current node, reachable with redo. */
+	redoable: boolean
 }
 
 type WorkspaceHistoryOptions = {
@@ -23,12 +44,12 @@ type WorkspaceHistoryOptions = {
 	apply: (snapshot: WorkspaceSnapshot) => void
 }
 
-// Wait for edits to settle (a pointer drag fires many updates) before recording a single entry.
+// Wait for edits to settle (a pointer drag fires many updates) before recording a single node.
 const SETTLE_MS = 200
-// The first entry waits longer so the metadata the review resolves on load is part of it, not a phantom follow-up.
+// The first node waits longer so the metadata the review resolves on load is part of it, not a phantom follow-up.
 const INITIAL_SETTLE_MS = 800
-// Cap the history so a long session can't grow without bound.
-const MAX_ENTRIES = 100
+// Cap the tree so a long session (with many branches) can't grow without bound.
+const MAX_NODES = 100
 
 const sameSnapshot = (a: WorkspaceSnapshot, b: WorkspaceSnapshot): boolean =>
 	JSON.stringify(a) === JSON.stringify(b)
@@ -93,7 +114,7 @@ function describeEntryChange(
 	return null
 }
 
-/** Describe how two snapshots differ, for the history list. */
+/** Describe how two snapshots differ, for the history tree. */
 export function describeChange(
 	prev: WorkspaceSnapshot,
 	next: WorkspaceSnapshot
@@ -122,32 +143,111 @@ export function describeChange(
 	)
 }
 
+/** The ids on the path from `currentId` up to the root, which pruning never removes. */
+function pathIds(
+	nodes: Record<string, HistoryNode>,
+	currentId: string
+): Set<string> {
+	const ids = new Set<string>()
+	for (
+		let id: string | null = currentId;
+		id && nodes[id];
+		id = nodes[id].parent
+	)
+		ids.add(id)
+
+	return ids
+}
+
+/** Drop the oldest leaves until at most `limit` nodes remain, keeping the current branch intact. */
+function pruneLeaves(
+	nodes: Record<string, HistoryNode>,
+	currentId: string,
+	limit: number
+): Record<string, HistoryNode> {
+	let result = nodes
+	while (Object.keys(result).length > limit) {
+		const protectedIds = pathIds(result, currentId)
+		const leaf = Object.values(result)
+			.filter(
+				node => node.children.length === 0 && !protectedIds.has(node.id)
+			)
+			.sort((a, b) => a.seq - b.seq)[0]
+		if (!leaf) break
+
+		const parent = leaf.parent ? result[leaf.parent] : null
+		const next = { ...result }
+		delete next[leaf.id]
+		if (parent)
+			next[parent.id] = {
+				...parent,
+				children: parent.children.filter(id => id !== leaf.id),
+			}
+
+		result = next
+	}
+	return result
+}
+
 export class WorkspaceHistory {
 	readonly #read: () => WorkspaceSnapshot
 	readonly #apply: (snapshot: WorkspaceSnapshot) => void
 
-	entries = $state<HistoryEntry[]>([])
-	/** Index of the entry matching the live state. */
-	index = $state(-1)
+	nodes = $state<Record<string, HistoryNode>>({})
+	/** The node the live state is at. */
+	currentId = $state("")
 
+	#nextSeq = 0
 	#timer: ReturnType<typeof setTimeout> | undefined
 
 	constructor(options: WorkspaceHistoryOptions) {
 		this.#read = options.read
 		this.#apply = options.apply
-		// Restore the previous session's history so undo/redo survives reloads.
+		// Restore the previous session's tree so undo/redo survives reloads.
 		const persisted = loadHistory()
 		if (persisted) {
-			this.entries = persisted.entries
-			this.index = persisted.index
+			this.nodes = persisted.nodes
+			this.currentId = persisted.currentId
+			this.#nextSeq = persisted.nextId
 		}
 	}
 
 	get canUndo(): boolean {
-		return this.index > 0
+		return Boolean(this.nodes[this.currentId]?.parent)
 	}
 	get canRedo(): boolean {
-		return this.index >= 0 && this.index < this.entries.length - 1
+		return (this.nodes[this.currentId]?.children.length ?? 0) > 0
+	}
+
+	/** Depth-first rows for the settings tree, marking the current branch. */
+	get rows(): HistoryRow[] {
+		const root = Object.values(this.nodes).find(
+			node => node.parent === null
+		)
+		if (!root) return []
+
+		const onPath = pathIds(this.nodes, this.currentId)
+		const redoable = new Set(this.nodes[this.currentId]?.children ?? [])
+
+		const rows: HistoryRow[] = []
+		const walk = (node: HistoryNode, depth: number, isLast: boolean) => {
+			rows.push({
+				id: node.id,
+				label: node.label,
+				depth,
+				isLast,
+				current: node.id === this.currentId,
+				onPath: onPath.has(node.id),
+				redoable: redoable.has(node.id),
+			})
+			node.children.forEach((childId, index) => {
+				const child = this.nodes[childId]
+				if (child)
+					walk(child, depth + 1, index === node.children.length - 1)
+			})
+		}
+		walk(root, 0, true)
+		return rows
 	}
 
 	/** Note that tracked state changed; the change is recorded once edits settle. */
@@ -155,36 +255,37 @@ export class WorkspaceHistory {
 		clearTimeout(this.#timer)
 		this.#timer = setTimeout(
 			() => this.#record(),
-			this.entries.length === 0 ? INITIAL_SETTLE_MS : SETTLE_MS
+			Object.keys(this.nodes).length === 0 ? INITIAL_SETTLE_MS : SETTLE_MS
 		)
 	}
 
 	undo() {
 		this.#flush()
-		if (this.canUndo) this.#restore(this.index - 1)
+		const parentId = this.nodes[this.currentId]?.parent
+		const parent = parentId ? this.nodes[parentId] : null
+		if (parent) this.#go(parent)
 	}
 
 	redo() {
 		this.#flush()
-		if (this.canRedo) this.#restore(this.index + 1)
+		const current = this.nodes[this.currentId]
+		const childId = current?.children[current.children.length - 1]
+		const child = childId ? this.nodes[childId] : null
+		if (child) this.#go(child)
 	}
 
-	/** Revert to a specific history entry. */
-	jumpTo(index: number) {
+	/** Revert to a specific node. */
+	jumpTo(id: string) {
 		this.#flush()
-		if (index < 0 || index >= this.entries.length || index === this.index)
-			return
-		this.#restore(index)
+		const node = this.nodes[id]
+		if (!node || id === this.currentId) return
+		this.#go(node)
 	}
 
-	#restore(index: number) {
-		this.index = index
-		this.#apply(this.entries[index].snapshot)
+	#go(node: HistoryNode) {
+		this.currentId = node.id
+		this.#apply(node.snapshot)
 		this.#persist()
-	}
-
-	#persist() {
-		saveHistory(this.entries, this.index)
 	}
 
 	#flush() {
@@ -196,64 +297,62 @@ export class WorkspaceHistory {
 	#record() {
 		this.#timer = undefined
 		const next = this.#read()
-		const current = this.entries[this.index]
+		const current = this.nodes[this.currentId]
 		if (current && sameSnapshot(current.snapshot, next)) return
 
-		if (!current) {
-			this.entries = [{ label: "Session start", snapshot: next }]
-			this.index = 0
-			this.#persist()
-			return
+		const seq = this.#nextSeq++
+		const id = `h${seq}`
+		const node: HistoryNode = {
+			id,
+			seq,
+			label: current
+				? describeChange(current.snapshot, next)
+				: "Session start",
+			snapshot: next,
+			parent: current?.id ?? null,
+			children: [],
 		}
+		const nodes = { ...this.nodes, [id]: node }
+		if (current)
+			nodes[current.id] = {
+				...current,
+				children: [...current.children, id],
+			}
 
-		this.entries = [
-			...this.entries.slice(0, this.index + 1),
-			{ label: describeChange(current.snapshot, next), snapshot: next },
-		]
-		if (this.entries.length > MAX_ENTRIES) {
-			this.entries = this.entries.slice(this.entries.length - MAX_ENTRIES)
-		}
-		this.index = this.entries.length - 1
+		this.nodes = pruneLeaves(nodes, id, MAX_NODES)
+		this.currentId = id
 		this.#persist()
 	}
-}
 
-// Persistence lives in localStorage alongside the projects, but is kept to a bounded, size-capped window around the current entry so a big workspace can't crowd out the projects' own storage.
-const STORAGE_KEY = "peaks:history"
-const MAX_PERSISTED = 40
-const MAX_PERSISTED_BYTES = 1_500_000
-
-/** A window of up to `size` entries centred on `index`, with the index remapped into it. */
-function historyWindow(
-	entries: HistoryEntry[],
-	index: number,
-	size: number
-): { entries: HistoryEntry[]; index: number } {
-	const half = Math.floor(size / 2)
-	const start = Math.max(0, Math.min(index - half, entries.length - size))
-	const windowed = entries.slice(start, start + size)
-	return {
-		entries: windowed,
-		index: Math.max(0, Math.min(index - start, windowed.length - 1)),
+	#persist() {
+		saveHistory(this.nodes, this.currentId, this.#nextSeq)
 	}
 }
 
-/** Persist the history, shrinking the retained window until it fits the storage budget. */
-export function saveHistory(entries: HistoryEntry[], index: number): void {
+// Persistence lives in localStorage alongside the projects, but is kept to a bounded, size-capped tree so a big workspace can't crowd out the projects' own storage.
+const STORAGE_KEY = "peaks:history"
+const MAX_PERSISTED_BYTES = 1_500_000
+
+/** Persist the tree, shrinking it until it fits the storage budget. */
+export function saveHistory(
+	nodes: Record<string, HistoryNode>,
+	currentId: string,
+	nextId: number
+): void {
 	if (typeof localStorage === "undefined") return
-	let size = Math.min(MAX_PERSISTED, entries.length)
-	while (size >= 1) {
-		const windowed = historyWindow(entries, index, size)
-		const json = JSON.stringify(windowed)
-		if (json.length <= MAX_PERSISTED_BYTES) {
+	let limit = Object.keys(nodes).length
+	while (limit >= 1) {
+		const pruned = pruneLeaves(nodes, currentId, limit)
+		const json = JSON.stringify({ nodes: pruned, currentId, nextId })
+		if (json.length <= MAX_PERSISTED_BYTES)
 			try {
 				localStorage.setItem(STORAGE_KEY, json)
 				return
 			} catch {
-				// Storage full: retry with a smaller window below.
+				// Storage full: retry with a smaller tree below.
 			}
-		}
-		size = Math.floor(size / 2)
+
+		limit = Math.floor(limit / 2)
 	}
 	try {
 		localStorage.removeItem(STORAGE_KEY)
@@ -280,9 +379,9 @@ function parseSnapshot(value: unknown): WorkspaceSnapshot | null {
 		typeof currentProjectId !== "string" ||
 		typeof openId !== "string" ||
 		!Array.isArray(selections)
-	)
+	) {
 		return null
-
+	}
 	return {
 		projects: projects as Project[],
 		currentProjectId,
@@ -291,34 +390,69 @@ function parseSnapshot(value: unknown): WorkspaceSnapshot | null {
 	}
 }
 
-function parseEntry(value: unknown): HistoryEntry | null {
+function parseNode(value: unknown): HistoryNode | null {
 	if (typeof value !== "object" || value === null) return null
-	const { label, snapshot } = value as Record<string, unknown>
-	if (typeof label !== "string") return null
+	const { id, seq, label, snapshot, parent, children } = value as Record<
+		string,
+		unknown
+	>
+	if (
+		typeof id !== "string" ||
+		typeof seq !== "number" ||
+		typeof label !== "string" ||
+		(parent !== null && typeof parent !== "string") ||
+		!Array.isArray(children) ||
+		!children.every(child => typeof child === "string")
+	) {
+		return null
+	}
 	const parsed = parseSnapshot(snapshot)
-	return parsed ? { label, snapshot: parsed } : null
+	if (!parsed) return null
+	return {
+		id,
+		seq,
+		label,
+		snapshot: parsed,
+		parent: parent as string | null,
+		children: children as string[],
+	}
 }
 
-/** Load a persisted history, discarding anything malformed. */
-function loadHistory(): { entries: HistoryEntry[]; index: number } | null {
+/** Load a persisted history tree, discarding anything malformed. */
+function loadHistory(): {
+	nodes: Record<string, HistoryNode>
+	currentId: string
+	nextId: number
+} | null {
 	if (typeof localStorage === "undefined") return null
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY)
 		if (!raw) return null
 		const data = JSON.parse(raw) as Record<string, unknown>
-		if (!Array.isArray(data.entries)) return null
-		const entries = data.entries
-			.map(parseEntry)
-			.filter((entry): entry is HistoryEntry => Boolean(entry))
-		if (entries.length === 0) return null
-		const rawIndex =
-			typeof data.index === "number"
-				? Math.round(data.index)
-				: entries.length - 1
-		return {
-			entries,
-			index: Math.max(0, Math.min(rawIndex, entries.length - 1)),
+		if (typeof data.nodes !== "object" || data.nodes === null) return null
+
+		const nodes: Record<string, HistoryNode> = {}
+		for (const [id, value] of Object.entries(
+			data.nodes as Record<string, unknown>
+		)) {
+			const node = parseNode(value)
+			if (node && node.id === id) nodes[id] = node
 		}
+		if (Object.keys(nodes).length === 0) return null
+
+		const rootId = Object.values(nodes).find(
+			node => node.parent === null
+		)?.id
+		const currentId =
+			typeof data.currentId === "string" && nodes[data.currentId]
+				? data.currentId
+				: (rootId ?? Object.keys(nodes)[0])
+		const nextId =
+			typeof data.nextId === "number"
+				? data.nextId
+				: Math.max(...Object.values(nodes).map(node => node.seq)) + 1
+
+		return { nodes, currentId, nextId }
 	} catch {
 		return null
 	}

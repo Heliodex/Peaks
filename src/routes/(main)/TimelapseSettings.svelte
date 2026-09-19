@@ -120,26 +120,37 @@ function normalizeSeekInput(
 				</button>
 			</div>
 		</div>
-		{#if history.entries.length === 0}
+		{#if history.rows.length === 0}
 			<p class="text-xs text-neutral-400">No actions yet.</p>
 		{:else}
-			<ol class="flex max-h-72 flex-col-reverse gap-0.5 overflow-y-auto">
-				{#each history.entries as entry, i (i)}
+			<ol class="flex max-h-72 flex-col gap-0.5 overflow-y-auto">
+				{#each history.rows as row (row.id)}
 					<li>
 						<button
 							type="button"
-							onclick={() => history.jumpTo(i)}
-							title={entry.label}
+							onclick={() => history.jumpTo(row.id)}
+							title={row.label}
+							style:padding-left="{0.5 + row.depth * 0.9}rem"
 							class={[
-								"w-full truncate px-2 py-1 text-left text-xs transition-colors",
-								i === history.index
+								"flex w-full items-center gap-1.5 py-1 pr-2 text-left text-xs transition-colors",
+								row.current
 									? "bg-primary-500/15 text-primary-200"
-									: i > history.index
-										? "text-neutral-600 hover:bg-neutral-800/40 hover:text-neutral-400"
-										: "text-neutral-300 hover:bg-neutral-800/40 hover:text-white",
+									: row.onPath || row.redoable
+										? "text-neutral-300 hover:bg-neutral-800/40 hover:text-white"
+										: "text-neutral-500 hover:bg-neutral-800/40 hover:text-neutral-300",
 							]}
 						>
-							{entry.label}
+							<span
+								class="shrink-0 select-none text-neutral-600"
+								aria-hidden="true"
+							>
+								{row.depth === 0
+									? "•"
+									: row.isLast
+										? "└"
+										: "├"}
+							</span>
+							<span class="truncate">{row.label}</span>
 						</button>
 					</li>
 				{/each}
