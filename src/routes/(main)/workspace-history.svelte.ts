@@ -29,6 +29,8 @@ export type HistoryGraphNode = {
 	/** Centre position in layout pixels. */
 	x: number
 	y: number
+	/** Whether the label fits beside the node without colliding with the next one. */
+	showLabel: boolean
 	/** The node the live state is at. */
 	current: boolean
 	/** An ancestor of the current node (the branch we're on). */
@@ -71,6 +73,11 @@ const MAX_NODES = 100
 // Spacing of the settings graph, in layout pixels.
 const COLUMN_GAP = 64
 const ROW_GAP = 48
+/** Diameter of a graph node; shared with the view so label fitting matches what's drawn. */
+export const HISTORY_NODE_SIZE = 16
+// Gap and rough per-character width used to decide whether a node's label fits beside it.
+const LABEL_GAP = 6
+const LABEL_CHAR_WIDTH = 6
 
 const sameSnapshot = (a: WorkspaceSnapshot, b: WorkspaceSnapshot): boolean =>
 	JSON.stringify(a) === JSON.stringify(b)
@@ -279,21 +286,22 @@ export class WorkspaceHistory {
 		const edges: HistoryGraphEdge[] = []
 		const walk = (node: HistoryNode) => {
 			const position = positions.get(node.id)
-			if (position) {
+			if (position)
 				graphNodes.push({
 					id: node.id,
 					label: node.label,
 					x: (position.x + 0.5) * COLUMN_GAP,
 					y: (position.y + 0.5) * ROW_GAP,
+					showLabel: false,
 					current: node.id === this.currentId,
 					onPath: onPath.has(node.id),
 					redoable: redoable.has(node.id),
 				})
-			}
+
 			for (const child of childNodes(node)) {
 				const from = positions.get(node.id)
 				const to = positions.get(child.id)
-				if (from && to) {
+				if (from && to)
 					edges.push({
 						from: node.id,
 						to: child.id,
@@ -303,7 +311,7 @@ export class WorkspaceHistory {
 						y2: (to.y + 0.5) * ROW_GAP,
 						onPath: onPath.has(node.id) && onPath.has(child.id),
 					})
-				}
+
 				walk(child)
 			}
 		}
@@ -315,6 +323,29 @@ export class WorkspaceHistory {
 			maxColumn = Math.max(maxColumn, position.x)
 			maxDepth = Math.max(maxDepth, position.y)
 		}
+
+		// Only show a label when it fits before the next node on its row, so labels never collide.
+		// The last node on a row has open space to its right, so its label always shows.
+		const rows = new Map<number, HistoryGraphNode[]>()
+		for (const node of graphNodes) {
+			const row = rows.get(node.y)
+			if (row) row.push(node)
+			else rows.set(node.y, [node])
+		}
+		for (const row of rows.values())
+			for (const [index, node] of row
+				.toSorted((a, b) => a.x - b.x)
+				.entries()) {
+				const next = row[index + 1]
+				if (!next) {
+					node.showLabel = true
+					continue
+				}
+				const available =
+					next.x - node.x - HISTORY_NODE_SIZE - LABEL_GAP
+				node.showLabel =
+					available >= node.label.length * LABEL_CHAR_WIDTH
+			}
 
 		return {
 			nodes: graphNodes,

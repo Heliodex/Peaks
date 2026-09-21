@@ -1,7 +1,10 @@
 <script lang="ts">
 import { untrack } from "svelte"
 import { MAX_SEEK_STEP, MIN_SEEK_STEP } from "#lib/settings-storage.js"
-import type { WorkspaceHistory } from "./workspace-history.svelte.js"
+import {
+	HISTORY_NODE_SIZE,
+	type WorkspaceHistory,
+} from "./workspace-history.svelte.js"
 
 let {
 	justifyTimeline,
@@ -35,7 +38,7 @@ const shortcuts = $derived<{ description: string; keys: string[] }[]>([
 ])
 
 // The graph is drawn as dots on a pannable, zoomable canvas.
-const NODE = 16
+const NODE = HISTORY_NODE_SIZE
 const MIN_SCALE = 0.3
 const MAX_SCALE = 2
 
@@ -325,7 +328,20 @@ function normalizeSeekInput(
 							style:top="{node.y - NODE / 2}px"
 							style:width="{NODE}px"
 							style:height="{NODE}px"
-						></button>
+						>
+							{#if node.showLabel}
+								<span
+									class="pointer-events-none absolute top-1/2 left-full ml-1.5 -translate-y-1/2 whitespace-nowrap text-xs {node.current
+										? 'text-primary-300'
+										: node.onPath
+											? 'text-neutral-300'
+											: 'text-neutral-500'}"
+									aria-hidden="true"
+								>
+									{node.label}
+								</span>
+							{/if}
+						</button>
 					{/each}
 				</div>
 				{#if currentLabel}
