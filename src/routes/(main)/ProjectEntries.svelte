@@ -1,7 +1,7 @@
 <script lang="ts">
 import { flip } from "svelte/animate"
 import { prefersReducedMotion } from "svelte/motion"
-import { fade, fly } from "svelte/transition"
+import { fade, fly, slide } from "svelte/transition"
 import { createCopyToClipboard } from "#lib/copy.svelte.js"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
 import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
@@ -42,6 +42,13 @@ const reorder = new ListReorder(
 // Rows fade and slide in and out; instant for reduced-motion users. Transitions are local, so switching projects doesn't animate them.
 const rowTransition = $derived(
 	prefersReducedMotion.current ? { duration: 0 } : { duration: 150, y: -6 }
+)
+
+// The reorder grip slides its width in and out as the list gains or loses a second item.
+const gripTransition = $derived(
+	prefersReducedMotion.current
+		? { duration: 0 }
+		: { axis: "x" as const, duration: 150 }
 )
 
 /** Open an entry's context menu at the pointer, or beside the row when triggered from the keyboard. */
@@ -92,6 +99,8 @@ function copyId(id: string, x: number, y: number) {
 				<button
 					type="button"
 					draggable="true"
+					in:slide={gripTransition}
+					out:slide={gripTransition}
 					title="Drag to reorder"
 					aria-label="Reorder {entry.name || entry.id}"
 					onkeydown={reorder.gripKeydown(entry.id)}

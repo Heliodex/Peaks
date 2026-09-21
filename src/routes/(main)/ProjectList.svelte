@@ -1,7 +1,7 @@
 <script lang="ts">
 import { flip } from "svelte/animate"
 import { prefersReducedMotion } from "svelte/motion"
-import { fly } from "svelte/transition"
+import { fly, slide } from "svelte/transition"
 import { DEFAULT_PROJECT_NAME, type Project } from "#lib/project-storage.js"
 import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
 import { ListReorder } from "./list-reorder.svelte.js"
@@ -44,6 +44,13 @@ const reorder = new ListReorder(
 // Rows fade and slide in and out; instant for reduced-motion users. Transitions are local, so switching projects doesn't animate them.
 const rowTransition = $derived(
 	prefersReducedMotion.current ? { duration: 0 } : { duration: 150, y: -6 }
+)
+
+// The reorder grip slides its width in and out as the list gains or loses a second item.
+const gripTransition = $derived(
+	prefersReducedMotion.current
+		? { duration: 0 }
+		: { axis: "x" as const, duration: 150 }
 )
 
 // A freshly created project asks for its name field; start renaming it so the request isn't lost.
@@ -113,6 +120,8 @@ function closeMenu(restoreFocus = false) {
 				<button
 					type="button"
 					draggable="true"
+					in:slide={gripTransition}
+					out:slide={gripTransition}
 					title="Drag to reorder"
 					aria-label="Reorder {project.name}"
 					onkeydown={reorder.gripKeydown(project.id)}
