@@ -1,5 +1,7 @@
 <script lang="ts">
 import { flip } from "svelte/animate"
+import { prefersReducedMotion } from "svelte/motion"
+import { fly } from "svelte/transition"
 import { DEFAULT_PROJECT_NAME, type Project } from "#lib/project-storage.js"
 import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
 import { ListReorder } from "./list-reorder.svelte.js"
@@ -37,6 +39,11 @@ let previousFocus: HTMLElement | null = null
 const reorder = new ListReorder(
 	() => projects,
 	updated => onReorderProjects(updated)
+)
+
+// Rows fade and slide in and out; instant for reduced-motion users. Transitions are local, so switching projects doesn't animate them.
+const rowTransition = $derived(
+	prefersReducedMotion.current ? { duration: 0 } : { duration: 150, y: -6 }
 )
 
 // A freshly created project asks for its name field; start renaming it so the request isn't lost.
@@ -91,6 +98,8 @@ function closeMenu(restoreFocus = false) {
 	{#each projects as project (project.id)}
 		<li
 			animate:flip={{ duration: 180 }}
+			in:fly={rowTransition}
+			out:fly={rowTransition}
 			oncontextmenu={event => openMenu(event, project)}
 			class={[
 				"project-row -mx-1.5 flex items-center gap-1 border-b border-l-2 border-line-soft px-1.5 py-0.5 transition-colors hover:bg-neutral-800/40",

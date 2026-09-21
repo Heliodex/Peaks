@@ -86,7 +86,11 @@ let {
 			Timelapses
 		</span>
 
-		{#if projectEntries.length > 0}
+		<!--
+			Keyed so switching projects swaps the list instantly. Keeping the list mounted even when
+			empty means adding or removing the only timelapse still animates instead of a hard swap.
+		-->
+		{#key currentProjectId}
 			<ProjectEntries
 				entries={projectEntries}
 				{submittedId}
@@ -94,7 +98,9 @@ let {
 				{onRemoveTimelapse}
 				{onReorderProject}
 			/>
-		{:else}
+		{/key}
+
+		{#if projectEntries.length === 0}
 			<p class="text-sm text-neutral-400">
 				No timelapses yet. Add one below.
 			</p>

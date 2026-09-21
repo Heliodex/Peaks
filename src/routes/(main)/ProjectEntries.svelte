@@ -1,7 +1,7 @@
 <script lang="ts">
 import { flip } from "svelte/animate"
 import { prefersReducedMotion } from "svelte/motion"
-import { fade } from "svelte/transition"
+import { fade, fly } from "svelte/transition"
 import { createCopyToClipboard } from "#lib/copy.svelte.js"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
 import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
@@ -39,6 +39,11 @@ const reorder = new ListReorder(
 	updated => onReorderProject(updated)
 )
 
+// Rows fade and slide in and out; instant for reduced-motion users. Transitions are local, so switching projects doesn't animate them.
+const rowTransition = $derived(
+	prefersReducedMotion.current ? { duration: 0 } : { duration: 150, y: -6 }
+)
+
 /** Open an entry's context menu at the pointer, or beside the row when triggered from the keyboard. */
 function openMenu(event: MouseEvent, entry: ProjectTimelapse) {
 	event.preventDefault()
@@ -72,6 +77,8 @@ function copyId(id: string, x: number, y: number) {
 		{const reduced = finalDuration < entry.duration}
 		<li
 			animate:flip={{ duration: 180 }}
+			in:fly={rowTransition}
+			out:fly={rowTransition}
 			oncontextmenu={event => openMenu(event, entry)}
 			class={[
 				"entry-row group -mx-1.5 flex items-stretch gap-1 border-b border-l-2 border-line-soft px-1.5 transition-colors hover:bg-neutral-800/40",
