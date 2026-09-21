@@ -1,4 +1,4 @@
-// Pointer-driven selection editing for the timeline: creating, moving and resizing selections, plus right-drag panning.
+// Pointer-driven selection editing for the timeline: creating, moving and resizing selections, plus middle-drag panning.
 import {
 	clamp,
 	snapToFrame,
@@ -124,7 +124,8 @@ export class SelectionEditor {
 	}
 
 	#startPan(event: PointerEvent, track: HTMLElement) {
-		// No preventDefault here: cancelling a right-button press stops the browser firing the contextmenu event the selection menu relies on. The track's contextmenu handler already suppresses the native menu, and panning captures the pointer.
+		// Middle-clicks pan, so prevent the browser's autoscroll. Right-clicks never reach here, leaving their contextmenu event intact for the selection menu.
+		event.preventDefault()
 		this.pan = {
 			startX: event.clientX,
 			startView: this.#options.view().start,
@@ -236,8 +237,8 @@ export class SelectionEditor {
 		const track = event.currentTarget as HTMLElement
 		this.panMoved = false
 
-		// Right-drag pans the visible window.
-		if (event.button === 2) return this.#startPan(event, track)
+		// Middle-drag pans the visible window; right-clicks are reserved for the selection menu and start nothing.
+		if (event.button === 1) return this.#startPan(event, track)
 		if (event.button !== 0) return
 
 		const target = event.target as HTMLElement

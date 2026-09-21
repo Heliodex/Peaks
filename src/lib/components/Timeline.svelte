@@ -155,7 +155,7 @@ let selectionMenu = $state<{
 } | null>(null)
 // Focus to restore when the menu is dismissed with Escape.
 let previousFocus: HTMLElement | null = null
-// Set after a right-drag pan so the contextmenu that follows it doesn't open a menu.
+// Set after a middle-drag pan so a contextmenu fired without a fresh press doesn't open a menu.
 let suppressSelectionMenu = false
 
 function setSelectionReason(id: string, reason: string) {
@@ -207,8 +207,8 @@ function closeSelectionMenu(restoreFocus = false) {
 }
 
 /**
- * Attaches wheel-to-zoom and right-drag support to the track.
- * Uses an attachment so the wheel listener can be non-passive (reliably preventing page scroll) and so the right-click context menu can be suppressed for panning.
+ * Attaches wheel-to-zoom and middle-drag support to the track.
+ * Uses an attachment so the wheel listener can be non-passive (reliably preventing page scroll) and so the native context menu stays suppressed (right-click is reserved for the selection menu).
  */
 function timelineGestures(node: HTMLElement) {
 	const handleWheel = (event: WheelEvent) => {
