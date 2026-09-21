@@ -1,7 +1,7 @@
 <script lang="ts">
 import { flip } from "svelte/animate"
 import { prefersReducedMotion } from "svelte/motion"
-import { fade, fly, slide } from "svelte/transition"
+import { fade, fly } from "svelte/transition"
 import { createCopyToClipboard } from "#lib/copy.svelte.js"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
 import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
@@ -44,13 +44,6 @@ const rowTransition = $derived(
 	prefersReducedMotion.current ? { duration: 0 } : { duration: 150, y: -6 }
 )
 
-// The reorder grip slides its width in and out as the list gains or loses a second item.
-const gripTransition = $derived(
-	prefersReducedMotion.current
-		? { duration: 0 }
-		: { axis: "x" as const, duration: 150 }
-)
-
 /** Open an entry's context menu at the pointer, or beside the row when triggered from the keyboard. */
 function openMenu(event: MouseEvent, entry: ProjectTimelapse) {
 	event.preventDefault()
@@ -87,36 +80,30 @@ function copyId(id: string, x: number, y: number) {
 			in:fly={rowTransition}
 			out:fly={rowTransition}
 			oncontextmenu={event => openMenu(event, entry)}
+			draggable={entries.length > 1}
+			ondragstart={event => reorder.startDrag(event, entry.id)}
+			ondragend={reorder.endDrag}
 			class={[
 				"entry-row group -mx-1.5 flex items-stretch gap-1 border-b border-l-2 border-line-soft px-1.5 transition-colors hover:bg-neutral-800/40",
 				entry.id === submittedId
 					? "border-l-primary-500 bg-primary-500/5"
 					: "border-l-transparent",
 				reorder.draggingId === entry.id ? "opacity-50" : "",
+				entries.length > 1 ? "cursor-grab active:cursor-grabbing" : "",
 			]}
 		>
-			{#if entries.length > 1}
-				<button
-					type="button"
-					draggable="true"
-					in:slide={gripTransition}
-					out:slide={gripTransition}
-					title="Drag to reorder"
-					aria-label="Reorder {entry.name || entry.id}"
-					onkeydown={reorder.gripKeydown(entry.id)}
-					ondragstart={event => reorder.startDrag(event, entry.id)}
-					ondragend={reorder.endDrag}
-					class="flex cursor-grab items-center px-0.5 select-none text-neutral-500 transition-colors hover:text-neutral-300 active:cursor-grabbing"
-				>
-					⠿
-				</button>
-			{/if}
 			<button
 				type="button"
 				onclick={() => onLoad(entry.id)}
-				title={entry.name || entry.id}
+				onkeydown={reorder.itemKeydown(entry.id)}
+				title="{entry.name || entry.id} (drag to reorder)"
 				aria-current={entry.id === submittedId ? "true" : undefined}
-				class="flex min-w-0 flex-1 flex-col justify-center py-1 pr-1 pl-1.5 text-left"
+				class={[
+					"flex min-w-0 flex-1 flex-col justify-center py-1 pr-1 pl-1.5 text-left",
+					entries.length > 1
+						? "cursor-grab active:cursor-grabbing"
+						: "cursor-pointer",
+				]}
 			>
 				<span
 					class={[

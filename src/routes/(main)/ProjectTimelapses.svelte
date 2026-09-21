@@ -31,15 +31,10 @@ const cardShift = $derived(
 	prefersReducedMotion.current ? { duration: 0 } : { duration: 180 }
 )
 
-// Drag cards by their grip to reorder them.
+// Drag cards from anywhere to reorder them.
 const reorder = new ListReorder(
 	() => entries,
 	updated => onReorder(updated)
-)
-const gripMotion = $derived(
-	prefersReducedMotion.current
-		? { duration: 0 }
-		: { axis: "x" as const, duration: 150 }
 )
 
 // The card being dragged is hidden (its floating drag image follows the pointer), so mark it.
@@ -76,9 +71,7 @@ $effect(() => {
 		ondrop={reorder.onDrop}
 	>
 		{#each entries as entry (entry.id)}
-			{let card: HTMLElement | undefined}
 			<li
-				bind:this={card}
 				data-reorder-id={entry.id}
 				out:scale|local={cardTransition}
 				animate:flip={cardShift}
@@ -92,13 +85,22 @@ $effect(() => {
 				<button
 					type="button"
 					onclick={() => {
-	// A drag ends with a click on the grip; ignore that one so grabbing a card doesn't open it.
+	// A drag ends with a click; ignore that one so dragging a card doesn't open it.
 	if (reorder.takeDragged()) return
 	onLoad(entry.id)
 }}
-					onkeydown={reorder.gripKeydown(entry.id)}
-					title={entry.name || entry.id}
-					class="peer flex h-full w-full cursor-pointer flex-col overflow-hidden border border-line-soft bg-surface-raised text-left transition-colors hover:border-primary-500 hover:bg-surface"
+					onpointerdown={reorderable
+						? event => reorder.startPointerDrag(event, entry.id)
+						: undefined}
+					onkeydown={reorder.itemKeydown(entry.id)}
+					title="{entry.name || entry.id} (drag to reorder)"
+					class={[
+						"flex h-full w-full flex-col overflow-hidden border border-line-soft bg-surface-raised text-left transition-colors select-none",
+						reorderable
+							? "cursor-grab active:cursor-grabbing"
+							: "cursor-pointer",
+						"hover:border-primary-500 hover:bg-surface",
+					]}
 				>
 					<div
 						class="relative aspect-video w-full overflow-hidden bg-neutral-900"
@@ -108,6 +110,7 @@ $effect(() => {
 								src={thumbnails[entry.id]}
 								alt=""
 								loading="lazy"
+								draggable={false}
 								class="h-full w-full object-cover"
 							>
 						{/if}
@@ -150,28 +153,6 @@ $effect(() => {
 							</span>
 						{/if}
 					</div>
-					{#if reorderable}
-						<!--
-							The grip lives inside the card so `group-hover` on the card reveals it; it sits over the thumbnail, out of the button's flow.
-							It starts its own pointer drag, so the click handler ignores the click that follows a drag.
-						-->
-						<span
-							role="presentation"
-							aria-hidden="true"
-							in:scale={gripMotion}
-							out:scale={gripMotion}
-							{...reorder.cardGripHandlers(entry.id, () => card)}
-							onclick={event => event.stopPropagation()}
-							class={[
-	"absolute top-1 left-1 z-10 flex cursor-grab items-center border border-white/20 bg-black/75 px-1 py-0.5 leading-none text-neutral-400 select-none hover:text-neutral-100",
-	reorder.draggingId !== null
-		? "opacity-100"
-		: "opacity-0 group-hover:opacity-100 focus-within:opacity-100",
-]}
-						>
-							⠿
-						</span>
-					{/if}
 				</button>
 			</li>
 		{/each}

@@ -1,5 +1,5 @@
 // Drag-and-drop and keyboard reordering for a list of items that have ids.
-// Shared by the projects list, the timelapse list and the timelapse grid; the owner renders the grip (or makes the whole item draggable) and wires the handlers.
+// Shared by the projects list, the timelapse list and the timelapse grid; each item is draggable from anywhere and the owner wires the handlers.
 
 // Reordering on every dragover would thrash the FLIP animations, so wait for the current shift to settle before allowing the next one.
 const REORDER_COOLDOWN = 160
@@ -97,7 +97,7 @@ export class ListReorder<T extends { id: string }> {
 		this.draggingId = null
 	}
 
-	/** Start dragging `id`, using the grip's row as the drag image. */
+	/** Start dragging `id`, using the row as the drag image. */
 	startDrag = (event: DragEvent, id: string) => {
 		this.draggingId = id
 		const row = (event.currentTarget as HTMLElement).closest("li")
@@ -124,8 +124,8 @@ export class ListReorder<T extends { id: string }> {
 		this.moveTo(from, from + delta)
 	}
 
-	/** Arrow-key handler for a grip. */
-	gripKeydown = (id: string) => (event: KeyboardEvent) => {
+	/** Arrow-key handler for an item. */
+	itemKeydown = (id: string) => (event: KeyboardEvent) => {
 		if (event.key === "ArrowUp") {
 			event.preventDefault()
 			this.moveBy(id, -1)
@@ -136,7 +136,7 @@ export class ListReorder<T extends { id: string }> {
 	}
 
 	// Grid ordering: the item under the pointer wins; past the last card (over the container's empty tail) the dragged item goes to the end.
-	/** Latest pointer position; captured on pointerdown so a grip's own drag handler can pick it up. */
+	/** Latest pointer position; captured on pointerdown so a drag is only counted once the pointer actually moves. */
 	#pointerOrigin: { x: number; y: number } | null = null
 
 	/** Item under `(x, y)`, ignoring the item being dragged (whose slot is where the drag image sits). */
@@ -209,7 +209,7 @@ export class ListReorder<T extends { id: string }> {
 		return true
 	}
 
-	/** Begin a pointer drag; the item is identified by the nearest `[data-reorder-id]` under the grip. */
+	/** Begin a pointer drag of `id` from anywhere on the item. */
 	startPointerDrag = (event: PointerEvent, id: string) => {
 		if (!isPrecisePointer(event)) return
 		this.draggingId = id
@@ -238,38 +238,5 @@ export class ListReorder<T extends { id: string }> {
 		window.addEventListener("pointermove", onMove)
 		window.addEventListener("pointerup", stop)
 		window.addEventListener("pointercancel", stop)
-	}
-
-	/** Pointer handlers for a grid card's grip: it starts a pointer drag and floats a snapshot of the card from where it was grabbed. */
-	cardGripHandlers(id: string, card: () => HTMLElement | undefined) {
-		return {
-			onpointerdown: (event: PointerEvent) => {
-				const node = card()
-				// `dataTransfer` isn't on the pointer event; read it off the live drag data store if the browser has one.
-				const transfer = (
-					event as PointerEvent & { dataTransfer?: DataTransfer }
-				).dataTransfer
-				if (node && transfer) {
-					// Clone the card so the drag image is a still snapshot: the original dims mid-drag and would otherwise flicker into the drag ghost.
-					const ghost = node.cloneNode(true) as HTMLElement
-					const rect = node.getBoundingClientRect()
-					ghost.style.width = `${rect.width}px`
-					ghost.style.height = `${rect.height}px`
-					ghost.style.position = "fixed"
-					ghost.style.top = "-1000px"
-					ghost.style.left = "-1000px"
-					document.body.append(ghost)
-					transfer.setDragImage(
-						ghost,
-						event.clientX - rect.left,
-						event.clientY - rect.top
-					)
-					// The browser snapshots the ghost synchronously, so it can leave the DOM on the next frame.
-					requestAnimationFrame(() => ghost.remove())
-				}
-				this.startPointerDrag(event, id)
-			},
-			onkeydown: this.gripKeydown(id),
-		}
 	}
 }

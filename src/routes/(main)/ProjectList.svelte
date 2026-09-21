@@ -1,7 +1,7 @@
 <script lang="ts">
 import { flip } from "svelte/animate"
 import { prefersReducedMotion } from "svelte/motion"
-import { fly, slide } from "svelte/transition"
+import { fly } from "svelte/transition"
 import { DEFAULT_PROJECT_NAME, type Project } from "#lib/project-storage.js"
 import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
 import { ListReorder } from "./list-reorder.svelte.js"
@@ -44,13 +44,6 @@ const reorder = new ListReorder(
 // Rows fade and slide in and out; instant for reduced-motion users. Transitions are local, so switching projects doesn't animate them.
 const rowTransition = $derived(
 	prefersReducedMotion.current ? { duration: 0 } : { duration: 150, y: -6 }
-)
-
-// The reorder grip slides its width in and out as the list gains or loses a second item.
-const gripTransition = $derived(
-	prefersReducedMotion.current
-		? { duration: 0 }
-		: { axis: "x" as const, duration: 150 }
 )
 
 // A freshly created project asks for its name field; start renaming it so the request isn't lost.
@@ -108,30 +101,20 @@ function closeMenu(restoreFocus = false) {
 			in:fly={rowTransition}
 			out:fly={rowTransition}
 			oncontextmenu={event => openMenu(event, project)}
+			draggable={projects.length > 1 && renamingId !== project.id}
+			ondragstart={event => reorder.startDrag(event, project.id)}
+			ondragend={reorder.endDrag}
 			class={[
 				"project-row -mx-1.5 flex items-center gap-1 border-b border-l-2 border-line-soft px-1.5 py-0.5 transition-colors hover:bg-neutral-800/40",
 				project.id === currentProjectId
 					? "border-l-primary-500"
 					: "border-l-transparent",
 				reorder.draggingId === project.id ? "opacity-50" : "",
+				projects.length > 1 && renamingId !== project.id
+					? "cursor-grab active:cursor-grabbing"
+					: "",
 			]}
 		>
-			{#if projects.length > 1}
-				<button
-					type="button"
-					draggable="true"
-					in:slide={gripTransition}
-					out:slide={gripTransition}
-					title="Drag to reorder"
-					aria-label="Reorder {project.name}"
-					onkeydown={reorder.gripKeydown(project.id)}
-					ondragstart={event => reorder.startDrag(event, project.id)}
-					ondragend={reorder.endDrag}
-					class="flex cursor-grab items-center px-0.5 select-none text-neutral-500 transition-colors hover:text-neutral-300 active:cursor-grabbing"
-				>
-					⠿
-				</button>
-			{/if}
 			{#if renamingId === project.id}
 				<input
 					type="text"
@@ -157,9 +140,13 @@ function closeMenu(restoreFocus = false) {
 				<button
 					type="button"
 					onclick={() => onSelectProject(project.id)}
-					title={project.name}
+					onkeydown={reorder.itemKeydown(project.id)}
+					title="{project.name} (drag to reorder)"
 					class={[
-						"min-w-0 flex-1 cursor-pointer truncate px-1.5 py-0.5 text-left transition-colors",
+						"min-w-0 flex-1 truncate px-1.5 py-0.5 text-left transition-colors",
+						projects.length > 1
+							? "cursor-grab active:cursor-grabbing"
+							: "cursor-pointer",
 						project.id === currentProjectId
 							? "font-medium text-primary-300"
 							: "text-neutral-300 hover:text-white",
