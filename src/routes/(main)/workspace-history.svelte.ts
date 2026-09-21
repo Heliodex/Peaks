@@ -96,13 +96,23 @@ function describeSelections(
 	if (JSON.stringify(prev) === JSON.stringify(next)) return null
 	if (next.length > prev.length) return "Add selection"
 	if (next.length < prev.length) return "Remove selection"
+
+	// Same selections: tell a drag by the body (length preserved) apart from a drag by an edge (length changed).
+	let moved = false
 	for (const selection of next) {
 		const before = prev.find(item => item.id === selection.id)
 		if (!before) return "Change selection"
 		if ((before.reason ?? "") !== (selection.reason ?? ""))
 			return "Change annotation"
+		if (
+			Math.abs(
+				selection.end - selection.start - (before.end - before.start)
+			) > 1e-6
+		)
+			return "Resize selection"
+		if (Math.abs(selection.start - before.start) > 1e-6) moved = true
 	}
-	return "Move or resize selection"
+	return moved ? "Move selection" : "Change selection"
 }
 
 /** A label for a change within the same project's timelapses (idle overrides, reorders), or null. */
