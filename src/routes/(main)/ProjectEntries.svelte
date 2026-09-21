@@ -68,6 +68,8 @@ function copyId(id: string, x: number, y: number) {
 	ondrop={reorder.onDrop}
 >
 	{#each entries as entry (entry.id)}
+		{const finalDuration = entryFinalDuration(entry)}
+		{const reduced = finalDuration < entry.duration}
 		<li
 			animate:flip={{ duration: 180 }}
 			oncontextmenu={event => openMenu(event, entry)}
@@ -110,8 +112,21 @@ function copyId(id: string, x: number, y: number) {
 				>
 					{entry.name || entry.id}
 				</span>
-				<span class="text-xs text-neutral-400 tabular-nums">
-					{formatDuration(entryFinalDuration(entry))}
+				<span
+					class="flex min-w-0 items-center gap-1 text-xs text-neutral-400 tabular-nums"
+					title="Original {formatDuration(
+						entry.duration
+					)} → final {formatDuration(finalDuration)}"
+				>
+					<span class="truncate"
+						>{formatDuration(entry.duration)}</span
+					>
+					{#if reduced}
+						<span class="shrink-0 text-neutral-600">→</span>
+						<span class="truncate text-neutral-300">
+							{formatDuration(finalDuration)}
+						</span>
+					{/if}
 				</span>
 			</button>
 		</li>
