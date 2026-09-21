@@ -437,6 +437,18 @@ export class WorkspaceHistory {
 		const current = this.nodes[this.currentId]
 		if (current && sameSnapshot(current.snapshot, next)) return
 
+		// Redoing an undone change by hand reuses the undone node instead of branching.
+		if (current)
+			for (const childId of current.children) {
+				const child = this.nodes[childId]
+				if (child && sameSnapshot(child.snapshot, next)) {
+					this.currentId = child.id
+					this.#preferredChild.set(current.id, child.id)
+					this.#persist()
+					return
+				}
+			}
+
 		const seq = this.#nextSeq++
 		const id = `h${seq}`
 		const node: HistoryNode = {
