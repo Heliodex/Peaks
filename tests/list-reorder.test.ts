@@ -153,6 +153,24 @@ describe("ListReorder grid targets", () => {
 		expect(order()).toEqual(["0", "1", "2", "3", "4", "5"])
 	})
 
+	test("holds still when dragging across an earlier row past the last card's edge", () => {
+		withStubbedDom()
+		const { reorder, order } = build(["0", "1", "2", "3", "4", "5"])
+		reorder.draggingId = "0"
+		// First row, beyond the last card's right edge: not the empty tail, so no snap to the end.
+		reorder.onGridDrop(dragEvent(400, 40))
+		expect(order()).toEqual(["0", "1", "2", "3", "4", "5"])
+	})
+
+	test("moves to the end when dropped right of the last card on its row", () => {
+		withStubbedDom()
+		const { reorder, order } = build(["0", "1", "2", "3", "4", "5"])
+		reorder.draggingId = "0"
+		// Same row as the last card, past its right edge: the empty tail.
+		reorder.onGridDrop(dragEvent(400, 100))
+		expect(order()).toEqual(["1", "2", "3", "4", "5", "0"])
+	})
+
 	test("moves the dragged card to the end when dropped past the last one", () => {
 		withStubbedDom()
 		const { reorder, order } = build(["0", "1", "2", "3", "4", "5"])

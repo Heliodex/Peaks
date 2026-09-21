@@ -172,8 +172,10 @@ export class ListReorder<T extends { id: string }> {
 		if (!last) return false
 
 		const rect = last.getBoundingClientRect()
-		// Past the last card's row, or to its right on the same row.
-		return y > rect.top + rect.height / 2 || x > rect.right
+		// Below the last row, or to its right on the same row. The x clause is scoped to the last row so dragging across earlier rows never reads as the empty tail.
+		return (
+			y > rect.top + rect.height / 2 || (x > rect.right && y >= rect.top)
+		)
 	}
 
 	#moveFromPoint(x: number, y: number, force: boolean): boolean {
