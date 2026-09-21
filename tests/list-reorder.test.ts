@@ -65,8 +65,8 @@ describe("ListReorder.moveBy", () => {
 	})
 })
 
-describe("ListReorder pointer targets", () => {
-	// Exercises the grid hit-testing the drag relies on, against stubbed `document` / `window` / `HTMLElement`: cards laid out three per row.
+describe("ListReorder grid targets", () => {
+	// Exercises the grid hit-testing the drag relies on, against stubbed `document` / `HTMLElement`: cards laid out three per row.
 	class StubElement {
 		dataset!: { reorderId: string }
 		getBoundingClientRect!: () => Record<string, number>
@@ -84,21 +84,17 @@ describe("ListReorder pointer targets", () => {
 	})
 
 	const realDocument = Reflect.get(globalThis, "document")
-	const realWindow = Reflect.get(globalThis, "window")
 	const realHTMLElement = Reflect.get(globalThis, "HTMLElement")
 	afterEach(() => {
 		if (realDocument === undefined)
 			Reflect.deleteProperty(globalThis, "document")
 		else Reflect.set(globalThis, "document", realDocument)
-		if (realWindow === undefined)
-			Reflect.deleteProperty(globalThis, "window")
-		else Reflect.set(globalThis, "window", realWindow)
 		if (realHTMLElement === undefined)
 			Reflect.deleteProperty(globalThis, "HTMLElement")
 		else Reflect.set(globalThis, "HTMLElement", realHTMLElement)
 	})
 
-	/** Stub the DOM the pointer drag reads, and expose a way to fire window pointer events. */
+	/** Stub the DOM the grid drag reads. */
 	function withStubbedDom() {
 		Reflect.set(globalThis, "HTMLElement", StubElement)
 
@@ -118,87 +114,68 @@ describe("ListReorder pointer targets", () => {
 				hits.has(`${x},${y}`) ? [hits.get(`${x},${y}`)] : [],
 			querySelectorAll: (selector: string) =>
 				selector === "[data-reorder-id]" ? nodes : [],
-			body: { style: {} },
-		})
-
-		const listeners = new Map<string, Array<(event: unknown) => void>>()
-		Reflect.set(globalThis, "window", {
-			addEventListener: (
-				type: string,
-				handler: (event: unknown) => void
-			) => listeners.set(type, [...(listeners.get(type) ?? []), handler]),
-			removeEventListener: (
-				type: string,
-				handler: (event: unknown) => void
-			) =>
-				listeners.set(
-					type,
-					(listeners.get(type) ?? []).filter(item => item !== handler)
-				),
 		})
 
 		return {
 			nodes,
 			hit: (x: number, y: number, node: unknown) =>
 				hits.set(`${x},${y}`, node),
-			fire: (type: string, x: number, y: number) => {
-				for (const handler of listeners.get(type) ?? [])
-					handler({
-						type,
-						pointerType: "mouse",
-						clientX: x,
-						clientY: y,
-						preventDefault: () => {},
-					})
-			},
 		}
 	}
 
-	const pointerDown = (x: number, y: number) =>
+	const dragEvent = (x: number, y: number) =>
 		({
-			pointerType: "mouse",
 			clientX: x,
 			clientY: y,
 			preventDefault: () => {},
-		}) as PointerEvent
+			dataTransfer: {},
+		}) as DragEvent
 
-	test("moves onto the card under the pointer", () => {
+	test("moves onto the card under the pointer", async () => {
 		const dom = withStubbedDom()
 		const { reorder, order } = build(["0", "1", "2", "3", "4", "5"])
-		reorder.startPointerDrag(pointerDown(10, 10), "0")
+		reorder.draggingId = "0"
 		dom.hit(220, 40, dom.nodes[2])
-		dom.fire("pointermove", 220, 40)
+		// Live-reorders are paced so FLIP shifts can settle; wait out the cooldown.
+		await Bun.sleep(200)
+		reorder.onGridDragOver(dragEvent(220, 40))
 		// Card 2 is ahead of the dragged card, so the dragged card lands just before it.
 		expect(order()).toEqual(["1", "0", "2", "3", "4", "5"])
-		dom.fire("pointerup", 220, 40)
-		expect(reorder.draggingId).toBeNull()
 	})
 
-	test("moves the dragged card to the end when dropped past the last one", () => {
+	test("holds still when the pointer is over the dragged card, even in the empty tail", () => {
 		const dom = withStubbedDom()
 		const { reorder, order } = build(["0", "1", "2", "3", "4", "5"])
-		reorder.startPointerDrag(pointerDown(10, 10), "0")
-		// Below the last card's midpoint, over the empty tail of the wrapping grid.
-		dom.fire("pointermove", 400, 140)
-		expect(order()).toEqual(["1", "2", "3", "4", "5", "0"])
-	})
-
-	test("is a no-op past the last card when it is already there", () => {
-		const dom = withStubbedDom()
-		const { reorder, order } = build(["0", "1", "2", "3", "4", "5"])
-		reorder.startPointerDrag(pointerDown(10, 10), "5")
-		dom.fire("pointermove", 400, 140)
+		reorder.draggingId = "0"
+		// Over the dragged card itself, at a point past the last card that would otherwise send it to the end.
+		dom.hit(400, 140, dom.nodes[0])
+		reorder.onGridDrop(dragEvent(400, 140))
 		expect(order()).toEqual(["0", "1", "2", "3", "4", "5"])
 	})
 
-	test("marks a real drag so the click that follows is ignored", () => {
+	test("moves the dragged card to the end when dropped past the last one", () => {
+		withStubbedDom()
+		const { reorder, order } = build(["0", "1", "2", "3", "4", "5"])
+		reorder.draggingId = "0"
+		// Below the last card's midpoint, over the empty tail of the wrapping grid.
+		reorder.onGridDrop(dragEvent(400, 140))
+		expect(order()).toEqual(["1", "2", "3", "4", "5", "0"])
+		expect(reorder.draggingId).toBeNull()
+	})
+
+	test("is a no-op past the last card when it is already there", () => {
+		withStubbedDom()
+		const { reorder, order } = build(["0", "1", "2", "3", "4", "5"])
+		reorder.draggingId = "5"
+		reorder.onGridDrop(dragEvent(400, 140))
+		expect(order()).toEqual(["0", "1", "2", "3", "4", "5"])
+	})
+
+	test("ignores dragover with no active drag", () => {
 		const dom = withStubbedDom()
-		const { reorder } = build(["0", "1", "2", "3", "4", "5"])
-		reorder.startPointerDrag(pointerDown(10, 10), "0")
-		expect(reorder.takeDragged()).toBe(false)
-		dom.fire("pointermove", 400, 140)
-		expect(reorder.takeDragged()).toBe(true)
-		// Only consumed once.
-		expect(reorder.takeDragged()).toBe(false)
+		const { reorder, order } = build(["0", "1", "2", "3", "4", "5"])
+		dom.hit(220, 40, dom.nodes[2])
+		reorder.onGridDragOver(dragEvent(220, 40))
+		expect(order()).toEqual(["0", "1", "2", "3", "4", "5"])
 	})
 })

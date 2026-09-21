@@ -37,7 +37,7 @@ const reorder = new ListReorder(
 	updated => onReorder(updated)
 )
 
-// The card being dragged is hidden (its floating drag image follows the pointer), so mark it.
+// The card being dragged dims while its drag image follows the pointer, so mark it.
 const reorderable = $derived(entries.length > 1)
 
 // Thumbnail URLs for the current entries. They resolve after the grid has rendered, so titles and times show immediately and images fill in.
@@ -67,14 +67,17 @@ $effect(() => {
 <section class="area-video min-h-0 overflow-y-auto bg-black p-4">
 	<ul
 		class="grid min-h-full grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] content-start gap-3"
-		ondragover={reorder.onDragOver}
-		ondrop={reorder.onDrop}
+		ondragover={reorder.onGridDragOver}
+		ondrop={reorder.onGridDrop}
 	>
 		{#each entries as entry (entry.id)}
 			<li
 				data-reorder-id={entry.id}
 				out:scale|local={cardTransition}
 				animate:flip={cardShift}
+				draggable={reorderable}
+				ondragstart={event => reorder.startDrag(event, entry.id)}
+				ondragend={reorder.endDrag}
 				class={[
 	"group relative",
 	reorder.draggingId === entry.id
@@ -84,14 +87,7 @@ $effect(() => {
 			>
 				<button
 					type="button"
-					onclick={() => {
-	// A drag ends with a click; ignore that one so dragging a card doesn't open it.
-	if (reorder.takeDragged()) return
-	onLoad(entry.id)
-}}
-					onpointerdown={reorderable
-						? event => reorder.startPointerDrag(event, entry.id)
-						: undefined}
+					onclick={() => onLoad(entry.id)}
 					onkeydown={reorder.itemKeydown(entry.id)}
 					title="{entry.name || entry.id} (drag to reorder)"
 					class={[
