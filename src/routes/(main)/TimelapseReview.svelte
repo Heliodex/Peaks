@@ -550,7 +550,12 @@ const summary = new ProjectSummary({
 	{:else if routeParam && !session.loaded}
 		{@render centeredState("Loading timelapse…", true)}
 	{:else if workspace.projectEntries.length > 0}
-		<ProjectTimelapses entries={workspace.projectEntries} onLoad={loadId} />
+		<ProjectTimelapses
+			entries={workspace.projectEntries}
+			onLoad={loadId}
+			onReorder={timelapses =>
+				workspace.reorderCurrentProject(timelapses)}
+		/>
 	{:else}
 		{@render centeredState(
 			"No timelapses in this project. Add one from the Project panel."
