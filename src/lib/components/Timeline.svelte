@@ -1,6 +1,10 @@
 <script lang="ts">
 import { prefersReducedMotion, Spring } from "svelte/motion"
-import { effectiveIdleRanges, selectionColors } from "#lib/annotations.js"
+import {
+	ANNOTATION_REASONS,
+	effectiveIdleRanges,
+	selectionColors,
+} from "#lib/annotations.js"
 import { isTyping } from "#lib/dom.js"
 import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
 import { IdleAnalysis } from "#lib/idle-time.svelte.js"
@@ -12,6 +16,7 @@ import {
 	type TimelineSelection,
 } from "#lib/timeline.js"
 import { FrameStrip } from "#lib/timeline-frames.svelte.js"
+import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
 import TimelineFrames from "./TimelineFrames.svelte"
 import TimelineNavigator from "./TimelineNavigator.svelte"
 import TimelineTicks from "./TimelineTicks.svelte"
@@ -141,6 +146,66 @@ function pointerToTime(clientX: number, target: HTMLElement): number {
 	return viewport.view.start + ratio * viewport.span
 }
 
+/** Right-click menu for a timeline selection, if open. */
+let selectionMenu = $state<{
+	id: string
+	index: number
+	x: number
+	y: number
+} | null>(null)
+// Focus to restore when the menu is dismissed with Escape.
+let previousFocus: HTMLElement | null = null
+// Set after a right-drag pan so the contextmenu that follows it doesn't open a menu.
+let suppressSelectionMenu = false
+
+function setSelectionReason(id: string, reason: string) {
+	selections = selections.map(selection =>
+		selection.id === id ? { ...selection, reason } : selection
+	)
+}
+
+function removeTimelineSelection(id: string) {
+	selections = selections.filter(selection => selection.id !== id)
+	if (editor.hoveredSelectionId === id) editor.hoveredSelectionId = null
+}
+
+function onTrackPointerDown(event: PointerEvent) {
+	suppressSelectionMenu = false
+	editor.onPointerDown(event)
+}
+
+function onTrackPointerUp(event: PointerEvent) {
+	const panned = editor.pan !== null && editor.panMoved
+	editor.onPointerUp(event)
+	editor.panMoved = false
+	if (panned) suppressSelectionMenu = true
+}
+
+/** Open the reason menu for a right-clicked selection; a pan that just ended suppresses it. */
+function onSelectionContextMenu(
+	event: MouseEvent,
+	sel: TimelineSelection,
+	index: number
+) {
+	// Right-clicking the delete button does nothing; the track still suppresses the native menu.
+	if ((event.target as HTMLElement).closest("[data-delete]")) return
+	if (suppressSelectionMenu) {
+		suppressSelectionMenu = false
+		return
+	}
+	previousFocus = document.activeElement as HTMLElement | null
+	selectionMenu = {
+		id: sel.id,
+		index,
+		...contextMenuPosition(event, { width: 224, height: 300 }),
+	}
+}
+
+function closeSelectionMenu(restoreFocus = false) {
+	selectionMenu = null
+	if (restoreFocus) previousFocus?.focus()
+}
+
 /**
  * Attaches wheel-to-zoom and right-drag support to the track.
  * Uses an attachment so the wheel listener can be non-passive (reliably preventing page scroll) and so the right-click context menu can be suppressed for panning.
@@ -238,10 +303,10 @@ function onKeyDown(event: KeyboardEvent) {
 					: editor.pan
 						? "cursor-grabbing"
 						: '']}
-			onpointerdown={event => editor.onPointerDown(event)}
+			onpointerdown={onTrackPointerDown}
 			onpointermove={onPointerMove}
-			onpointerup={event => editor.onPointerUp(event)}
-			onpointercancel={event => editor.onPointerUp(event)}
+			onpointerup={onTrackPointerUp}
+			onpointercancel={onTrackPointerUp}
 			onpointerleave={onPointerLeave}
 			{@attach timelineGestures}
 			tabindex="0"
@@ -278,7 +343,7 @@ function onKeyDown(event: KeyboardEvent) {
 			{/each}
 
 			<!-- Selections, clamped to the visible window -->
-			{#each selections as sel (sel.id)}
+			{#each selections as sel, i (sel.id)}
 				{const visibleStart = $derived(
 					Math.max(sel.start, viewport.view.start)
 				)}
@@ -287,6 +352,9 @@ function onKeyDown(event: KeyboardEvent) {
 				)}
 				{const color = $derived(selectionColors(sel.reason))}
 				{#if visibleEnd > visibleStart}
+					<!-- The selection is pointer-dragged and right-clicked; keyboard editing lives in the selections panel. -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<!-- biome-ignore lint/a11y/noStaticElementInteractions: selection overlays are pointer-driven; keyboard editing lives in the selections panel -->
 					<div
 						class={[
 							"group absolute inset-y-0",
@@ -295,6 +363,8 @@ function onKeyDown(event: KeyboardEvent) {
 								: "cursor-grab active:cursor-grabbing",
 						]}
 						data-selection-id={sel.id}
+						oncontextmenu={event =>
+							onSelectionContextMenu(event, sel, i)}
 						style:left="{percentWithin(visibleStart, viewport.view)}%"
 						style:width="{percentWithin(visibleEnd, viewport.view) -
 							percentWithin(visibleStart, viewport.view)}%"
@@ -387,5 +457,38 @@ function onKeyDown(event: KeyboardEvent) {
 			playbackUrl={timelapse.playbackUrl}
 			captureFrame={frameStrip.captureAt}
 		/>
+
+		{#if selectionMenu}
+			{const current = selectionMenu}
+			{const target = selections.find(
+				selection => selection.id === current.id
+			)}
+			{#if target}
+				<ContextMenu
+					x={current.x}
+					y={current.y}
+					label="Reason for selection {current.index + 1}"
+					onClose={closeSelectionMenu}
+					items={[
+						{
+							label: "No reason",
+							active: !target.reason,
+							onSelect: () => setSelectionReason(target.id, ""),
+						},
+						...ANNOTATION_REASONS.map(reason => ({
+							label: reason.label,
+							active: target.reason === reason.id,
+							onSelect: () =>
+								setSelectionReason(target.id, reason.id),
+						})),
+						{
+							label: "Delete selection",
+							danger: true,
+							onSelect: () => removeTimelineSelection(target.id),
+						},
+					]}
+				/>
+			{/if}
+		{/if}
 	</div>
 {/if}

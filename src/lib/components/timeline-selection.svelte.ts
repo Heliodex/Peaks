@@ -53,6 +53,8 @@ export class SelectionEditor {
 	drag = $state<DragState>(null)
 	pan = $state<PanState>(null)
 	hoveredSelectionId = $state<string | null>(null)
+	/** Whether the current pan travelled past a click, so the contextmenu that follows it can be ignored. */
+	panMoved = $state(false)
 
 	#nextId = 0
 
@@ -122,12 +124,13 @@ export class SelectionEditor {
 	}
 
 	#startPan(event: PointerEvent, track: HTMLElement) {
-		event.preventDefault()
+		// No preventDefault here: cancelling a right-button press stops the browser firing the contextmenu event the selection menu relies on. The track's contextmenu handler already suppresses the native menu, and panning captures the pointer.
 		this.pan = {
 			startX: event.clientX,
 			startView: this.#options.view().start,
 			span: this.#options.viewSpan(),
 		}
+		this.panMoved = false
 		track.setPointerCapture(event.pointerId)
 	}
 
@@ -231,6 +234,7 @@ export class SelectionEditor {
 
 	onPointerDown(event: PointerEvent) {
 		const track = event.currentTarget as HTMLElement
+		this.panMoved = false
 
 		// Right-drag pans the visible window.
 		if (event.button === 2) return this.#startPan(event, track)
@@ -256,6 +260,8 @@ export class SelectionEditor {
 		if (!this.pan) return
 		const rect = track.getBoundingClientRect()
 		if (rect.width <= 0) return
+		if (Math.abs(event.clientX - this.pan.startX) > DRAG_THRESHOLD_PX)
+			this.panMoved = true
 		const delta =
 			((event.clientX - this.pan.startX) / rect.width) * this.pan.span
 		const start = clamp(

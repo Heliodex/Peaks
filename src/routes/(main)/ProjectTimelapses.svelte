@@ -2,10 +2,12 @@
 import { flip } from "svelte/animate"
 import { prefersReducedMotion } from "svelte/motion"
 import { fade, scale } from "svelte/transition"
+import ContextMenu, {
+	contextMenuPosition,
+} from "#lib/components/ContextMenu.svelte"
 import { createCopyToClipboard } from "#lib/copy.svelte.js"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
 import { getTimelapseThumbnails } from "./api.remote.js"
-import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
 import { ListReorder } from "./list-reorder.svelte.js"
 import {
 	annotationTotal,

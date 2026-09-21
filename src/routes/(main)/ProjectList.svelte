@@ -2,8 +2,10 @@
 import { flip } from "svelte/animate"
 import { prefersReducedMotion } from "svelte/motion"
 import { fly } from "svelte/transition"
+import ContextMenu, {
+	contextMenuPosition,
+} from "#lib/components/ContextMenu.svelte"
 import { DEFAULT_PROJECT_NAME, type Project } from "#lib/project-storage.js"
-import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
 import { ListReorder } from "./list-reorder.svelte.js"
 
 let {

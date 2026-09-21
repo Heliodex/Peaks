@@ -3,6 +3,8 @@ export type ContextMenuItem = {
 	label: string
 	/** Style the item as destructive. */
 	danger?: boolean
+	/** Mark the item as currently selected. */
+	active?: boolean
 	onSelect: () => void
 }
 
@@ -113,6 +115,7 @@ $effect(() => {
 		<button
 			type="button"
 			role="menuitem"
+			aria-current={item.active ? "true" : undefined}
 			onclick={() => {
 				item.onSelect()
 				onClose()
@@ -124,6 +127,9 @@ $effect(() => {
 					: "hover:bg-neutral-800/70 hover:text-white focus:bg-neutral-800/70 focus:text-white active:bg-primary-500/20 active:text-primary-200",
 			]}
 		>
+			{#if item.active}
+				<span aria-hidden="true">✓</span>
+			{/if}
 			{item.label}
 		</button>
 	{/each}
