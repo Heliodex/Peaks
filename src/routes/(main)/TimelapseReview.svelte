@@ -170,10 +170,19 @@ const gripResetTimers = new WeakMap<
 	HTMLElement,
 	ReturnType<typeof setTimeout>
 >()
+// The resize in progress, so its grip keeps following the pointer even off the thin handle.
+let resizing: {
+	handle: HTMLElement
+	orientation: "vertical" | "horizontal"
+} | null = null
 
-/** Move the resize grip to sit next to the pointer, so it reads as the grab point rather than a centred rail. */
-function moveGrip(event: PointerEvent, orientation: "vertical" | "horizontal") {
-	const handle = event.currentTarget as HTMLElement
+/** Move the resize grip to sit next to the pointer, cancelling any pending recentre. */
+function positionGrip(
+	handle: HTMLElement,
+	orientation: "vertical" | "horizontal",
+	clientX: number,
+	clientY: number
+) {
 	const pending = gripResetTimers.get(handle)
 	if (pending !== undefined) {
 		clearTimeout(pending)
@@ -182,15 +191,12 @@ function moveGrip(event: PointerEvent, orientation: "vertical" | "horizontal") {
 
 	const rect = handle.getBoundingClientRect()
 	const offset =
-		orientation === "vertical"
-			? event.clientY - rect.top
-			: event.clientX - rect.left
+		orientation === "vertical" ? clientY - rect.top : clientX - rect.left
 	handle.style.setProperty("--grip-position", `${offset}px`)
 }
 
-/** Recentre the grip once the pointer has left and its fade-out has finished. */
-function resetGrip(event: PointerEvent) {
-	const handle = event.currentTarget as HTMLElement
+/** Recentre the grip once the pointer has left (or the drag ended) and the fade-out has finished. */
+function scheduleGripReset(handle: HTMLElement) {
 	clearTimeout(gripResetTimers.get(handle))
 	gripResetTimers.set(
 		handle,
@@ -199,6 +205,62 @@ function resetGrip(event: PointerEvent) {
 			handle.style.removeProperty("--grip-position")
 		}, GRIP_RESET_DELAY_MS)
 	)
+}
+
+function moveGrip(event: PointerEvent, orientation: "vertical" | "horizontal") {
+	positionGrip(
+		event.currentTarget as HTMLElement,
+		orientation,
+		event.clientX,
+		event.clientY
+	)
+}
+
+function resetGrip(event: PointerEvent) {
+	const handle = event.currentTarget as HTMLElement
+	// While a resize is running the grip stays with the pointer, even off the thin handle.
+	if (resizing?.handle === handle) return
+	scheduleGripReset(handle)
+}
+
+/**
+ * Start a resize and keep the grip on the pointer via window events until the drag ends.
+ * The pointer often leaves the narrow handle while resizing quickly or once a pane hits its minimum, and the grip must stay put rather than recentring.
+ */
+function beginResize(
+	event: PointerEvent,
+	orientation: "vertical" | "horizontal",
+	onpointerdown: (event: PointerEvent) => void
+) {
+	const handle = event.currentTarget as HTMLElement
+	positionGrip(handle, orientation, event.clientX, event.clientY)
+	resizing = { handle, orientation }
+	window.addEventListener("pointermove", onWindowResizeMove)
+	window.addEventListener("pointerup", endResize)
+	window.addEventListener("pointercancel", endResize)
+	onpointerdown(event)
+}
+
+function onWindowResizeMove(event: PointerEvent) {
+	const state = resizing
+	if (state)
+		positionGrip(
+			state.handle,
+			state.orientation,
+			event.clientX,
+			event.clientY
+		)
+}
+
+function endResize() {
+	const state = resizing
+	resizing = null
+	window.removeEventListener("pointermove", onWindowResizeMove)
+	window.removeEventListener("pointerup", endResize)
+	window.removeEventListener("pointercancel", endResize)
+	// Leave the grip under the pointer if it's still over the handle; otherwise let it fade back to the centre.
+	if (state && !state.handle.matches(":hover"))
+		scheduleGripReset(state.handle)
 }
 
 /**
@@ -334,7 +396,8 @@ const summary = new ProjectSummary({
 		aria-valuenow={Math.round(options.value)}
 		aria-valuemin={Math.round(options.min)}
 		aria-valuemax={Math.round(options.max)}
-		onpointerdown={options.onpointerdown}
+		onpointerdown={event =>
+			beginResize(event, options.orientation, options.onpointerdown)}
 		onpointermove={event => moveGrip(event, options.orientation)}
 		onpointerleave={resetGrip}
 		onkeydown={options.onkeydown}
