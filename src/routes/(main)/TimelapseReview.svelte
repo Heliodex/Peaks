@@ -555,6 +555,7 @@ const summary = new ProjectSummary({
 			onLoad={loadId}
 			onReorder={timelapses =>
 				workspace.reorderCurrentProject(timelapses)}
+			onRemoveTimelapse={removeEntry}
 		/>
 	{:else}
 		{@render centeredState(
