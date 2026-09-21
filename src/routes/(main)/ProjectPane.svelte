@@ -82,6 +82,10 @@ let {
 			{onNameFocused}
 		/>
 
+		<span class="text-xs uppercase tracking-wide text-neutral-400">
+			Timelapses
+		</span>
+
 		{#if projectEntries.length > 0}
 			<ProjectEntries
 				entries={projectEntries}
