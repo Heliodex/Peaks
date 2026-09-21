@@ -227,6 +227,8 @@ export class WorkspaceHistory {
 
 	#nextSeq = 0
 	#timer: ReturnType<typeof setTimeout> | undefined
+	// The child last navigated into, per parent, so redo returns to the branch we were on rather than the newest one.
+	#preferredChild = new Map<string, string>()
 
 	constructor(options: WorkspaceHistoryOptions) {
 		this.#read = options.read
@@ -237,6 +239,13 @@ export class WorkspaceHistory {
 			this.nodes = persisted.nodes
 			this.currentId = persisted.currentId
 			this.#nextSeq = persisted.nextId
+			// Reinstate this branch's forks, so redo follows the path we left off on.
+			for (let id = this.currentId; id; ) {
+				const parent = this.nodes[id]?.parent
+				if (!parent) break
+				this.#preferredChild.set(parent, id)
+				id = parent
+			}
 		}
 	}
 
@@ -374,9 +383,19 @@ export class WorkspaceHistory {
 	redo() {
 		this.#flush()
 		const current = this.nodes[this.currentId]
-		const childId = current?.children[current.children.length - 1]
-		const child = childId ? this.nodes[childId] : null
+		if (!current) return
+		const child = this.#redoChild(current)
 		if (child) this.#go(child)
+	}
+
+	/** The child redo should move into: the last branch visited from here, falling back to the newest. */
+	#redoChild(current: HistoryNode): HistoryNode | null {
+		const preferred = this.#preferredChild.get(current.id)
+		const childId =
+			preferred && current.children.includes(preferred)
+				? preferred
+				: current.children[current.children.length - 1]
+		return childId ? (this.nodes[childId] ?? null) : null
 	}
 
 	/** Revert to a specific node. */
@@ -389,6 +408,9 @@ export class WorkspaceHistory {
 
 	#go(node: HistoryNode) {
 		this.currentId = node.id
+		// Remember the branch we moved into, so redo returns here.
+		const parent = node.parent
+		if (parent) this.#preferredChild.set(parent, node.id)
 		this.#apply(node.snapshot)
 		this.#persist()
 	}
@@ -426,6 +448,8 @@ export class WorkspaceHistory {
 
 		this.nodes = pruneLeaves(nodes, id, MAX_NODES)
 		this.currentId = id
+		// A freshly recorded change becomes the branch to redo into.
+		if (current) this.#preferredChild.set(current.id, id)
 		this.#persist()
 	}
 
