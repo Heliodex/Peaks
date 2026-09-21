@@ -252,25 +252,17 @@ export class WorkspaceHistory {
 		const onPath = pathIds(nodes, this.currentId)
 		const redoable = new Set(nodes[this.currentId]?.children ?? [])
 
-		/** Children with the lineage's child first, so the current path reads consistently. */
-		const childrenInOrder = (node: HistoryNode): HistoryNode[] => {
-			const children = node.children
+		// Children stay in creation order, so the layout depends only on the tree and navigating between branches never moves a node.
+		const childNodes = (node: HistoryNode): HistoryNode[] =>
+			node.children
 				.map(id => nodes[id])
 				.filter((child): child is HistoryNode => Boolean(child))
-			if (!onPath.has(node.id)) return children
-			const index = children.findIndex(child => onPath.has(child.id))
-			if (index > 0) {
-				const [lineageChild] = children.splice(index, 1)
-				if (lineageChild) children.unshift(lineageChild)
-			}
-			return children
-		}
 
 		// Tidy tree: leaves take sequential columns, each parent centres over its children.
 		const positions = new Map<string, { x: number; y: number }>()
 		let nextColumn = 0
 		const place = (node: HistoryNode, depth: number): number => {
-			const children = childrenInOrder(node)
+			const children = childNodes(node)
 			let column: number
 			if (children.length === 0) {
 				column = nextColumn++
@@ -298,9 +290,7 @@ export class WorkspaceHistory {
 					redoable: redoable.has(node.id),
 				})
 			}
-			for (const childId of node.children) {
-				const child = nodes[childId]
-				if (!child) continue
+			for (const child of childNodes(node)) {
 				const from = positions.get(node.id)
 				const to = positions.get(child.id)
 				if (from && to) {
