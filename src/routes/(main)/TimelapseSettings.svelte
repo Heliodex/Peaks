@@ -41,6 +41,8 @@ const shortcuts = $derived<{ description: string; keys: string[] }[]>([
 const NODE = HISTORY_NODE_SIZE
 const MIN_SCALE = 0.3
 const MAX_SCALE = 2
+// Keep at least this much of the graph on screen, so panning can't lose every node.
+const PAN_MARGIN = 64
 
 const graph = $derived(history.graph)
 const currentLabel = $derived(history.nodes[history.currentId]?.label ?? "")
@@ -60,6 +62,22 @@ let dragging = $state<{
 let suppressClick = false
 let hovered = $state<{ label: string; x: number; y: number } | null>(null)
 
+/** Clamp a view so the graph can't be panned fully off-screen. */
+function clampView(next: { x: number; y: number; scale: number }) {
+	const el = canvasEl
+	if (!el) return next
+	const limit = (value: number, extent: number, viewport: number) => {
+		const low = Math.min(PAN_MARGIN - extent, viewport - PAN_MARGIN)
+		const high = Math.max(PAN_MARGIN - extent, viewport - PAN_MARGIN)
+		return Math.min(high, Math.max(low, value))
+	}
+	return {
+		scale: next.scale,
+		x: limit(next.x, graph.width * next.scale, el.clientWidth),
+		y: limit(next.y, graph.height * next.scale, el.clientHeight),
+	}
+}
+
 /** Centre the viewport on the current node. */
 function centreOnCurrent() {
 	const el = canvasEl
@@ -67,11 +85,11 @@ function centreOnCurrent() {
 	if (!el || !node) return
 	const rect = el.getBoundingClientRect()
 	const scale = view.scale
-	view = {
+	view = clampView({
 		x: rect.width / 2 - node.x * scale,
 		y: rect.height / 2 - node.y * scale,
 		scale,
-	}
+	})
 }
 
 // Keep the current node centred as the history grows or the user undoes/redoes/jumps.
@@ -81,11 +99,11 @@ $effect(() => {
 	if (!el || !node) return
 	const scale = untrack(() => view.scale)
 	const rect = el.getBoundingClientRect()
-	view = {
+	view = clampView({
 		x: rect.width / 2 - node.x * scale,
 		y: rect.height / 2 - node.y * scale,
 		scale,
-	}
+	})
 })
 
 function startPan(event: PointerEvent) {
@@ -114,7 +132,11 @@ function movePan(event: PointerEvent) {
 	const dx = event.clientX - state.startX
 	const dy = event.clientY - state.startY
 	if (Math.abs(dx) > 3 || Math.abs(dy) > 3) state.moved = true
-	view = { ...view, x: state.originX + dx, y: state.originY + dy }
+	view = clampView({
+		...view,
+		x: state.originX + dx,
+		y: state.originY + dy,
+	})
 }
 
 function endPan(event: PointerEvent) {
@@ -155,11 +177,11 @@ function canvasGestures(node: HTMLDivElement) {
 		const cursorY = event.clientY - rect.top
 		const worldX = (cursorX - current.x) / current.scale
 		const worldY = (cursorY - current.y) / current.scale
-		view = {
+		view = clampView({
 			scale,
 			x: cursorX - worldX * scale,
 			y: cursorY - worldY * scale,
-		}
+		})
 	}
 	node.addEventListener("wheel", onWheel, { passive: false })
 	return () => node.removeEventListener("wheel", onWheel)
