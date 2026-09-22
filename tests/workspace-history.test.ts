@@ -1,11 +1,21 @@
-import { describe, expect, test } from "bun:test"
+import { afterAll, beforeEach, describe, expect, test } from "bun:test"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 import {
 	describeChange,
 	HISTORY_NODE_SIZE,
+	type HistoryNode,
+	saveHistory,
 	type WorkspaceSnapshot,
 } from "../src/routes/(main)/workspace-history.svelte.ts"
+import {
+	clearLocalStorage,
+	installLocalStorage,
+	removeLocalStorage,
+} from "./helpers.js"
+
+const STORAGE_KEY = "peaks:history"
+const MAX_PERSISTED_BYTES = 1_500_000
 
 const timelapse = (
 	overrides: Partial<ProjectTimelapse> = {}
@@ -162,4 +172,99 @@ describe("describeChange: idle overrides", () => {
 
 test("HISTORY_NODE_SIZE is shared with the view", () => {
 	expect(HISTORY_NODE_SIZE).toBe(16)
+})
+
+/** A chain of `count` nodes, each with its own snapshot, the last one current. */
+function chain(
+	count: number,
+	makeSnapshot: (index: number) => WorkspaceSnapshot
+): { nodes: Record<string, HistoryNode>; currentId: string } {
+	const nodes: Record<string, HistoryNode> = {}
+	let parent: string | null = null
+	for (let i = 0; i < count; i++) {
+		const id = `h${i}`
+		nodes[id] = {
+			id,
+			seq: i,
+			label: "Resize selection",
+			snapshot: makeSnapshot(i),
+			parent,
+			children: [],
+		}
+		if (parent) nodes[parent] = { ...nodes[parent], children: [id] }
+		parent = id
+	}
+	return { nodes, currentId: parent ?? "" }
+}
+
+/** A snapshot whose persisted size is dominated by its idle ranges. */
+function bulkySnapshot(
+	entryCount: number,
+	rangeCount: number
+): WorkspaceSnapshot {
+	const entries = Array.from({ length: entryCount }, (_, e) => {
+		const idleRanges = Array.from({ length: rangeCount }, (_, i) => ({
+			start: i * 3.13,
+			end: i * 3.13 + 1.5,
+		}))
+		return timelapse({ id: `t${e}`, idleRanges })
+	})
+	return snapshot({ projects: [project("p1", "Project", entries)] })
+}
+
+const readStored = (): { currentId: string; nodeCount: number } => {
+	const raw = localStorage.getItem(STORAGE_KEY)
+	if (!raw) return { currentId: "", nodeCount: 0 }
+	const parsed = JSON.parse(raw) as {
+		currentId: string
+		nodes: Record<string, unknown>
+	}
+	return {
+		currentId: parsed.currentId,
+		nodeCount: Object.keys(parsed.nodes).length,
+	}
+}
+
+describe("saveHistory: storage budget", () => {
+	beforeEach(() => {
+		installLocalStorage()
+		clearLocalStorage()
+	})
+
+	afterAll(() => {
+		removeLocalStorage()
+	})
+
+	test("keeps a small tree intact and within budget", () => {
+		const { nodes, currentId } = chain(20, () => snapshot())
+		saveHistory(nodes, currentId, 20)
+
+		const raw = localStorage.getItem(STORAGE_KEY)
+		expect(raw).not.toBeNull()
+		expect((raw as string).length).toBeLessThanOrEqual(MAX_PERSISTED_BYTES)
+		expect(readStored()).toEqual({ currentId, nodeCount: 20 })
+	})
+
+	test("prunes to the budget without dropping the current node", () => {
+		// Each snapshot is a few hundred KiB, so only a handful fit in the budget.
+		const { nodes, currentId } = chain(100, () => bulkySnapshot(24, 400))
+		saveHistory(nodes, currentId, 100)
+
+		const raw = localStorage.getItem(STORAGE_KEY)
+		expect(raw).not.toBeNull()
+		expect((raw as string).length).toBeLessThanOrEqual(MAX_PERSISTED_BYTES)
+
+		const { currentId: storedId, nodeCount } = readStored()
+		expect(storedId).toBe(currentId)
+		// The current branch survives, but the oldest nodes are dropped.
+		expect(nodeCount).toBeGreaterThan(0)
+		expect(nodeCount).toBeLessThan(100)
+	})
+
+	test("drops the key when even one snapshot can't fit", () => {
+		// One snapshot alone exceeds the whole budget.
+		const { nodes, currentId } = chain(3, () => bulkySnapshot(24, 2500))
+		saveHistory(nodes, currentId, 3)
+		expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+	})
 })
