@@ -7,6 +7,8 @@ export type ContextMenuItem = {
 	active?: boolean
 	/** Open the link in a new tab instead of running an action. */
 	href?: string
+	/** Colour dot shown beside the label. */
+	markerClass?: string
 	onSelect?: () => void
 }
 
@@ -145,6 +147,12 @@ $effect(() => {
 				}}
 				class={itemClass}
 			>
+				{#if item.markerClass}
+					<span
+						aria-hidden="true"
+						class={["h-2 w-2 shrink-0", item.markerClass]}
+					></span>
+				{/if}
 				{#if item.active}
 					<span aria-hidden="true">✓</span>
 				{/if}

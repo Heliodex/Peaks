@@ -473,11 +473,13 @@ function onKeyDown(event: KeyboardEvent) {
 						{
 							label: "No reason",
 							active: !target.reason,
+							markerClass: selectionColors(undefined).marker,
 							onSelect: () => setSelectionReason(target.id, ""),
 						},
 						...ANNOTATION_REASONS.map(reason => ({
 							label: reason.label,
 							active: target.reason === reason.id,
+							markerClass: selectionColors(reason.id).marker,
 							onSelect: () =>
 								setSelectionReason(target.id, reason.id),
 						})),
