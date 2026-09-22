@@ -68,6 +68,8 @@ const SETTLE_MS = 200
 const INITIAL_SETTLE_MS = 800
 // Cap the tree so a long session (with many branches) can't grow without bound.
 const MAX_NODES = 100
+// Rough per-node JSON overhead (id, label, parent and child links) when estimating persisted size. Snapshots dominate when they're large, so this only needs to stay on the generous side.
+const NODE_OVERHEAD = 160
 // Spacing of the settings graph, in layout pixels.
 const COLUMN_GAP = 64
 const ROW_GAP = 48
@@ -77,7 +79,20 @@ export const HISTORY_NODE_SIZE = 16
 const LABEL_GAP = 6
 const LABEL_CHAR_WIDTH = 6
 
+// Node snapshots are created once and never mutated, so their serialized size is measured once and reused. Measuring a snapshot is the expensive part of persisting history, and a snapshot can sit in many tree positions (and be rebuilt into new node objects by pruning) while staying the same object.
+const snapshotSizes = new WeakMap<WorkspaceSnapshot, number>()
+function snapshotSize(snapshot: WorkspaceSnapshot): number {
+	let size = snapshotSizes.get(snapshot)
+	if (size === undefined) {
+		size = JSON.stringify(snapshot).length
+		snapshotSizes.set(snapshot, size)
+	}
+	return size
+}
+
+// Equal snapshots always serialize to the same length, so a size difference proves inequality and lets most comparisons skip the expensive stringify entirely.
 const sameSnapshot = (a: WorkspaceSnapshot, b: WorkspaceSnapshot): boolean =>
+	snapshotSize(a) === snapshotSize(b) &&
 	JSON.stringify(a) === JSON.stringify(b)
 
 /**
@@ -147,8 +162,12 @@ function describeEntryChange(
 				return entry.ignoreIdle ? "Ignore idle time" : "Count idle time"
 			if (beforeEntry.idleThreshold !== entry.idleThreshold)
 				return "Change idle sensitivity"
+			if (beforeEntry.idleDuration !== entry.idleDuration)
+				return "Recalculate idle time"
+			// Ranges of different lengths are certainly different, so only equal-length lists need the full comparison.
 			if (
-				beforeEntry.idleDuration !== entry.idleDuration ||
+				(beforeEntry.idleRanges?.length ?? -1) !==
+					(entry.idleRanges?.length ?? -1) ||
 				JSON.stringify(beforeEntry.idleRanges) !==
 					JSON.stringify(entry.idleRanges)
 			)
@@ -203,6 +222,35 @@ function pathIds(
 	return ids
 }
 
+/** The oldest leaf that pruning may remove, or null when only the current branch is left. */
+function oldestLeaf(
+	nodes: Record<string, HistoryNode>,
+	protectedIds: Set<string>
+): HistoryNode | null {
+	let oldest: HistoryNode | null = null
+	for (const node of Object.values(nodes)) {
+		if (node.children.length > 0 || protectedIds.has(node.id)) continue
+		if (!oldest || node.seq < oldest.seq) oldest = node
+	}
+	return oldest
+}
+
+/** Remove a leaf, detaching it from its parent. */
+function removeLeaf(
+	nodes: Record<string, HistoryNode>,
+	leaf: HistoryNode
+): Record<string, HistoryNode> {
+	const next = { ...nodes }
+	delete next[leaf.id]
+	const parent = leaf.parent ? nodes[leaf.parent] : null
+	if (parent)
+		next[parent.id] = {
+			...parent,
+			children: parent.children.filter(id => id !== leaf.id),
+		}
+	return next
+}
+
 /** Drop the oldest leaves until at most `limit` nodes remain, keeping the current branch intact. */
 function pruneLeaves(
 	nodes: Record<string, HistoryNode>,
@@ -211,24 +259,87 @@ function pruneLeaves(
 ): Record<string, HistoryNode> {
 	let result = nodes
 	while (Object.keys(result).length > limit) {
-		const protectedIds = pathIds(result, currentId)
-		const leaf = Object.values(result)
-			.filter(
-				node => node.children.length === 0 && !protectedIds.has(node.id)
-			)
-			.sort((a, b) => a.seq - b.seq)[0]
+		const leaf = oldestLeaf(result, pathIds(result, currentId))
 		if (!leaf) break
+		result = removeLeaf(result, leaf)
+	}
+	return result
+}
 
-		const parent = leaf.parent ? result[leaf.parent] : null
-		const next = { ...result }
-		delete next[leaf.id]
-		if (parent)
-			next[parent.id] = {
-				...parent,
-				children: parent.children.filter(id => id !== leaf.id),
-			}
+/** Every node reachable from `rootId` by following children. */
+function reachableIds(
+	nodes: Record<string, HistoryNode>,
+	rootId: string
+): Set<string> {
+	const keep = new Set<string>()
+	const stack = [rootId]
+	while (stack.length > 0) {
+		const id = stack.pop()
+		if (id === undefined || keep.has(id) || !nodes[id]) continue
+		keep.add(id)
+		stack.push(...nodes[id].children)
+	}
+	return keep
+}
 
-		result = next
+/**
+ * Drop the oldest node on the current branch and promote its child to root.
+ * Used only when the branch itself is the last thing over budget; returns null when a single node remains.
+ */
+function dropOldestPathNode(
+	nodes: Record<string, HistoryNode>,
+	currentId: string
+): Record<string, HistoryNode> | null {
+	const chain: HistoryNode[] = []
+	for (
+		let id: string | null = currentId;
+		id && nodes[id];
+		id = nodes[id].parent
+	)
+		chain.push(nodes[id])
+	if (chain.length < 2) return null
+
+	const heir = chain[chain.length - 2]
+	const keep = reachableIds(nodes, heir.id)
+	const next: Record<string, HistoryNode> = {}
+	for (const [id, node] of Object.entries(nodes)) {
+		if (!keep.has(id)) continue
+		next[id] = id === heir.id ? { ...node, parent: null } : node
+	}
+	return next
+}
+
+/** Estimated serialized size of a tree, using each snapshot's cached size plus per-node overhead. */
+function nodesSize(nodes: Record<string, HistoryNode>): number {
+	let total = 0
+	for (const node of Object.values(nodes))
+		total += snapshotSize(node.snapshot) + NODE_OVERHEAD
+	return total
+}
+
+/**
+ * Shrink a tree until its estimated serialized size fits `maxBytes`.
+ * Oldest leaves go first; only when the current branch alone is too large is its oldest node dropped and its child promoted, so the branch itself stays intact for as long as possible.
+ */
+function pruneToBudget(
+	nodes: Record<string, HistoryNode>,
+	currentId: string,
+	maxBytes: number
+): Record<string, HistoryNode> {
+	let result = nodes
+	let total = nodesSize(result)
+	while (total > maxBytes) {
+		const leaf = oldestLeaf(result, pathIds(result, currentId))
+		if (leaf) {
+			total -= snapshotSize(leaf.snapshot) + NODE_OVERHEAD
+			result = removeLeaf(result, leaf)
+			continue
+		}
+		// Re-rooting can drop a whole abandoned subtree at once, so the running total is recomputed only here.
+		const rerooted = dropOldestPathNode(result, currentId)
+		if (!rerooted) break
+		result = rerooted
+		total = nodesSize(result)
 	}
 	return result
 }
@@ -237,7 +348,8 @@ export class WorkspaceHistory {
 	readonly #read: () => WorkspaceSnapshot
 	readonly #apply: (snapshot: WorkspaceSnapshot) => void
 
-	nodes = $state<Record<string, HistoryNode>>({})
+	// Raw state: node snapshots are large and never mutated in place, and the tree is always swapped wholesale, so deep proxying them would only add overhead on every read and serialize.
+	nodes = $state.raw<Record<string, HistoryNode>>({})
 	/** The node the live state is at. */
 	currentId = $state("")
 
@@ -492,26 +604,40 @@ export class WorkspaceHistory {
 const STORAGE_KEY = "peaks:history"
 const MAX_PERSISTED_BYTES = 1_500_000
 
-/** Persist the tree, shrinking it until it fits the storage budget. */
+/**
+ * Persist the tree, shrinking it until it fits the storage budget.
+ * The shrink is estimated from cached snapshot sizes, so only the nodes that survive are serialized: the old halving loop re-serialized the whole (often many-megabyte) tree on every retry, which stalled the main thread for up to seconds on each edit.
+ */
 export function saveHistory(
 	nodes: Record<string, HistoryNode>,
 	currentId: string,
 	nextId: number
 ): void {
 	if (typeof localStorage === "undefined") return
-	let limit = Object.keys(nodes).length
-	while (limit >= 1) {
-		const pruned = pruneLeaves(nodes, currentId, limit)
+	// A branch that can't fit even as a single node means no useful tree can be stored, so skip the pruning work entirely.
+	const current = nodes[currentId]
+	if (
+		!current ||
+		snapshotSize(current.snapshot) + NODE_OVERHEAD > MAX_PERSISTED_BYTES
+	) {
+		try {
+			localStorage.removeItem(STORAGE_KEY)
+		} catch {
+			// Nothing more to do.
+		}
+		return
+	}
+	// The generous per-node overhead means the estimate never undershoots, so the first stringify already fits the budget; the second pass only guards against a storage quota smaller than the budget.
+	for (const budget of [MAX_PERSISTED_BYTES, MAX_PERSISTED_BYTES / 4]) {
+		const pruned = pruneToBudget(nodes, currentId, budget)
 		const json = JSON.stringify({ nodes: pruned, currentId, nextId })
-		if (json.length <= MAX_PERSISTED_BYTES)
-			try {
-				localStorage.setItem(STORAGE_KEY, json)
-				return
-			} catch {
-				// Storage full: retry with a smaller tree below.
-			}
-
-		limit = Math.floor(limit / 2)
+		if (json.length > MAX_PERSISTED_BYTES) continue
+		try {
+			localStorage.setItem(STORAGE_KEY, json)
+			return
+		} catch {
+			// Storage full: retry with a smaller tree below.
+		}
 	}
 	try {
 		localStorage.removeItem(STORAGE_KEY)
