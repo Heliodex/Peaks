@@ -314,12 +314,11 @@ function normalizeSeekInput(
 						aria-hidden="true"
 					>
 						{#each graph.edges as edge (`${edge.from}→${edge.to}`)}
-							<line
-								x1={edge.x1}
-								y1={edge.y1}
-								x2={edge.x2}
-								y2={edge.y2}
+							<path
+								d={edge.d}
+								fill="none"
 								stroke-width="1.5"
+								stroke-linecap="round"
 								class={edge.onPath
 									? "stroke-primary-500"
 									: "stroke-neutral-600"}

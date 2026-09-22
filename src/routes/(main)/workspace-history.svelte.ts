@@ -42,10 +42,8 @@ export type HistoryGraphNode = {
 export type HistoryGraphEdge = {
 	from: string
 	to: string
-	x1: number
-	y1: number
-	x2: number
-	y2: number
+	/** SVG path data for the curved connector. */
+	d: string
 	/** Whether the edge belongs to the current lineage. */
 	onPath: boolean
 }
@@ -81,6 +79,14 @@ const LABEL_CHAR_WIDTH = 6
 
 const sameSnapshot = (a: WorkspaceSnapshot, b: WorkspaceSnapshot): boolean =>
 	JSON.stringify(a) === JSON.stringify(b)
+
+/**
+ * A cubic Bézier connector between two node centres. Both control points sit at the vertical midpoint, so the curve leaves the parent and enters the child straight down and bends smoothly across, instead of kinking like a straight line.
+ */
+const edgePath = (x1: number, y1: number, x2: number, y2: number): string => {
+	const mid = (y1 + y2) / 2
+	return `M ${x1} ${y1} C ${x1} ${mid} ${x2} ${mid} ${x2} ${y2}`
+}
 
 const countTimelapses = (snapshot: WorkspaceSnapshot): number =>
 	snapshot.projects.reduce(
@@ -320,16 +326,18 @@ export class WorkspaceHistory {
 			for (const child of childNodes(node)) {
 				const from = positions.get(node.id)
 				const to = positions.get(child.id)
-				if (from && to)
+				if (from && to) {
+					const x1 = (from.x + 0.5) * COLUMN_GAP
+					const y1 = (from.y + 0.5) * ROW_GAP
+					const x2 = (to.x + 0.5) * COLUMN_GAP
+					const y2 = (to.y + 0.5) * ROW_GAP
 					edges.push({
 						from: node.id,
 						to: child.id,
-						x1: (from.x + 0.5) * COLUMN_GAP,
-						y1: (from.y + 0.5) * ROW_GAP,
-						x2: (to.x + 0.5) * COLUMN_GAP,
-						y2: (to.y + 0.5) * ROW_GAP,
+						d: edgePath(x1, y1, x2, y2),
 						onPath: onPath.has(node.id) && onPath.has(child.id),
 					})
+				}
 
 				walk(child)
 			}
