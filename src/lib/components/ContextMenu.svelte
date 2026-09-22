@@ -5,7 +5,9 @@ export type ContextMenuItem = {
 	danger?: boolean
 	/** Mark the item as currently selected. */
 	active?: boolean
-	onSelect: () => void
+	/** Open the link in a new tab instead of running an action. */
+	href?: string
+	onSelect?: () => void
 }
 
 /** Fallback size of a two-item menu, used to keep it inside the viewport. */
@@ -56,10 +58,10 @@ function onKeydown(event: KeyboardEvent) {
 	}
 
 	const buttons = menuEl
-		? [...menuEl.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')]
+		? [...menuEl.querySelectorAll<HTMLElement>('[role="menuitem"]')]
 		: []
 	if (buttons.length === 0) return
-	const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+	const index = buttons.indexOf(document.activeElement as HTMLElement)
 
 	if (event.key === "ArrowDown") {
 		event.preventDefault()
@@ -78,7 +80,7 @@ function onKeydown(event: KeyboardEvent) {
 
 // Focus the first item once the menu is in the DOM.
 $effect(() => {
-	menuEl?.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus()
+	menuEl?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
 })
 
 // Dismiss the menu on an outside press, scroll, resize or window blur.
@@ -112,25 +114,42 @@ $effect(() => {
 	oncontextmenu={event => event.preventDefault()}
 >
 	{#each items as item (item.label)}
-		<button
-			type="button"
-			role="menuitem"
-			aria-current={item.active ? "true" : undefined}
-			onclick={() => {
-				item.onSelect()
-				onClose()
-			}}
-			class={[
-				"flex cursor-pointer items-center gap-2 px-3 py-1 text-left text-sm transition-colors text-neutral-300",
-				item.danger
-					? "hover:bg-red-500/10 hover:text-red-400 focus:bg-red-500/10 focus:text-red-400 active:bg-red-500/20 active:text-red-300"
-					: "hover:bg-neutral-800/70 hover:text-white focus:bg-neutral-800/70 focus:text-white active:bg-primary-500/20 active:text-primary-200",
-			]}
-		>
-			{#if item.active}
-				<span aria-hidden="true">✓</span>
-			{/if}
-			{item.label}
-		</button>
+		{const itemClass = [
+			"flex cursor-pointer items-center gap-2 px-3 py-1 text-left text-sm transition-colors text-neutral-300",
+			item.danger
+				? "hover:bg-red-500/10 hover:text-red-400 focus:bg-red-500/10 focus:text-red-400 active:bg-red-500/20 active:text-red-300"
+				: "hover:bg-neutral-800/70 hover:text-white focus:bg-neutral-800/70 focus:text-white active:bg-primary-500/20 active:text-primary-200",
+		]}
+		{#if item.href}
+			<a
+				href={item.href}
+				target="_blank"
+				rel="noopener noreferrer"
+				role="menuitem"
+				onclick={() => {
+					item.onSelect?.()
+					onClose()
+				}}
+				class={itemClass}
+			>
+				{item.label}
+			</a>
+		{:else}
+			<button
+				type="button"
+				role="menuitem"
+				aria-current={item.active ? "true" : undefined}
+				onclick={() => {
+					item.onSelect?.()
+					onClose()
+				}}
+				class={itemClass}
+			>
+				{#if item.active}
+					<span aria-hidden="true">✓</span>
+				{/if}
+				{item.label}
+			</button>
+		{/if}
 	{/each}
 </div>

@@ -64,7 +64,7 @@ function openMenu(event: MouseEvent, entry: ProjectTimelapse) {
 	menu = {
 		id: entry.id,
 		name: entry.name || entry.id,
-		...contextMenuPosition(event),
+		...contextMenuPosition(event, { width: 176, height: 96 }),
 	}
 }
 
@@ -203,6 +203,10 @@ $effect(() => {
 		label="{current.name} actions"
 		onClose={closeMenu}
 		items={[
+			{
+				label: "Open in Lapse",
+				href: `https://lapse.hackclub.com/timelapse/${encodeURIComponent(current.id)}`,
+			},
 			{
 				label: "Copy ID",
 				onSelect: () => copyId(current.id, current.x, current.y),
