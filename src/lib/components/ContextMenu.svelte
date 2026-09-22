@@ -150,7 +150,10 @@ $effect(() => {
 				{#if item.markerClass}
 					<span
 						aria-hidden="true"
-						class={["h-2 w-2 shrink-0", item.markerClass]}
+						class={[
+							"h-2 w-2 shrink-0 transition-colors",
+							item.markerClass,
+						]}
 					></span>
 				{/if}
 				{#if item.active}

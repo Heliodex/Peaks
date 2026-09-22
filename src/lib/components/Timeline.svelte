@@ -289,7 +289,9 @@ function onKeyDown(event: KeyboardEvent) {
 		class={["absolute inset-y-0", side === "start" ? "-left-1" : "-right-1", "flex w-2 cursor-ew-resize items-center justify-center transition-opacity", editor.controlsClass(sel.id)]}
 		role="presentation"
 	>
-		<span class={["h-6 w-1", handleClass, "shadow"]}></span>
+		<span
+			class={["h-6 w-1 transition-colors", handleClass, "shadow"]}
+		></span>
 	</div>
 {/snippet}
 
@@ -371,7 +373,7 @@ function onKeyDown(event: KeyboardEvent) {
 					>
 						<div
 							class={[
-								"pointer-events-none absolute inset-0 border-x-2 transition-[filter] group-hover:brightness-125",
+								"pointer-events-none absolute inset-0 border-x-2 transition-[filter,background-color,border-color] group-hover:brightness-125",
 								color.border,
 								color.fill,
 							]}
