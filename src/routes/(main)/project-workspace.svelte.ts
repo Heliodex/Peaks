@@ -1,6 +1,10 @@
 // The workspace of locally-stored projects: the open project, its timelapses and the CRUD around them.
 import { onMount } from "svelte"
 import {
+	matchesSharedProject,
+	uniqueImportedProjectName,
+} from "#lib/project-import.js"
+import {
 	createProject,
 	DEFAULT_PROJECT_NAME,
 	loadProjects,
@@ -13,17 +17,6 @@ import {
 } from "#lib/project-storage.js"
 import { saveSelections } from "#lib/selection-storage.js"
 import type { DecodedShare } from "#lib/share.js"
-
-function uniqueImportedProjectName(
-	projects: Project[],
-	requested: string
-): string {
-	let candidate = requested
-	let suffix = 2
-	while (projects.some(project => project.name === candidate))
-		candidate = `${requested} (${suffix++})`
-	return candidate
-}
 
 export class ProjectWorkspace {
 	readonly #closeTimelapse: () => void
@@ -130,6 +123,19 @@ export class ProjectWorkspace {
 
 	/** Adopt the project carried by a shared URL and make it current. */
 	importSharedProject(decoded: DecodedShare) {
+		const matches = (project: Project): boolean =>
+			matchesSharedProject(project, decoded)
+		const existing =
+			this.projects.find(
+				project => project.id === decoded.projectId && matches(project)
+			) ?? this.projects.find(matches)
+		if (existing) {
+			// The decoded session is already current; switch projects without closing it.
+			this.loadError = null
+			this.currentProjectId = existing.id
+			return
+		}
+
 		// Never replace a local project just because a shared link reuses its id.
 		const requestedId = decoded.projectId || newProjectId()
 		const index = this.projects.findIndex(item => item.id === requestedId)
@@ -138,9 +144,7 @@ export class ProjectWorkspace {
 		const id = hasCollision ? newProjectId() : requestedId
 		const project: Project = {
 			id,
-			name: hasCollision
-				? uniqueImportedProjectName(this.projects, requestedName)
-				: requestedName,
+			name: uniqueImportedProjectName(this.projects, requestedName),
 			timelapses: decoded.project,
 		}
 		this.projects = [...this.projects, project]
