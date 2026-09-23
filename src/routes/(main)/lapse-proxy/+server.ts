@@ -2,6 +2,10 @@
 import type { RequestEvent } from "@sveltejs/kit"
 import { error } from "@sveltejs/kit"
 import { authorise } from "#lib/server/auth.js"
+import {
+	parseLapseMediaRedirect,
+	parseLapseMediaTarget,
+} from "#lib/server/lapse-media.js"
 
 /** Allowed response headers copied from the upstream CDN. */
 const FORWARDED_HEADERS = [
@@ -12,30 +16,18 @@ const FORWARDED_HEADERS = [
 	"etag",
 	"last-modified",
 ]
+const MAX_REDIRECTS = 3
 
-/** Parse and validate the target URL, rejecting insecure or non-public hosts. */
+/** Parse and validate the initial target URL supplied by the browser. */
 function parseTarget(url: URL): URL {
 	const target = url.searchParams.get("url")
 	if (!target) error(400, "Missing url")
 
-	let parsed: URL
 	try {
-		parsed = new URL(target)
-	} catch {
-		error(400, "Invalid url")
+		return parseLapseMediaTarget(target)
+	} catch (cause) {
+		error(400, cause instanceof Error ? cause.message : "Invalid media URL")
 	}
-
-	// Only proxy https resources on the public internet
-	if (parsed.protocol !== "https:") error(400, "Only https urls are allowed")
-	if (
-		/^(localhost|127\.|0\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)/.test(
-			parsed.hostname
-		) ||
-		parsed.hostname.endsWith(".local")
-	)
-		error(400, "Host not allowed")
-
-	return parsed
 }
 
 /** Conditional-request validators to forward upstream. Skipped for range requests, where a 304 would leave a body a media element can't decode. */
@@ -49,32 +41,102 @@ function conditionalValidators(request: Request): Record<string, string> {
 	return conditional
 }
 
-/** Copy the CDN headers the browser needs, plus a long immutable cache lifetime. */
+function requestHeaders(request: Request): HeadersInit {
+	const range = request.headers.get("range")
+	return {
+		...(range && { Range: range }),
+		...conditionalValidators(request),
+	}
+}
+
+async function cancelBody(response: Response): Promise<void> {
+	if (response.body) await response.body.cancel()
+}
+
+/** Follow only the known Lapse-to-R2 redirect chain, never an arbitrary redirect. */
+async function fetchMedia(
+	target: URL,
+	request: Request,
+	redirects = 0
+): Promise<Response> {
+	let upstream: Response
+	try {
+		upstream = await fetch(target, {
+			headers: requestHeaders(request),
+			redirect: "manual",
+		})
+	} catch {
+		error(502, "Unable to fetch media")
+	}
+
+	const isRedirect =
+		upstream.status === 301 ||
+		upstream.status === 302 ||
+		upstream.status === 303 ||
+		upstream.status === 307 ||
+		upstream.status === 308
+	if (!isRedirect) return upstream
+
+	if (redirects >= MAX_REDIRECTS) {
+		await cancelBody(upstream)
+		error(502, "Too many media redirects")
+	}
+
+	const location = upstream.headers.get("location")
+	if (!location) {
+		await cancelBody(upstream)
+		error(502, "Media redirect had no destination")
+	}
+	await cancelBody(upstream)
+
+	let redirect: URL
+	try {
+		redirect = parseLapseMediaRedirect(location, target)
+	} catch {
+		error(502, "Media redirect blocked")
+	}
+	return fetchMedia(redirect, request, redirects + 1)
+}
+
+/** Copy the CDN headers the browser needs, plus a long immutable cache lifetime for media. */
 function forwardHeaders(upstream: Response): Headers {
 	const headers = new Headers()
 	for (const name of FORWARDED_HEADERS) {
 		const value = upstream.headers.get(name)
 		if (value) headers.set(name, value)
 	}
-	// Lapse media URLs are unique per timelapse and never rewritten, so a long, immutable lifetime is safe and keeps revisits from touching the network.
+
+	const cacheable = [200, 206, 304].includes(upstream.status)
+	// Lapse media URLs are unique per timelapse and never rewritten, so a long, immutable lifetime is safe for successful media responses.
 	// `private` keeps the authenticated response out of shared caches.
-	headers.set("cache-control", "private, max-age=31536000, immutable")
+	headers.set(
+		"cache-control",
+		cacheable ? "private, max-age=31536000, immutable" : "no-store"
+	)
 	return headers
+}
+
+function isVideoResponse(response: Response): boolean {
+	if (response.status !== 200 && response.status !== 206) return true
+	const contentType = response.headers
+		.get("content-type")
+		?.split(";", 1)[0]
+		.trim()
+		.toLowerCase()
+	return contentType?.startsWith("video/") ?? false
 }
 
 export async function GET({ url, request }: RequestEvent) {
 	await authorise()
 
 	const parsed = parseTarget(url)
-	const range = request.headers.get("range")
-	const upstream = await fetch(parsed, {
-		headers: {
-			...(range && { Range: range }),
-			...conditionalValidators(request),
-		},
-	})
+	const upstream = await fetchMedia(parsed, request)
+	if (!isVideoResponse(upstream)) {
+		await cancelBody(upstream)
+		error(502, "Media upstream returned a non-video response")
+	}
 
-	const status = upstream.status === 304 ? 304 : upstream.status
+	const status = upstream.status
 	return new Response(status === 304 ? null : upstream.body, {
 		status,
 		headers: forwardHeaders(upstream),
