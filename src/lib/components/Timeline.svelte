@@ -5,7 +5,7 @@ import {
 	effectiveIdleRanges,
 	selectionColors,
 } from "#lib/annotations.js"
-import { isTyping } from "#lib/dom.js"
+import { isInteractiveTarget } from "#lib/dom.js"
 import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
 import { IdleAnalysis } from "#lib/idle-time.svelte.js"
 import { DEFAULT_SETTINGS } from "#lib/settings-storage.js"
@@ -247,7 +247,7 @@ function onPointerLeave() {
 }
 
 /**
- * Spacebar plays/pauses the video, the left/right arrow keys seek by the configured step, and the up/down arrow keys step one frame, instead of scrolling the page. Ignored while typing in a form field or contenteditable element.
+ * Spacebar plays/pauses the video, the left/right arrow keys seek by the configured step, and the up/down arrow keys step one frame, instead of scrolling the page. Ignored while typing in or interacting with a control.
  */
 function onKeyDown(event: KeyboardEvent) {
 	const actions: Record<string, () => void> = {
@@ -265,8 +265,7 @@ function onKeyDown(event: KeyboardEvent) {
 			),
 	}
 	const action = actions[event.key]
-	if (!action) return
-	if (isTyping(event.target)) return
+	if (!action || event.defaultPrevented || isInteractiveTarget(event)) return
 	if (!video || duration <= 0) return
 	if (event.repeat && event.key === " ") return
 

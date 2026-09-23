@@ -1,5 +1,5 @@
 // Global review shortcuts, handled while the review route is mounted.
-import { isTyping } from "#lib/dom.js"
+import { isInteractiveTarget } from "#lib/dom.js"
 
 type ReviewShortcutsOptions = {
 	/** Toggle the project search dialog. */
@@ -27,7 +27,7 @@ type ReviewShortcutsOptions = {
  * F toggles fullscreen for the open timelapse's video, and N creates a new project (with its name field focused).
  * The `]` and `[` keys cycle through the open project's timelapses – forwards and backwards respectively, wrapping around at either end.
  * With none open, forwards opens the first entry and backwards the last. Tab is deliberately left alone so focus can move between controls.
- * These are ignored while a modifier is held (so browser shortcuts still work) and while typing in a form field or contenteditable element, so focus can leave inputs natively.
+ * These are ignored while a modifier is held (so browser shortcuts still work) and while typing in or interacting with a control, so the focused control keeps its native keyboard behavior.
  */
 export class ReviewShortcuts {
 	readonly #options: ReviewShortcutsOptions
@@ -67,7 +67,7 @@ export class ReviewShortcuts {
 			return
 		}
 
-		if (isTyping(event.target)) return
+		if (isInteractiveTarget(event)) return
 
 		// Ctrl/Cmd+Z and Ctrl/Cmd+Y (plus Ctrl+Shift+Z) drive the workspace history. Left to the browser while typing above.
 		if ((event.ctrlKey || event.metaKey) && !event.altKey) {
