@@ -75,12 +75,18 @@ export const handle: Handle = async e => {
 		return await finish(e)
 	}
 
-	const { session, user } = await validateSessionToken(token)
-	if (!session || !user) return await finish(e)
+	const { session, user, renewed } = await validateSessionToken(token)
+	if (!session || !user) {
+		event.locals.session = null
+		event.locals.user = null
+		event.cookies.delete(sessionCookieName, { path: "/" })
+		return await finish(e)
+	}
 
 	event.locals.session = session
 	event.locals.user = user
-	event.cookies.set(sessionCookieName, session, sessionCookieOptions)
+	if (renewed)
+		event.cookies.set(sessionCookieName, session, sessionCookieOptions)
 
 	return await finish(e)
 }

@@ -33,17 +33,18 @@ export type User = {
 }
 
 type SessionValidationResult =
-	| { session: string; user: User }
-	| { session: null; user: null }
+	| { session: string; user: User; renewed: boolean }
+	| { session: null; user: null; renewed: false }
 
 export async function validateSessionToken(
 	token: string
 ): Promise<SessionValidationResult> {
-	const [, , , res] = await db.query<SessionValidationResult[]>(
+	const [, , , , res] = await db.query<SessionValidationResult[]>(
 		getSessionAndUserQuery,
 		{ sess: Record("session", token) }
 	)
-	if (!res.session || !res.user) return { session: null, user: null }
+	if (!res?.session || !res.user)
+		return { session: null, user: null, renewed: false }
 	return res
 }
 
