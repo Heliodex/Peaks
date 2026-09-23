@@ -9,6 +9,11 @@ import { getTimelapse } from "./api.remote.js"
 import type { ReviewTimelapse } from "./review-types.js"
 
 type ResolvedId = { id: string; meta: ReviewTimelapse | null }
+type LoadOperation = {
+	id: number
+	projectId: string
+	openId: string
+}
 
 /** A project entry for a timelapse whose metadata hasn't resolved yet. */
 const emptyTimelapse = (id: string): ProjectTimelapse => ({
@@ -92,9 +97,23 @@ type TimelapseLoaderOptions = {
 
 export class TimelapseLoader {
 	readonly #options: TimelapseLoaderOptions
+	#loadToken = 0
 
 	constructor(options: TimelapseLoaderOptions) {
 		this.#options = options
+	}
+
+	#isCurrent(operation: LoadOperation): boolean {
+		return (
+			operation.id === this.#loadToken &&
+			operation.projectId === this.#options.projectId() &&
+			operation.openId === this.#options.openId()
+		)
+	}
+
+	/** Invalidate pending work when the surrounding review changes projects or closes. */
+	cancel(): void {
+		this.#loadToken++
 	}
 
 	/** Add newly resolved timelapses to the open project, seeding their names and durations. */
@@ -128,10 +147,14 @@ export class TimelapseLoader {
 	 * The URL carries the project state, so the current project is encoded with that timelapse open (using its saved selections) and the app navigates to `/{state}` rather than a bare `/{id}`.
 	 */
 	async load(value: string) {
+		const operation: LoadOperation = {
+			id: ++this.#loadToken,
+			projectId: this.#options.projectId(),
+			openId: this.#options.openId(),
+		}
 		const ids = [...new Set(value.split(/[\s,]+/).filter(Boolean))]
 		if (ids.length === 0) return
-		const current = this.#options.openId()
-		if (ids.length === 1 && ids[0] === current) return
+		if (ids.length === 1 && ids[0] === operation.openId) return
 		this.#options.setError(null)
 		// Ids already in the project were validated when added (and the metadata effect re-checks on open), so only new ids need resolving.
 		// Everything resolves in parallel; pasted order is restored afterwards.
@@ -140,9 +163,10 @@ export class TimelapseLoader {
 		)
 		const { valid, missing, unchecked } = await resolveIds(
 			ids,
-			current,
+			operation.openId,
 			known
 		)
+		if (!this.#isCurrent(operation)) return
 		const byInputOrder = inputOrderComparator(ids)
 		valid.sort((a, b) => byInputOrder(a.id, b.id))
 		missing.sort(byInputOrder)
@@ -158,13 +182,15 @@ export class TimelapseLoader {
 		// Add the new timelapses to the open project straight away, so they show up (and travel in the encoded URL) even before the project sync fills in their review data.
 		// Names and durations are already known, so seed those.
 		const entries = this.#seedEntries(valid)
+		if (!this.#isCurrent(operation)) return
 		const encoded = await encodeShare({
-			projectId: this.#options.projectId(),
+			projectId: operation.projectId,
 			selections: loadSelections(open.id),
 			projectName: this.#options.projectName(),
 			project: entries,
 			openId: open.id,
 		})
+		if (!this.#isCurrent(operation)) return
 		// Drop any debounced write queued while we were encoding so it can't race this explicit navigation to the new state.
 		this.#options.clearPendingWrites()
 		goto(`/${encoded}`)

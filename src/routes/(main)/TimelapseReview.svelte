@@ -1,5 +1,5 @@
 <script lang="ts">
-import { onMount } from "svelte"
+import { onDestroy, onMount } from "svelte"
 import { SvelteSet } from "svelte/reactivity"
 import type { Project } from "#lib/project-storage.js"
 import {
@@ -308,6 +308,8 @@ const loader = new TimelapseLoader({
 	clearPendingWrites: () => session.clearPendingWrite(),
 })
 
+onDestroy(() => loader.cancel())
+
 // The project is the single home for every timelapse: opening one adds it (or refreshes its review data), and edits keep its entry in sync.
 const sync = new ReviewSync({
 	openId: () => session.submittedId,
@@ -325,6 +327,7 @@ const sync = new ReviewSync({
  * Switching projects calls this so the next project doesn't adopt a timelapse that belongs to the previous one.
  */
 function closeTimelapse() {
+	loader.cancel()
 	if (!session.submittedId) return
 	session.close()
 	idleState.reset()
