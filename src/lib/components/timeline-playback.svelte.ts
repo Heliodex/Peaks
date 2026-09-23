@@ -55,15 +55,24 @@ export class TimelinePlayback {
 		// Measure the video's frame rate once so dragging can snap to real frames, and so the idle scan samples whole frames.
 		$effect(() => {
 			const src = this.#options.src()
+			this.frameRate = 0
 			this.frameRateReady = false
+			this.#options.onFrameRate(0)
 			if (!src) return
 			let cancelled = false
-			detectFrameRate(src).then(rate => {
-				if (cancelled) return
-				if (rate > 0) this.frameRate = rate
-				this.frameRateReady = true
-				this.#options.onFrameRate(rate)
-			})
+			detectFrameRate(src)
+				.then(rate => {
+					if (cancelled) return
+					this.frameRate = rate > 0 ? rate : 0
+					this.frameRateReady = true
+					this.#options.onFrameRate(rate)
+				})
+				.catch(() => {
+					if (cancelled) return
+					this.frameRate = 0
+					this.frameRateReady = true
+					this.#options.onFrameRate(0)
+				})
 			return () => {
 				cancelled = true
 			}

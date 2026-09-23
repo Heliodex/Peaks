@@ -46,6 +46,7 @@ const FALLBACK_STEP = 0.5
 const MAX_SAMPLE_RETRIES = 3
 const MAX_CONSECUTIVE_FAILURES = 5
 const RETRY_BACKOFF_MS = 250
+const LOAD_TIMEOUT_MS = 15000
 const SEEK_TIMEOUT_MS = 15000
 
 /**
@@ -150,12 +151,29 @@ type IdleCallbacks = {
 const delay = (ms: number): Promise<void> =>
 	new Promise(resolve => setTimeout(resolve, ms))
 
-/** Resolve once `el` has a decoded frame, or reject on error. */
-const waitForData = (el: HTMLVideoElement): Promise<void> =>
+/** Resolve once `el` has a decoded frame, or reject on error, timeout, or cancellation. */
+export const waitForData = (
+	el: HTMLVideoElement,
+	signal: AbortSignal,
+	timeoutMs: number
+): Promise<void> =>
 	new Promise((resolve, reject) => {
+		const abortError = () => new Error("Video load cancelled")
+		if (signal.aborted) {
+			reject(abortError())
+			return
+		}
+		if (el.readyState >= 2) {
+			resolve()
+			return
+		}
+		let timer: ReturnType<typeof setTimeout> | undefined
 		const cleanup = () => {
+			if (timer !== undefined) clearTimeout(timer)
 			el.removeEventListener("loadeddata", onLoaded)
 			el.removeEventListener("error", onError)
+			el.removeEventListener("abort", onError)
+			signal.removeEventListener("abort", onAbort)
 		}
 		const onLoaded = () => {
 			cleanup()
@@ -165,8 +183,18 @@ const waitForData = (el: HTMLVideoElement): Promise<void> =>
 			cleanup()
 			reject(new Error("Failed to load video"))
 		}
+		const onAbort = () => {
+			cleanup()
+			reject(abortError())
+		}
 		el.addEventListener("loadeddata", onLoaded)
 		el.addEventListener("error", onError)
+		el.addEventListener("abort", onError)
+		signal.addEventListener("abort", onAbort, { once: true })
+		timer = setTimeout(() => {
+			cleanup()
+			reject(new Error("Video load timed out"))
+		}, timeoutMs)
 	})
 
 type VideoSampler = {
@@ -185,6 +213,7 @@ function createVideoSampler(
 	isCancelled: () => boolean
 ): VideoSampler {
 	let video: HTMLVideoElement | null = null
+	let activeController: AbortController | null = null
 
 	const create = (): HTMLVideoElement => {
 		const el = document.createElement("video")
@@ -195,6 +224,8 @@ function createVideoSampler(
 	}
 
 	const discard = () => {
+		activeController?.abort()
+		activeController = null
 		const el = video
 		if (!el) return
 		el.removeAttribute("src")
@@ -207,16 +238,22 @@ function createVideoSampler(
 		for (let attempt = 0; ; attempt++) {
 			if (isCancelled()) throw new Error("Idle scan cancelled")
 			const el = create()
+			const controller = new AbortController()
+			activeController = controller
 			try {
-				await waitForData(el)
+				await waitForData(el, controller.signal, LOAD_TIMEOUT_MS)
+				if (isCancelled() || controller.signal.aborted)
+					throw new Error("Idle scan cancelled")
 				video = el
 				return el
 			} catch (error) {
 				el.removeAttribute("src")
 				el.load()
 				if (isCancelled() || attempt >= MAX_SAMPLE_RETRIES) throw error
-				await delay(RETRY_BACKOFF_MS * (attempt + 1))
+			} finally {
+				if (activeController === controller) activeController = null
 			}
+			await delay(RETRY_BACKOFF_MS * (attempt + 1))
 		}
 	}
 
@@ -224,14 +261,21 @@ function createVideoSampler(
 		for (let attempt = 0; ; attempt++) {
 			if (isCancelled()) throw new Error("Idle scan cancelled")
 			const el = await ensure()
+			if (isCancelled()) throw new Error("Idle scan cancelled")
+			const controller = new AbortController()
+			activeController = controller
 			try {
-				await seekVideo(el, target, SEEK_TIMEOUT_MS)
+				await seekVideo(el, target, SEEK_TIMEOUT_MS, controller.signal)
+				if (isCancelled() || controller.signal.aborted)
+					throw new Error("Idle scan cancelled")
 				return el
 			} catch (error) {
 				discard()
 				if (isCancelled() || attempt >= MAX_SAMPLE_RETRIES) throw error
-				await delay(RETRY_BACKOFF_MS * (attempt + 1))
+			} finally {
+				if (activeController === controller) activeController = null
 			}
+			await delay(RETRY_BACKOFF_MS * (attempt + 1))
 		}
 	}
 
@@ -287,6 +331,7 @@ async function scanIdleFrames(
 		try {
 			sample = await captureSample(ctx, sampler, target)
 		} catch {
+			if (isCancelled()) break
 			// Even a fresh element couldn't produce this frame. Drop the baseline so the next comparison isn't made across the gap, and give up if the source stays unreadable.
 			consecutiveFailures++
 			previous = null
@@ -295,6 +340,7 @@ async function scanIdleFrames(
 			if (consecutiveFailures > MAX_CONSECUTIVE_FAILURES) break
 			continue
 		}
+		if (isCancelled()) break
 		consecutiveFailures = 0
 
 		// Without a known frame rate the trailing sample is clamped to the video's end, where end-of-media seek flakiness can make it match its predecessor even when the frames differ, so only let it extend an idle run the previous pair already established. With a frame rate, samples are exact frame boundaries and `spansFrameBoundary` already rejects any same-frame pair.

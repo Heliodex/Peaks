@@ -50,9 +50,11 @@ function createFrameEncoder(width: number, quality: number) {
 // Give up on a seek that never settles, so one stalled frame can't block a capturer that's shared between the timeline strip and the navigator.
 const SEEK_TIMEOUT_MS = 10000
 
+const disposedError = () => new Error("Frame capturer disposed")
+
 /**
  * Create a reusable frame capturer backed by one hidden, muted video element.
- * Load it once, then call `captureAt` for as many frames as needed; call `dispose` when finished.
+ * Load it once, then call `captureAt` for as many frames as needed; call `dispose` when finished. Disposal aborts pending loads and seeks.
  */
 export function createFrameCapturer(
 	src: string,
@@ -66,30 +68,57 @@ export function createFrameCapturer(
 	video.src = lapseProxyUrl(src)
 
 	const encodeFrame = createFrameEncoder(width, quality)
+	const controller = new AbortController()
+	let disposed = false
+	let rejectReady: (error: Error) => void = () => {}
 
 	const ready = new Promise<HTMLVideoElement>((resolve, reject) => {
-		video.onloadeddata = () => resolve(video)
-		video.onerror = () => reject(new Error("Failed to load video"))
+		let settled = false
+		const cleanup = () => {
+			video.onloadeddata = null
+			video.onerror = null
+		}
+		const settle = (callback: () => void) => {
+			if (settled) return
+			settled = true
+			cleanup()
+			callback()
+		}
+		if (video.readyState >= 2) {
+			settle(() => resolve(video))
+			return
+		}
+		video.onloadeddata = () => settle(() => resolve(video))
+		video.onerror = () =>
+			settle(() => reject(new Error("Failed to load video")))
+		rejectReady = error => settle(() => reject(error))
 	})
 	// Ensure a rejection is always handled, even if disposed before loading.
 	void ready.catch(() => {})
 
-	let disposed = false
 	let queue: Promise<unknown> = Promise.resolve()
 
 	async function runCapture(
 		time: number,
 		epsilon: number
 	): Promise<CapturedFrame> {
-		if (disposed) throw new Error("Frame capturer disposed")
+		if (disposed || controller.signal.aborted) throw disposedError()
 		const el = await ready
+		if (disposed || controller.signal.aborted) throw disposedError()
 		const target = Math.max(
 			0,
 			Math.min(time, (el.duration || time) - epsilon)
 		)
-		await seekVideo(el, target, SEEK_TIMEOUT_MS)
+		await seekVideo(el, target, SEEK_TIMEOUT_MS, controller.signal)
+		if (disposed || controller.signal.aborted) throw disposedError()
 		const blob = await encodeFrame(el)
-		return { blob, url: URL.createObjectURL(blob) }
+		if (disposed || controller.signal.aborted) throw disposedError()
+		const url = URL.createObjectURL(blob)
+		if (disposed || controller.signal.aborted) {
+			URL.revokeObjectURL(url)
+			throw disposedError()
+		}
+		return { blob, url }
 	}
 
 	/**
@@ -106,7 +135,11 @@ export function createFrameCapturer(
 	}
 
 	function dispose() {
+		if (disposed) return
 		disposed = true
+		controller.abort()
+		rejectReady(disposedError())
+		video.pause()
 		video.removeAttribute("src")
 		video.load()
 	}
