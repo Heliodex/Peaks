@@ -10,6 +10,11 @@ import {
 	startLapseAuth,
 } from "#lib/server/auth.js"
 import { db } from "#lib/server/db.js"
+import {
+	MAX_CONCURRENT_TIMELAPSE_REQUESTS,
+	mapWithConcurrency,
+	timelapseThumbnailIds,
+} from "#lib/server/timelapse-batch.js"
 import { form, getRequestEvent, query } from "$app/server"
 
 export const logout = form(async () => {
@@ -94,11 +99,23 @@ export const getTimelapse = query(type("string"), async timelapseId => {
 	}
 })
 
+async function fetchThumbnail(
+	accessToken: string,
+	id: string
+): Promise<[string, string | null]> {
+	try {
+		const timelapse = await fetchLapseTimelapse(accessToken, id)
+		return [id, timelapse?.thumbnailUrl ?? null]
+	} catch {
+		return [id, null]
+	}
+}
+
 /**
  * Thumbnail URLs for a batch of timelapses, keyed by id. Ids that can't be resolved (deleted, or a failed request) map to `null` so the grid can fall back to a placeholder. One query per batch keeps the overview cheap.
  */
 export const getTimelapseThumbnails = query(
-	type("string[]"),
+	timelapseThumbnailIds,
 	async timelapseIds => {
 		const { user } = await authorise()
 
@@ -110,15 +127,10 @@ export const getTimelapseThumbnails = query(
 		if (!accessToken) return {}
 
 		const ids = [...new Set(timelapseIds.filter(Boolean))]
-		const pairs = await Promise.all(
-			ids.map(async id => {
-				try {
-					const timelapse = await fetchLapseTimelapse(accessToken, id)
-					return [id, timelapse?.thumbnailUrl ?? null] as const
-				} catch {
-					return [id, null] as const
-				}
-			})
+		const pairs = await mapWithConcurrency(
+			ids,
+			MAX_CONCURRENT_TIMELAPSE_REQUESTS,
+			id => fetchThumbnail(accessToken, id)
 		)
 		return Object.fromEntries(pairs)
 	}

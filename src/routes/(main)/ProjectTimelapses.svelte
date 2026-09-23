@@ -7,6 +7,7 @@ import ContextMenu, {
 } from "#lib/components/ContextMenu.svelte"
 import { createCopyToClipboard } from "#lib/copy.svelte.js"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
+import { MAX_TIMELAPSE_THUMBNAIL_BATCH_SIZE } from "#lib/timelapse-batch.js"
 import { getTimelapseThumbnails } from "./api.remote.js"
 import { ListReorder } from "./list-reorder.svelte.js"
 import {
@@ -90,13 +91,28 @@ $effect(() => {
 		return
 	}
 	let cancelled = false
-	getTimelapseThumbnails(ids)
-		.then(result => {
-			if (!cancelled) thumbnails = result
-		})
-		.catch(() => {
-			// Keep whatever thumbnails are already shown.
-		})
+	const loadThumbnails = async () => {
+		let loaded: Record<string, string | null> = {}
+		for (
+			let index = 0;
+			index < ids.length;
+			index += MAX_TIMELAPSE_THUMBNAIL_BATCH_SIZE
+		) {
+			if (cancelled) return
+			const batch = ids.slice(
+				index,
+				index + MAX_TIMELAPSE_THUMBNAIL_BATCH_SIZE
+			)
+			loaded = {
+				...loaded,
+				...(await getTimelapseThumbnails(batch)),
+			}
+		}
+		if (!cancelled) thumbnails = loaded
+	}
+	loadThumbnails().catch(() => {
+		// Keep whatever thumbnails are already shown.
+	})
 	return () => {
 		cancelled = true
 	}
