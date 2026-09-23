@@ -9,6 +9,7 @@ import {
 	type User,
 	validateSessionToken,
 } from "#lib/server/auth.js"
+import { logServerError } from "#lib/server/error-logging.js"
 
 const { magenta, red, yellow, green, blue, gray } = pc
 const methodColours = Object.freeze({
@@ -91,12 +92,6 @@ export const handle: Handle = async e => {
 	return await finish(e)
 }
 
-export const handleError: HandleServerError = async ({ error: e }) => {
-	if (typeof e !== "object" || e == null)
-		// Simple error logging (not a stack trace)
-		console.error(e)
-
-	const status = (e as { status?: number }).status
-	if (status) console.error(status, red(e?.toString()))
-	console.error(e)
+export const handleError: HandleServerError = async ({ error }) => {
+	logServerError(error)
 }
