@@ -3,7 +3,7 @@
 import { DEFAULT_IDLE_THRESHOLD } from "#lib/idle-time.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import { loadSelections } from "#lib/selection-storage.js"
-import { encodeShare } from "#lib/share.js"
+import { encodeShare, SharePayloadError } from "#lib/share.js"
 import { goto } from "$app/navigation"
 import { getTimelapse } from "./api.remote.js"
 import type { ReviewTimelapse } from "./review-types.js"
@@ -183,13 +183,22 @@ export class TimelapseLoader {
 		// Names and durations are already known, so seed those.
 		const entries = this.#seedEntries(valid)
 		if (!this.#isCurrent(operation)) return
-		const encoded = await encodeShare({
-			projectId: operation.projectId,
-			selections: loadSelections(open.id),
-			projectName: this.#options.projectName(),
-			project: entries,
-			openId: open.id,
-		})
+		let encoded: string
+		try {
+			encoded = await encodeShare({
+				projectId: operation.projectId,
+				selections: loadSelections(open.id),
+				projectName: this.#options.projectName(),
+				project: entries,
+				openId: open.id,
+			})
+		} catch (error) {
+			if (error instanceof SharePayloadError)
+				this.#options.setError(
+					"This project is too large to share as a URL."
+				)
+			return
+		}
 		if (!this.#isCurrent(operation)) return
 		// Drop any debounced write queued while we were encoding so it can't race this explicit navigation to the new state.
 		this.#options.clearPendingWrites()

@@ -11,7 +11,19 @@ import {
 	saveProjects,
 	uniqueProjectName,
 } from "#lib/project-storage.js"
-import type { ShareState } from "#lib/share.js"
+import { saveSelections } from "#lib/selection-storage.js"
+import type { DecodedShare } from "#lib/share.js"
+
+function uniqueImportedProjectName(
+	projects: Project[],
+	requested: string
+): string {
+	let candidate = requested
+	let suffix = 2
+	while (projects.some(project => project.name === candidate))
+		candidate = `${requested} (${suffix++})`
+	return candidate
+}
 
 export class ProjectWorkspace {
 	readonly #closeTimelapse: () => void
@@ -117,18 +129,31 @@ export class ProjectWorkspace {
 	}
 
 	/** Adopt the project carried by a shared URL and make it current. */
-	importSharedProject(shared: ShareState) {
-		const id = shared.projectId || newProjectId()
+	importSharedProject(decoded: DecodedShare) {
+		// Never replace a local project just because a shared link reuses its id.
+		const requestedId = decoded.projectId || newProjectId()
+		const index = this.projects.findIndex(item => item.id === requestedId)
+		const hasCollision = index !== -1
+		const requestedName = decoded.projectName.trim() || DEFAULT_PROJECT_NAME
+		const id = hasCollision ? newProjectId() : requestedId
 		const project: Project = {
 			id,
-			name: shared.projectName.trim() || DEFAULT_PROJECT_NAME,
-			timelapses: shared.project,
+			name: hasCollision
+				? uniqueImportedProjectName(this.projects, requestedName)
+				: requestedName,
+			timelapses: decoded.project,
 		}
-		const index = this.projects.findIndex(item => item.id === id)
-		this.projects =
-			index === -1
-				? [...this.projects, project]
-				: this.projects.map((item, i) => (i === index ? project : item))
+		this.projects = [...this.projects, project]
 		this.currentProjectId = id
+
+		// Keep existing selection records when a shared project reuses a known timelapse ID.
+		const localTimelapseIds = new Set(
+			this.projects
+				.filter(item => item.id !== id)
+				.flatMap(item => item.timelapses.map(entry => entry.id))
+		)
+		for (const [timelapseId, selections] of decoded.selectionsByTimelapse)
+			if (!localTimelapseIds.has(timelapseId))
+				saveSelections(timelapseId, selections)
 	}
 }

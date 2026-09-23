@@ -2,7 +2,7 @@
 import { untrack } from "svelte"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
 import { saveSelections } from "#lib/selection-storage.js"
-import { decodeShare, encodeShare, type ShareState } from "#lib/share.js"
+import { type DecodedShare, decodeShare, encodeShare } from "#lib/share.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 import { goto } from "$app/navigation"
 
@@ -17,7 +17,7 @@ type ReviewSessionOptions = {
 	project: () => ProjectTimelapse[]
 	projectLoaded: () => boolean
 	/** Adopt the project carried by a decoded path. */
-	onDecoded: (decoded: ShareState) => void
+	onDecoded: (decoded: DecodedShare) => void
 	/** Clear the open timelapse's idle analysis (the underlying video may change). */
 	onResetIdle: () => void
 }
@@ -114,13 +114,20 @@ export class ReviewSession {
 		project: ProjectTimelapse[]
 	}) {
 		const token = ++this.#urlToken
-		const encoded = await encodeShare({
-			projectId: state.projectId,
-			selections: state.selections,
-			projectName: state.projectName,
-			project: state.project,
-			openId: state.id,
-		})
+		clearTimeout(this.#urlTimer)
+		let encoded: string
+		try {
+			encoded = await encodeShare({
+				projectId: state.projectId,
+				selections: state.selections,
+				projectName: state.projectName,
+				project: state.project,
+				openId: state.id,
+			})
+		} catch {
+			this.encodedState = ""
+			return
+		}
 		// Bail if a newer encode started, or the open timelapse changed underneath us (otherwise a stale payload could land on the wrong review).
 		if (token !== this.#urlToken || state.id !== this.submittedId) return
 		this.encodedState = encoded
