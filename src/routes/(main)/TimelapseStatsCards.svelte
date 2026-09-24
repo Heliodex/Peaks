@@ -87,9 +87,7 @@ let {
 		<dt class="text-xs uppercase tracking-wide text-neutral-400">
 			Created
 		</dt>
-		<dd class="pt-1 font-medium">
-			{formatCreatedAt(timelapse.createdAt)}
-		</dd>
+		<dd class="pt-1 font-medium">{formatCreatedAt(timelapse.createdAt)}</dd>
 		<p class="pt-0.5 text-xs text-neutral-500">
 			{formatTimeSince(timelapse.createdAt)}
 		</p>

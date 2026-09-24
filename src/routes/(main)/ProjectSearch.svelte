@@ -287,15 +287,20 @@ function handleKeydown(event: KeyboardEvent) {
 			class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-line-soft px-3 py-1.5 text-xs text-neutral-500"
 		>
 			<span class="flex items-center gap-1">
-				<kbd>↑</kbd><kbd>↓</kbd>
+				<kbd>↑</kbd>
+				<kbd>↓</kbd>
 				navigate
 			</span>
 			<span class="flex items-center gap-1">
 				<kbd>→</kbd>
 				timelapses
 			</span>
-			<span class="flex items-center gap-1"> <kbd>↵</kbd> open </span>
-			<span class="flex items-center gap-1"> <kbd>esc</kbd> close </span>
+			<span class="flex items-center gap-1">
+				<kbd>↵</kbd> open
+			</span>
+			<span class="flex items-center gap-1">
+				<kbd>esc</kbd> close
+			</span>
 		</div>
 	</div>
 </div>

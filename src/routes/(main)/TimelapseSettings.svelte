@@ -395,9 +395,7 @@ function normalizeSeekInput(
 					<dt>{shortcut.description}</dt>
 					<dd class="flex shrink-0 gap-1">
 						{#each shortcut.keys as key (key)}
-							<kbd class="min-w-5 text-center">
-								{key}
-							</kbd>
+							<kbd class="min-w-5 text-center">{key}</kbd>
 						{/each}
 					</dd>
 				</div>
