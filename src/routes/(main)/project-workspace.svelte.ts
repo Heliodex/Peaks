@@ -1,5 +1,5 @@
 // The workspace of locally-stored projects: the open project, its timelapses and the CRUD around them.
-import { onMount } from "svelte"
+import * as svelte from "svelte"
 import {
 	matchesSharedProject,
 	uniqueImportedProjectName,
@@ -17,9 +17,22 @@ import {
 } from "#lib/project-storage.js"
 import { saveSelections } from "#lib/selection-storage.js"
 import type { DecodedShare } from "#lib/share.js"
+import {
+	STORAGE_WRITE_ERROR,
+	type StorageSource,
+} from "#lib/storage-messages.js"
+
+const PROJECT_SAVE_DEBOUNCE_MS = 250
 
 export class ProjectWorkspace {
 	readonly #closeTimelapse: () => void
+	readonly #saveProjects: typeof saveProjects
+	#saveTimer: ReturnType<typeof setTimeout> | undefined
+	#pendingStore: ProjectStore | undefined
+	#storageFailures: Record<StorageSource, boolean> = {
+		projects: false,
+		selections: false,
+	}
 
 	projects = $state<Project[]>([])
 	currentProjectId = $state("")
@@ -28,6 +41,8 @@ export class ProjectWorkspace {
 	focusNameId = $state<string | null>(null)
 	// Validation failure from the last attempt to add a timelapse by id.
 	loadError = $state<string | null>(null)
+	// A failed local-storage write, shown separately from input validation errors.
+	storageError = $state<string | null>(null)
 
 	/** The project currently open in the panel. */
 	currentProject = $derived(
@@ -39,26 +54,56 @@ export class ProjectWorkspace {
 	/** The project the panel is actually showing, and therefore editing. */
 	activeProjectId = $derived(this.currentProject?.id ?? this.currentProjectId)
 
-	constructor(closeTimelapse: () => void) {
+	constructor(
+		closeTimelapse: () => void,
+		save: typeof saveProjects = saveProjects
+	) {
 		this.#closeTimelapse = closeTimelapse
+		this.#saveProjects = save
 
 		// Load the workspace once on the client; local storage isn't available during SSR, so this must not run in the initial render.
-		onMount(() => {
-			const store = loadProjects()
-			this.projects = store.projects
-			this.currentProjectId = store.currentId
-			this.projectLoaded = true
-		})
+		if (typeof svelte.onMount === "function")
+			svelte.onMount(() => {
+				const store = loadProjects()
+				this.projects = store.projects
+				this.currentProjectId = store.currentId
+				this.projectLoaded = true
+			})
 
-		// Persist every project whenever anything about them changes.
+		// Persist project changes after the interaction settles, so dragging or recalculating
+		// does not serialize the entire workspace on every intermediate state.
 		$effect(() => {
 			const store: ProjectStore = {
 				projects: $state.snapshot(this.projects),
 				currentId: this.currentProjectId,
 			}
 			if (!this.projectLoaded) return
-			saveProjects(store)
+			this.#pendingStore = store
+			clearTimeout(this.#saveTimer)
+			this.#saveTimer = setTimeout(() => {
+				this.#flushProjectSave()
+			}, PROJECT_SAVE_DEBOUNCE_MS)
 		})
+
+		if (typeof svelte.onDestroy === "function")
+			svelte.onDestroy(() => this.#flushProjectSave())
+	}
+
+	#flushProjectSave() {
+		clearTimeout(this.#saveTimer)
+		this.#saveTimer = undefined
+		const store = this.#pendingStore
+		this.#pendingStore = undefined
+		if (!store) return
+		this.reportStorageError("projects", !this.#saveProjects(store))
+	}
+
+	/** Track persistence failures by source so one successful write doesn't hide another. */
+	reportStorageError(source: StorageSource, failed: boolean) {
+		this.#storageFailures[source] = failed
+		this.storageError = Object.values(this.#storageFailures).some(Boolean)
+			? STORAGE_WRITE_ERROR
+			: null
 	}
 
 	/** Replace the current project with the result of `update`. */
@@ -156,8 +201,11 @@ export class ProjectWorkspace {
 				.filter(item => item.id !== id)
 				.flatMap(item => item.timelapses.map(entry => entry.id))
 		)
-		for (const [timelapseId, selections] of decoded.selectionsByTimelapse)
-			if (!localTimelapseIds.has(timelapseId))
-				saveSelections(timelapseId, selections)
+		let storageFailed = false
+		for (const [timelapseId, selections] of decoded.selectionsByTimelapse) {
+			if (localTimelapseIds.has(timelapseId)) continue
+			if (!saveSelections(timelapseId, selections)) storageFailed = true
+		}
+		if (storageFailed) this.reportStorageError("selections", true)
 	}
 }

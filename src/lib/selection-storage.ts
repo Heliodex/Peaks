@@ -46,18 +46,19 @@ export function loadSelections(timelapseId: string): TimelineSelection[] {
 	}
 }
 
-/** Save a timelapse's selections, silently ignoring unavailable storage. */
+/** Save a timelapse's selections, returning whether the write succeeded. */
 export function saveSelections(
 	timelapseId: string,
 	selections: TimelineSelection[]
-): void {
-	if (!timelapseId || typeof localStorage === "undefined") return
+): boolean {
+	if (!timelapseId || typeof localStorage === "undefined") return false
 	try {
 		localStorage.setItem(
 			storageKey(timelapseId),
 			JSON.stringify(selections)
 		)
+		return true
 	} catch {
-		// Storage may be full or disabled (private mode); persistence is optional.
+		return false
 	}
 }

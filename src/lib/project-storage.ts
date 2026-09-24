@@ -228,12 +228,13 @@ export function loadProjects(): ProjectStore {
 	}
 }
 
-/** Save the workspace's projects, silently ignoring unavailable storage. */
-export function saveProjects(store: ProjectStore): void {
-	if (typeof localStorage === "undefined") return
+/** Save the workspace's projects, returning whether the write succeeded. */
+export function saveProjects(store: ProjectStore): boolean {
+	if (typeof localStorage === "undefined") return false
 	try {
 		localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+		return true
 	} catch {
-		// Storage may be full or disabled; persistence is optional.
+		return false
 	}
 }

@@ -16,6 +16,7 @@ let {
 	projectTotals,
 	projectDescription,
 	loadError = null,
+	storageError = null,
 	onLoad,
 	onRemoveTimelapse,
 	onRenameProject,
@@ -36,6 +37,8 @@ let {
 	projectDescription: string
 	/** Validation failure from the last attempt to add a timelapse by id. */
 	loadError?: string | null
+	/** A local-storage persistence failure. */
+	storageError?: string | null
 	onLoad: (id: string) => void
 	onRemoveTimelapse: (id: string) => void
 	onRenameProject: (id: string, name: string) => void
@@ -107,6 +110,15 @@ let {
 		{/if}
 
 		<TimelapseAddForm {submittedId} {loadError} {onLoad} />
+
+		{#if storageError}
+			<p
+				role="alert"
+				class="border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-300"
+			>
+				{storageError}
+			</p>
+		{/if}
 
 		<ProjectTotalsPanel totals={projectTotals} />
 

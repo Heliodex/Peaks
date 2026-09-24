@@ -62,6 +62,8 @@ const session = new ReviewSession({
 	projectLoaded: () => workspace.projectLoaded,
 	onDecoded: decoded => workspace.importSharedProject(decoded),
 	onResetIdle: () => idleState.reset(),
+	onStorageError: failed =>
+		workspace.reportStorageError("selections", failed),
 })
 
 // The open timelapse's idle analysis and per-entry overrides.
@@ -435,6 +437,7 @@ const summary = new ProjectSummary({
 		projectTotals={summary.totals}
 		projectDescription={summary.description}
 		loadError={workspace.loadError}
+		storageError={workspace.storageError}
 		onLoad={loadId}
 		onRemoveTimelapse={removeEntry}
 		onRenameProject={(id, name) => workspace.renameProject(id, name)}

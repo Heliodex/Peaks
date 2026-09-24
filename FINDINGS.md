@@ -155,9 +155,13 @@ Relevant files:
 
 ### Local persistence happens on hot interaction paths
 
-Selection updates still synchronously persist to local storage, and the review effect starts `encodeShare()` work for each state change. The 300 ms debounce applies to the URL/history write, not all encoding work. Dragging a selection can therefore create overlapping compression and persistence work.
+**Status: Resolved.**
 
-Consider coalescing persistence/encoding and surfacing storage failures to the user.
+Selection persistence now waits for a short debounce and keeps only the latest pending state. Share encoding is also debounced and serialized through a single drain loop, so rapid timeline/project edits cannot start overlapping compression jobs. Project writes use the same coalescing approach and flush pending state when the component is destroyed or the review closes.
+
+Storage writes now report success/failure. Project and selection failures are tracked independently and surfaced in the project pane through a dedicated `role="alert"` message, while a later successful write clears only its own failure state.
+
+Regression tests cover selection coalescing, serialized share encoding, project-write coalescing, and recovery after a failed project write. Relevant files include `review-session.svelte.ts`, `project-workspace.svelte.ts`, `ProjectPane.svelte`, and `tests/persistence.test.ts`.
 
 ### External API validation and timeouts are incomplete
 
