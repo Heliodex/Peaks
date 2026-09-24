@@ -142,9 +142,16 @@ Relevant files:
 
 ### History restoration can differ between SSR and CSR
 
-`WorkspaceHistory` still reads `localStorage` from its constructor. It guards access when storage is unavailable, but a client-only persisted history can still differ from the server render. The history parser also performs shallow snapshot validation and does not fully validate parent/child links or cycles.
+**Status: Resolved.**
 
-The persisted tree is now size-capped, but full snapshot validation and a client-only restoration path remain open.
+`WorkspaceHistory` now defers persisted-history restoration to `onMount`, so the server and initial client render both start with the same empty history state. The client loader validates the complete project, timelapse, annotation, idle-range, and selection snapshot before use. It also enforces the persisted size/node limits, requires exactly one root, checks reciprocal parent/child links, rejects disconnected nodes and cycles, and normalizes an invalid current/sequence marker safely.
+
+Regression tests cover deferred construction-time loading, valid restoration, broken links, cycles, and malformed nested snapshots. The persisted tree remains size-capped.
+
+Relevant files:
+
+- `src/routes/(main)/workspace-history.svelte.ts`
+- `tests/workspace-history.test.ts`
 
 ### Local persistence happens on hot interaction paths
 
@@ -203,7 +210,7 @@ A future refactor could separate pure domain/schema modules, the Lapse API clien
 
 Latest verification for the current tree:
 
-- `bun test`: 123 tests passed.
+- `bun test`: 128 tests passed.
 - `bun run check`: passed with 0 errors and 0 warnings.
 - `bun run build`: passed.
 - `bun audit`: no known vulnerabilities in 175 checked packages.

@@ -650,97 +650,300 @@ export function saveHistory(
 	}
 }
 
-const isProject = (value: unknown): boolean => {
-	if (typeof value !== "object" || value === null) return false
-	const { id, timelapses } = value as Record<string, unknown>
-	return typeof id === "string" && Array.isArray(timelapses)
+const MAX_HISTORY_ID_LENGTH = 256
+const MAX_HISTORY_STRING_LENGTH = 16_384
+const MAX_HISTORY_PROJECTS = 500
+const MAX_HISTORY_TIMELAPSES = 5_000
+const MAX_HISTORY_SELECTIONS = 5_000
+const MAX_HISTORY_IDLE_RANGES = 10_000
+const MAX_HISTORY_ANNOTATIONS = 10_000
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value)
+
+const isHistoryString = (
+	value: unknown,
+	maxLength = MAX_HISTORY_STRING_LENGTH
+): value is string => typeof value === "string" && value.length <= maxLength
+
+const isHistoryId = (value: unknown): value is string =>
+	isHistoryString(value, MAX_HISTORY_ID_LENGTH) && value.length > 0
+
+const isFiniteNonNegative = (value: unknown): value is number =>
+	typeof value === "number" && Number.isFinite(value) && value >= 0
+
+const isSafeNonNegativeInteger = (value: unknown): value is number =>
+	typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+
+function parseIdleRange(value: unknown, duration: number): IdleRange | null {
+	if (!isRecord(value)) return null
+	const { start, end } = value
+	if (
+		!isFiniteNonNegative(start) ||
+		!isFiniteNonNegative(end) ||
+		end < start ||
+		end > duration + 1e-6
+	)
+		return null
+	return { start, end }
+}
+
+function parseAnnotation(
+	value: unknown
+): ProjectTimelapse["annotations"][number] | null {
+	if (!isRecord(value)) return null
+	const { reason, duration } = value
+	if (!isHistoryString(reason) || !isFiniteNonNegative(duration)) return null
+	return { reason, duration }
+}
+
+function parseTimelapse(value: unknown): ProjectTimelapse | null {
+	if (!isRecord(value)) return null
+	const {
+		id,
+		name,
+		duration,
+		idleDuration,
+		annotations,
+		ignoreIdle,
+		idleThreshold,
+		description,
+		idleRanges: rawIdleRanges,
+	} = value
+	if (
+		!isHistoryId(id) ||
+		!isHistoryString(name) ||
+		!isHistoryString(description) ||
+		!isFiniteNonNegative(duration) ||
+		!isFiniteNonNegative(idleDuration) ||
+		typeof ignoreIdle !== "boolean" ||
+		!isFiniteNonNegative(idleThreshold) ||
+		!Array.isArray(annotations) ||
+		annotations.length > MAX_HISTORY_ANNOTATIONS
+	)
+		return null
+
+	const parsedAnnotations = annotations.map(parseAnnotation)
+	if (parsedAnnotations.some(annotation => annotation === null)) return null
+
+	let idleRanges: IdleRange[] | undefined
+	if (rawIdleRanges !== undefined) {
+		if (
+			!Array.isArray(rawIdleRanges) ||
+			rawIdleRanges.length > MAX_HISTORY_IDLE_RANGES
+		)
+			return null
+		const parsedRanges = rawIdleRanges.map(range =>
+			parseIdleRange(range, duration)
+		)
+		if (parsedRanges.some(range => range === null)) return null
+		idleRanges = parsedRanges.filter(
+			(range): range is IdleRange => range !== null
+		)
+	}
+
+	return {
+		id,
+		name,
+		duration,
+		idleDuration,
+		annotations: parsedAnnotations.filter(
+			(
+				annotation
+			): annotation is ProjectTimelapse["annotations"][number] =>
+				annotation !== null
+		),
+		ignoreIdle,
+		idleThreshold,
+		description,
+		...(idleRanges ? { idleRanges } : {}),
+	}
+}
+
+function parseProject(value: unknown): Project | null {
+	if (!isRecord(value)) return null
+	const { id, name, timelapses } = value
+	if (
+		!isHistoryId(id) ||
+		!isHistoryString(name) ||
+		!Array.isArray(timelapses) ||
+		timelapses.length > MAX_HISTORY_TIMELAPSES
+	)
+		return null
+
+	const parsedTimelapses = timelapses.map(parseTimelapse)
+	if (parsedTimelapses.some(timelapse => timelapse === null)) return null
+	const parsed = parsedTimelapses.filter(
+		(timelapse): timelapse is ProjectTimelapse => timelapse !== null
+	)
+	if (new Set(parsed.map(timelapse => timelapse.id)).size !== parsed.length)
+		return null
+	return { id, name, timelapses: parsed }
+}
+
+function parseSelection(value: unknown): TimelineSelection | null {
+	if (!isRecord(value)) return null
+	const { id, start, end, reason } = value
+	if (
+		!isHistoryId(id) ||
+		!isFiniteNonNegative(start) ||
+		!isFiniteNonNegative(end) ||
+		end < start ||
+		(reason !== undefined && !isHistoryString(reason))
+	)
+		return null
+	return { id, start, end, ...(reason !== undefined ? { reason } : {}) }
 }
 
 function parseSnapshot(value: unknown): WorkspaceSnapshot | null {
-	if (typeof value !== "object" || value === null) return null
-	const { projects, currentProjectId, openId, selections } = value as Record<
-		string,
-		unknown
-	>
+	if (!isRecord(value)) return null
+	const { projects, currentProjectId, openId, selections } = value
 	if (
 		!Array.isArray(projects) ||
-		!projects.every(isProject) ||
-		typeof currentProjectId !== "string" ||
-		typeof openId !== "string" ||
-		!Array.isArray(selections)
-	) {
+		projects.length === 0 ||
+		projects.length > MAX_HISTORY_PROJECTS ||
+		!isHistoryId(currentProjectId) ||
+		!isHistoryString(openId, MAX_HISTORY_ID_LENGTH) ||
+		!Array.isArray(selections) ||
+		selections.length > MAX_HISTORY_SELECTIONS
+	)
 		return null
-	}
+
+	const parsedProjects = projects.map(parseProject)
+	if (parsedProjects.some(project => project === null)) return null
+	const parsed = parsedProjects.filter(
+		(project): project is Project => project !== null
+	)
+	if (new Set(parsed.map(project => project.id)).size !== parsed.length)
+		return null
+	if (!parsed.some(project => project.id === currentProjectId)) return null
+
+	const parsedSelections = selections.map(parseSelection)
+	if (parsedSelections.some(selection => selection === null)) return null
+	const parsedSelectionValues = parsedSelections.filter(
+		(selection): selection is TimelineSelection => selection !== null
+	)
+	if (
+		new Set(parsedSelectionValues.map(selection => selection.id)).size !==
+		parsedSelectionValues.length
+	)
+		return null
+
+	const currentProject = parsed.find(
+		project => project.id === currentProjectId
+	)
+	const openTimelapse = openId
+		? currentProject?.timelapses.find(timelapse => timelapse.id === openId)
+		: undefined
+	if (openId && !openTimelapse) return null
+	if (!openId && parsedSelectionValues.length > 0) return null
+	if (
+		openTimelapse &&
+		parsedSelectionValues.some(
+			selection => selection.end > openTimelapse.duration + 1e-6
+		)
+	)
+		return null
+
 	return {
-		projects: projects as Project[],
+		projects: parsed,
 		currentProjectId,
 		openId,
-		selections: selections as TimelineSelection[],
+		selections: parsedSelectionValues,
 	}
 }
 
 function parseNode(value: unknown): HistoryNode | null {
-	if (typeof value !== "object" || value === null) return null
-	const { id, seq, label, snapshot, parent, children } = value as Record<
-		string,
-		unknown
-	>
+	if (!isRecord(value)) return null
+	const { id, seq, label, snapshot, parent, children } = value
 	if (
-		typeof id !== "string" ||
-		typeof seq !== "number" ||
-		typeof label !== "string" ||
-		(parent !== null && typeof parent !== "string") ||
+		!isHistoryId(id) ||
+		!isSafeNonNegativeInteger(seq) ||
+		!isHistoryString(label) ||
+		(parent !== null && !isHistoryId(parent)) ||
 		!Array.isArray(children) ||
-		!children.every(child => typeof child === "string")
-	) {
+		children.length > MAX_NODES ||
+		!children.every(isHistoryId)
+	)
 		return null
-	}
-	const parsed = parseSnapshot(snapshot)
-	if (!parsed) return null
+	const parsedSnapshot = parseSnapshot(snapshot)
+	if (!parsedSnapshot) return null
 	return {
 		id,
 		seq,
 		label,
-		snapshot: parsed,
-		parent: parent as string | null,
+		snapshot: parsedSnapshot,
+		parent,
 		children: children as string[],
 	}
 }
 
-/** Load a persisted history tree, discarding anything malformed. */
-function loadHistory(): {
+function parseNodes(value: unknown): Record<string, HistoryNode> | null {
+	if (!isRecord(value)) return null
+	const entries = Object.entries(value)
+	if (entries.length === 0 || entries.length > MAX_NODES) return null
+
+	const nodes: Record<string, HistoryNode> = Object.create(null)
+	const sequences = new Set<number>()
+	for (const [id, rawNode] of entries) {
+		const node = parseNode(rawNode)
+		if (!node || node.id !== id || sequences.has(node.seq)) return null
+		nodes[id] = node
+		sequences.add(node.seq)
+	}
+
+	const roots = Object.values(nodes).filter(node => node.parent === null)
+	if (roots.length !== 1) return null
+	for (const node of Object.values(nodes)) {
+		if (node.parent !== null) {
+			const parent = nodes[node.parent]
+			if (!parent?.children.includes(node.id)) return null
+		}
+		for (const childId of node.children) {
+			const child = nodes[childId]
+			if (!child || child.parent !== node.id) return null
+		}
+	}
+
+	const reachable = new Set<string>()
+	const stack = [roots[0].id]
+	while (stack.length > 0) {
+		const id = stack.pop()
+		if (id === undefined || !nodes[id] || reachable.has(id)) return null
+		reachable.add(id)
+		stack.push(...nodes[id].children)
+	}
+	return reachable.size === Object.keys(nodes).length ? nodes : null
+}
+
+type PersistedHistory = {
 	nodes: Record<string, HistoryNode>
 	currentId: string
 	nextId: number
-} | null {
+}
+
+/** Load and fully validate a persisted history tree. */
+export function loadHistory(): PersistedHistory | null {
 	if (typeof localStorage === "undefined") return null
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY)
-		if (!raw) return null
-		const data = JSON.parse(raw) as Record<string, unknown>
-		if (typeof data.nodes !== "object" || data.nodes === null) return null
+		if (!raw || raw.length > MAX_PERSISTED_BYTES) return null
+		const data = JSON.parse(raw)
+		if (!isRecord(data)) return null
+		const nodes = parseNodes(data.nodes)
+		if (!nodes) return null
 
-		const nodes: Record<string, HistoryNode> = {}
-		for (const [id, value] of Object.entries(
-			data.nodes as Record<string, unknown>
-		)) {
-			const node = parseNode(value)
-			if (node && node.id === id) nodes[id] = node
-		}
-		if (Object.keys(nodes).length === 0) return null
-
-		const rootId = Object.values(nodes).find(
-			node => node.parent === null
-		)?.id
+		const root = Object.values(nodes).find(node => node.parent === null)
+		if (!root) return null
 		const currentId =
-			typeof data.currentId === "string" && nodes[data.currentId]
+			isHistoryId(data.currentId) && nodes[data.currentId]
 				? data.currentId
-				: (rootId ?? Object.keys(nodes)[0])
+				: root.id
+		const maxSeq = Math.max(...Object.values(nodes).map(node => node.seq))
 		const nextId =
-			typeof data.nextId === "number"
+			isSafeNonNegativeInteger(data.nextId) && data.nextId > maxSeq
 				? data.nextId
-				: Math.max(...Object.values(nodes).map(node => node.seq)) + 1
-
+				: maxSeq + 1
 		return { nodes, currentId, nextId }
 	} catch {
 		return null
