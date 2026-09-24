@@ -1,4 +1,5 @@
 // The open timelapse's idle analysis: detected ranges, scan progress, and the project-entry overrides (ignore / threshold).
+import { untrack } from "svelte"
 import { effectiveIdleRanges, idleRecordedSeconds } from "#lib/annotations.js"
 import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
@@ -85,8 +86,10 @@ export class ReviewIdle {
 		this.analyzing = false
 		this.analyzed = false
 		// Invalidate the scan token too. IdleAnalysis watches this revision and cancels any
-		// in-flight job before it can publish ranges for the old review.
-		this.revision = this.revision < 0 ? 0 : this.revision + 1
+		// in-flight job before it can publish ranges for the old review. Read the current
+		// value untracked because reset() can be called from another reactive effect.
+		const revision = untrack(() => this.revision)
+		this.revision = revision < 0 ? 0 : revision + 1
 	}
 
 	/**
