@@ -218,7 +218,7 @@ A future refactor could separate pure domain/schema modules, the Lapse API clien
 
 Latest verification for the current tree:
 
-- `bun test`: 131 tests passed.
+- `bun test`: 143 tests passed.
 - `bun run check`: passed with 0 errors and 0 warnings.
 - `bun run build`: passed.
 - `bun audit`: no known vulnerabilities in 175 checked packages.
