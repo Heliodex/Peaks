@@ -5,7 +5,9 @@ import {
 	describeChange,
 	HISTORY_NODE_SIZE,
 	type HistoryNode,
+	loadHistory,
 	saveHistory,
+	WorkspaceHistory,
 	type WorkspaceSnapshot,
 } from "../src/routes/(main)/workspace-history.svelte.ts"
 import {
@@ -266,5 +268,98 @@ describe("saveHistory: storage budget", () => {
 		const { nodes, currentId } = chain(3, () => bulkySnapshot(24, 2500))
 		saveHistory(nodes, currentId, 3)
 		expect(localStorage.getItem(STORAGE_KEY)).toBeNull()
+	})
+})
+
+test("WorkspaceHistory defers persisted restoration until mount", () => {
+	installLocalStorage()
+	clearLocalStorage()
+	const runtime = globalThis as typeof globalThis & {
+		$state?: unknown
+	}
+	const previousState = runtime.$state
+	runtime.$state = Object.assign((value: unknown) => value, {
+		raw: (value: unknown) => value,
+	})
+
+	try {
+		const { nodes, currentId } = chain(2, () => snapshot())
+		saveHistory(nodes, currentId, 2)
+		const history = new WorkspaceHistory({
+			read: () => snapshot(),
+			apply: () => {},
+		})
+
+		expect(history.nodes).toEqual({})
+		expect(history.currentId).toBe("")
+	} finally {
+		if (previousState === undefined) delete runtime.$state
+		else runtime.$state = previousState
+		removeLocalStorage()
+	}
+})
+
+describe("loadHistory: persisted validation", () => {
+	beforeEach(() => {
+		installLocalStorage()
+		clearLocalStorage()
+	})
+
+	afterAll(() => {
+		removeLocalStorage()
+	})
+
+	test("loads a connected tree", () => {
+		const { nodes, currentId } = chain(2, () => snapshot())
+		saveHistory(nodes, currentId, 2)
+
+		const loaded = loadHistory()
+		expect(loaded?.currentId).toBe(currentId)
+		expect(Object.keys(loaded?.nodes ?? {})).toHaveLength(2)
+	})
+
+	test("rejects broken parent-child links", () => {
+		const { nodes, currentId } = chain(2, () => snapshot())
+		nodes.h0 = { ...nodes.h0, children: [] }
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify({ nodes, currentId, nextId: 2 })
+		)
+
+		expect(loadHistory()).toBeNull()
+	})
+
+	test("rejects cycles and disconnected nodes", () => {
+		const { nodes } = chain(2, () => snapshot())
+		nodes.h0 = { ...nodes.h0, children: [] }
+		nodes.h1 = { ...nodes.h1, parent: "h1", children: ["h1"] }
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify({ nodes, currentId: "h1", nextId: 2 })
+		)
+
+		expect(loadHistory()).toBeNull()
+	})
+
+	test("rejects malformed nested snapshots", () => {
+		const nodes = {
+			h0: {
+				id: "h0",
+				seq: 0,
+				label: "Session start",
+				parent: null,
+				children: [],
+				snapshot: {
+					...snapshot(),
+					projects: [{ id: "p1", name: "Project", timelapses: [{}] }],
+				},
+			},
+		}
+		localStorage.setItem(
+			STORAGE_KEY,
+			JSON.stringify({ nodes, currentId: "h0", nextId: 1 })
+		)
+
+		expect(loadHistory()).toBeNull()
 	})
 })
