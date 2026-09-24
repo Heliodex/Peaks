@@ -13,6 +13,16 @@ import {
 } from "$app/env/private"
 import { getRequestEvent } from "$app/server"
 import {
+	fetchLapseJson,
+	LapseApiRequestError,
+	LapseApiTimeoutError,
+	type LapseJsonResult,
+	type LapseTimelapse,
+	type LapseUserInfo,
+	parseLapseTimelapseResponse,
+	parseLapseUserInfoResponse,
+} from "./lapse-api.js"
+import {
 	isLapseAccessExpired,
 	type LapseTokenResponse,
 	LapseTokenResponseError,
@@ -20,6 +30,7 @@ import {
 	parseLapseTokenResponse,
 } from "./lapse-token.js"
 
+export type { LapseTimelapse, LapseUserInfo } from "./lapse-api.js"
 export type { LapseTokenResponse } from "./lapse-token.js"
 
 const LAPSE_TOKEN_URL = "https://api.lapse.hackclub.com/api/auth/token"
@@ -273,19 +284,29 @@ export async function startLapseAuth(): Promise<never> {
 async function requestLapseToken(
 	params: URLSearchParams
 ): Promise<LapseTokenResponse> {
-	const response = await fetch(LAPSE_TOKEN_URL, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/x-www-form-urlencoded",
-			Accept: "application/json",
-		},
-		body: params,
-	})
+	let result: LapseJsonResult
+	try {
+		result = await fetchLapseJson(LAPSE_TOKEN_URL, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/x-www-form-urlencoded",
+				Accept: "application/json",
+			},
+			body: params,
+		})
+	} catch (error) {
+		if (
+			error instanceof LapseApiRequestError ||
+			error instanceof LapseApiTimeoutError
+		)
+			throw error
+		throw new LapseTokenResponseError()
+	}
 
-	if (!response.ok) throw new LapseTokenRequestError(response.status)
+	if (!result.ok) throw new LapseTokenRequestError(result.status)
 
 	try {
-		return parseLapseTokenResponse(await response.json())
+		return parseLapseTokenResponse(result.body)
 	} catch (error) {
 		if (error instanceof LapseTokenResponseError) throw error
 		throw new LapseTokenResponseError()
@@ -323,55 +344,24 @@ export async function refreshLapseAccessToken(
 	)
 }
 
-export type LapseUserInfo = {
-	id: string
-	handle: string
-	displayName: string
-	profilePictureUrl: string
-}
-
 /**
  * Fetches the calling user's Lapse profile
  */
 export async function fetchLapseUserInfo(
 	accessToken: string
 ): Promise<LapseUserInfo> {
-	const response = await fetch(
+	const result = await fetchLapseJson(
 		"https://api.lapse.hackclub.com/api/user/myself",
 		{
 			headers: {
+				Accept: "application/json",
 				Authorization: `Bearer ${accessToken}`,
 			},
 		}
 	)
 
-	if (!response.ok) {
-		const error = await response.text()
-		throw new Error(`Failed to fetch Lapse user info: ${error}`)
-	}
-
-	const body = await response.json()
-	if (!body?.ok || !body?.data?.user) {
-		throw new Error(`Lapse API returned an error: ${JSON.stringify(body)}`)
-	}
-
-	return body.data.user
-}
-
-export type LapseTimelapse = {
-	id: string
-	name: string
-	description: string
-	visibility: string
-	createdAt: number
-	playbackUrl: string | null
-	thumbnailUrl: string | null
-	duration: number
-	owner: {
-		handle: string
-		displayName: string
-		profilePictureUrl: string
-	}
+	if (!result.ok) throw new LapseApiRequestError(result.status)
+	return parseLapseUserInfoResponse(result.body)
 }
 
 /**
@@ -384,38 +374,31 @@ export async function fetchLapseTimelapse(
 	timelapseId: string
 ): Promise<LapseTimelapse | null> {
 	const request = (accessToken: string) =>
-		fetch(
+		fetchLapseJson(
 			`https://api.lapse.hackclub.com/api/timelapse/query?id=${encodeURIComponent(timelapseId)}`,
 			{
 				headers: {
+					Accept: "application/json",
 					Authorization: `Bearer ${accessToken}`,
 				},
 			}
 		)
 
 	let accessToken = await ensureLapseAccessToken(user, session)
-	let response = await request(accessToken)
-	if (response.status === 401) {
-		await response.body?.cancel()
+	let result = await request(accessToken)
+	if (result.status === 401) {
 		accessToken =
 			user.lapseData.accessToken === accessToken
 				? await ensureLapseAccessToken(user, session, true)
 				: user.lapseData.accessToken
-		response = await request(accessToken)
-		if (response.status === 401)
+		result = await request(accessToken)
+		if (result.status === 401)
 			return expireLapseSessionAndRedirect(session, user)
 	}
-	if (response.status === 404) return null
+	if (result.status === 404) return null
 
-	if (!response.ok) {
-		await response.body?.cancel()
-		throw new Error("Failed to fetch Lapse timelapse")
-	}
-
-	const body = await response.json()
-	if (!body?.ok || !body?.data?.timelapse) return null
-
-	return body.data.timelapse as LapseTimelapse
+	if (!result.ok) throw new LapseApiRequestError(result.status)
+	return parseLapseTimelapseResponse(result.body)
 }
 
 /**

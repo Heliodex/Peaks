@@ -165,9 +165,13 @@ Regression tests cover selection coalescing, serialized share encoding, project-
 
 ### External API validation and timeouts are incomplete
 
-OAuth token responses are now validated, but profile and timelapse responses are still trusted after basic shape checks or casts. Upstream requests still do not consistently have timeouts, and some profile error paths include raw upstream response text.
+**Status: Resolved.**
 
-The existing runtime-schema dependency should be extended to profile, timelapse, URL, and numeric-bound validation, with generic user-facing errors and detailed server-side logging.
+Lapse profile and timelapse payloads now pass through runtime schemas before they enter application state. The schemas validate response envelopes, required profile/timelapse fields, visibility values, finite non-negative numbers, bounded text, and HTTP(S) media URLs. Responses are projected to the fields Peaks consumes, and malformed or non-success envelopes produce generic typed errors instead of exposing upstream response text.
+
+A shared Lapse JSON request helper now applies a 10-second timeout across both connection and response-body reads, cancels unsuccessful response bodies, and converts network, timeout, and JSON failures into typed errors. OAuth token requests use the same bounded helper. Existing timelapse behavior remains intact: `404` returns `null`, a single `401` triggers one refresh/retry, and repeated authentication failure reauthenticates.
+
+Regression tests cover valid and malformed profile/timelapse payloads, nullable media URLs, omitted descriptions, invalid JSON, network failures, body-read timeouts, missing timelapses, and the refresh/retry path. Relevant files include `lapse-api.ts`, `auth.ts`, `tests/lapse-api.test.ts`, and `tests/lapse-auth.test.ts`.
 
 ### Accessibility review items
 
@@ -182,8 +186,8 @@ The following remain open review items:
 ## Open security and deployment follow-ups
 
 - Encrypt Lapse access and refresh tokens at rest with a dedicated key and migrate existing plaintext values.
-- Add request timeouts, response-size limits, and rate limits to the media proxy and other upstream API calls.
-- Add timeouts and bounded retry/backoff to remote timelapse/profile requests.
+- Add response-size limits, request timeouts, and rate limits to the media proxy; its redirect/body streaming path still needs a bounded request policy.
+- Consider bounded retry/backoff for transient upstream failures; the Lapse client currently retries only the existing single `401` refresh case.
 - Consider hashing session identifiers at rest.
 - Pin tested SvelteKit and adapter versions, and document the use of experimental remote functions, async Svelte, and `forkPreloads`.
 - Keep deployment configuration to one SurrealDB process/instance, use a stable working directory, and close the database gracefully during shutdown.
