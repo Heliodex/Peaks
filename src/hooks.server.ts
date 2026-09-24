@@ -4,12 +4,15 @@
 import type { Handle, HandleServerError } from "@sveltejs/kit/hooks"
 import pc from "picocolors"
 import {
+	clearLapseCredentials,
+	invalidateSession,
 	sessionCookieName,
 	sessionCookieOptions,
 	type User,
 	validateSessionToken,
 } from "#lib/server/auth.js"
 import { logServerError } from "#lib/server/error-logging.js"
+import { isLapseAccessExpired } from "#lib/server/lapse-token.js"
 
 const { magenta, red, yellow, green, blue, gray } = pc
 const methodColours = Object.freeze({
@@ -78,6 +81,20 @@ export const handle: Handle = async e => {
 
 	const { session, user, renewed } = await validateSessionToken(token)
 	if (!session || !user) {
+		event.locals.session = null
+		event.locals.user = null
+		event.cookies.delete(sessionCookieName, { path: "/" })
+		return await finish(e)
+	}
+
+	const lapseData = user.lapseData
+	if (
+		!lapseData ||
+		(isLapseAccessExpired(lapseData.accessTokenExpiresAt) &&
+			!lapseData.refreshToken)
+	) {
+		await clearLapseCredentials(user.id).catch(() => {})
+		await invalidateSession(session).catch(() => {})
 		event.locals.session = null
 		event.locals.user = null
 		event.cookies.delete(sessionCookieName, { path: "/" })

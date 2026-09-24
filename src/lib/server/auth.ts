@@ -12,6 +12,32 @@ import {
 	LAPSE_REDIRECT_URI,
 } from "$app/env/private"
 import { getRequestEvent } from "$app/server"
+import {
+	isLapseAccessExpired,
+	type LapseTokenResponse,
+	LapseTokenResponseError,
+	lapseTokenExpiresAt,
+	parseLapseTokenResponse,
+} from "./lapse-token.js"
+
+export type { LapseTokenResponse } from "./lapse-token.js"
+
+const LAPSE_TOKEN_URL = "https://api.lapse.hackclub.com/api/auth/token"
+const refreshes = new Map<string, Promise<LapseData>>()
+
+class LapseTokenRequestError extends Error {
+	constructor(readonly status: number) {
+		super("Lapse token request failed")
+		this.name = "LapseTokenRequestError"
+	}
+}
+
+export class LapseAuthenticationRequiredError extends Error {
+	constructor() {
+		super("Lapse authentication is required")
+		this.name = "LapseAuthenticationRequiredError"
+	}
+}
 
 export async function createSession(user: RecordId<"user">): Promise<string> {
 	const [, session] = await db.query<string[]>(setSessionQuery, { user })
@@ -24,7 +50,8 @@ export type LapseData = {
 	displayName: string
 	profilePictureUrl: string
 	accessToken: string
-	refreshToken: string
+	accessTokenExpiresAt: number
+	refreshToken?: string
 }
 
 export type User = {
@@ -60,6 +87,69 @@ export async function invalidateAllSessions(user: string): Promise<void> {
 	})
 }
 
+/** Remove the bearer credentials while retaining the public Lapse profile. */
+export async function clearLapseCredentials(
+	user: RecordId<"user">
+): Promise<void> {
+	await db.update(user).merge({
+		lapseData: {
+			accessToken: "",
+			accessTokenExpiresAt: 0,
+			refreshToken: undefined,
+		},
+	})
+}
+
+async function refreshLapseData(user: User, force = false): Promise<LapseData> {
+	if (
+		!force &&
+		user.lapseData.accessToken &&
+		!isLapseAccessExpired(user.lapseData.accessTokenExpiresAt)
+	)
+		return user.lapseData
+
+	const key = user.id.toString()
+	const existing = refreshes.get(key)
+	if (existing) return existing
+
+	const promise = (async () => {
+		const refreshToken = user.lapseData.refreshToken
+		if (!refreshToken) throw new LapseAuthenticationRequiredError()
+
+		let response: LapseTokenResponse
+		try {
+			response = await refreshLapseAccessToken(refreshToken)
+		} catch (error) {
+			if (
+				error instanceof LapseTokenRequestError &&
+				(error.status === 400 || error.status === 401)
+			)
+				throw new LapseAuthenticationRequiredError()
+			throw error
+		}
+
+		const next: LapseData = {
+			...user.lapseData,
+			accessToken: response.access_token,
+			accessTokenExpiresAt: lapseTokenExpiresAt(response.expires_in),
+			refreshToken:
+				response.refresh_token ??
+				user.lapseData.refreshToken ??
+				undefined,
+		}
+		await db.update(user.id).merge({ lapseData: next })
+		Object.assign(user.lapseData, next)
+		return next
+	})()
+
+	refreshes.set(key, promise)
+	try {
+		return await promise
+	} finally {
+		if (refreshes.get(key) === promise) refreshes.delete(key)
+	}
+}
+
 // Default options for cookies in SvelteKit are as follows:
 // path: /
 // secure: true in prod, false in dev
@@ -74,6 +164,40 @@ export const lapseCookieOptions = Object.freeze({
 	maxAge: 60 * 10, // 10 minutes
 	sameSite: "lax" as const,
 })
+
+async function expireLapseSessionAndRedirect(
+	session: string,
+	user: User
+): Promise<never> {
+	await clearLapseCredentials(user.id).catch(() => {})
+	await invalidateSession(session).catch(() => {})
+	const { cookies } = getRequestEvent()
+	cookies.delete(sessionCookieName, { path: "/" })
+	redirect(302, "/")
+}
+
+async function ensureLapseAccessToken(
+	user: User,
+	session: string,
+	force = false
+): Promise<string> {
+	if (!user.lapseData) return expireLapseSessionAndRedirect(session, user)
+	if (
+		!force &&
+		user.lapseData.accessToken &&
+		!isLapseAccessExpired(user.lapseData.accessTokenExpiresAt)
+	)
+		return user.lapseData.accessToken
+	try {
+		const next = await refreshLapseData(user, force)
+		Object.assign(user.lapseData, next)
+		return next.accessToken
+	} catch (error) {
+		if (error instanceof LapseAuthenticationRequiredError)
+			return expireLapseSessionAndRedirect(session, user)
+		throw error
+	}
+}
 
 /**
  * Authorises a user and returns their session and user data, or redirects them to the login page.
@@ -91,6 +215,7 @@ export async function authorise() {
 		// TODO: get session and user from getRequestEvent() locals
 		redirect(302, "/")
 
+	await ensureLapseAccessToken(user, session)
 	return { session, user }
 }
 
@@ -145,46 +270,57 @@ export async function startLapseAuth(): Promise<never> {
 	redirect(302, getLapseAuthUrl(state, challenge), { external: true })
 }
 
-export type LapseTokenResponse = {
-	access_token: string
-	refresh_token: string
-	expires_in: number
-	token_type: string
-	scope: string
+async function requestLapseToken(
+	params: URLSearchParams
+): Promise<LapseTokenResponse> {
+	const response = await fetch(LAPSE_TOKEN_URL, {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/x-www-form-urlencoded",
+			Accept: "application/json",
+		},
+		body: params,
+	})
+
+	if (!response.ok) throw new LapseTokenRequestError(response.status)
+
+	try {
+		return parseLapseTokenResponse(await response.json())
+	} catch (error) {
+		if (error instanceof LapseTokenResponseError) throw error
+		throw new LapseTokenResponseError()
+	}
 }
 
-/**
- * Exchanges an authorization code for a Lapse access token
- */
+/** Exchanges an authorization code for a Lapse access token. */
 export async function exchangeLapseCodeForToken(
 	code: string,
 	codeVerifier: string
 ): Promise<LapseTokenResponse> {
-	const response = await fetch(
-		"https://api.lapse.hackclub.com/api/auth/token",
-		{
-			method: "POST",
-			headers: {
-				"Content-Type": "application/x-www-form-urlencoded",
-				Accept: "application/json",
-			},
-			body: new URLSearchParams({
-				grant_type: "authorization_code",
-				code,
-				redirect_uri: LAPSE_REDIRECT_URI,
-				client_id: LAPSE_CLIENT_ID,
-				client_secret: LAPSE_CLIENT_SECRET,
-				code_verifier: codeVerifier,
-			}),
-		}
+	return requestLapseToken(
+		new URLSearchParams({
+			grant_type: "authorization_code",
+			code,
+			redirect_uri: LAPSE_REDIRECT_URI,
+			client_id: LAPSE_CLIENT_ID,
+			client_secret: LAPSE_CLIENT_SECRET,
+			code_verifier: codeVerifier,
+		})
 	)
+}
 
-	if (!response.ok) {
-		const error = await response.text()
-		throw new Error(`Failed to exchange Lapse code for token: ${error}`)
-	}
-
-	return response.json()
+/** Refresh a Lapse access token when the provider issues a refresh token. */
+export async function refreshLapseAccessToken(
+	refreshToken: string
+): Promise<LapseTokenResponse> {
+	return requestLapseToken(
+		new URLSearchParams({
+			grant_type: "refresh_token",
+			refresh_token: refreshToken,
+			client_id: LAPSE_CLIENT_ID,
+			client_secret: LAPSE_CLIENT_SECRET,
+		})
+	)
 }
 
 export type LapseUserInfo = {
@@ -243,22 +379,37 @@ export type LapseTimelapse = {
  * Returns null when the timelapse doesn't exist or isn't visible to the caller.
  */
 export async function fetchLapseTimelapse(
-	accessToken: string,
+	user: User,
+	session: string,
 	timelapseId: string
 ): Promise<LapseTimelapse | null> {
-	const response = await fetch(
-		`https://api.lapse.hackclub.com/api/timelapse/query?id=${encodeURIComponent(timelapseId)}`,
-		{
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-			},
-		}
-	)
+	const request = (accessToken: string) =>
+		fetch(
+			`https://api.lapse.hackclub.com/api/timelapse/query?id=${encodeURIComponent(timelapseId)}`,
+			{
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			}
+		)
+
+	let accessToken = await ensureLapseAccessToken(user, session)
+	let response = await request(accessToken)
+	if (response.status === 401) {
+		await response.body?.cancel()
+		accessToken =
+			user.lapseData.accessToken === accessToken
+				? await ensureLapseAccessToken(user, session, true)
+				: user.lapseData.accessToken
+		response = await request(accessToken)
+		if (response.status === 401)
+			return expireLapseSessionAndRedirect(session, user)
+	}
 	if (response.status === 404) return null
 
 	if (!response.ok) {
-		const error = await response.text()
-		throw new Error(`Failed to fetch Lapse timelapse: ${error}`)
+		await response.body?.cancel()
+		throw new Error("Failed to fetch Lapse timelapse")
 	}
 
 	const body = await response.json()
@@ -280,6 +431,7 @@ export async function findOrCreateUser(
 		displayName: userInfo.displayName,
 		profilePictureUrl: userInfo.profilePictureUrl,
 		accessToken: tokenResponse.access_token,
+		accessTokenExpiresAt: lapseTokenExpiresAt(tokenResponse.expires_in),
 		refreshToken: tokenResponse.refresh_token,
 	}
 

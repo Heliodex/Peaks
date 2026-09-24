@@ -1,13 +1,15 @@
 // Contains various api methods that cannot be accessed in a page context, usually because they are requested from a component.
 
-import { redirect } from "@sveltejs/kit"
+import { isRedirect, redirect } from "@sveltejs/kit"
 import { type } from "arktype"
 import {
 	authorise,
 	fetchLapseTimelapse,
 	invalidateSession,
+	LapseAuthenticationRequiredError,
 	sessionCookieName,
 	startLapseAuth,
+	type User,
 } from "#lib/server/auth.js"
 import { db } from "#lib/server/db.js"
 import {
@@ -58,28 +60,13 @@ export const getLapseData = query(async () => {
 	}
 })
 
-export const lapseDisconnect = form(async () => {
-	const { user } = await authorise()
-
-	await db.update(user.id).merge({ lapseData: undefined })
-
-	await getLapseData().refresh()
-})
-
 export const getTimelapse = query(type("string"), async timelapseId => {
-	const { user } = await authorise()
+	const { session, user } = await authorise()
 
 	const id = timelapseId.trim()
 	if (!id) return null
 
-	const [result] = await db.query<string[][]>(
-		"SELECT VALUE lapseData.accessToken FROM $user",
-		{ user: user.id }
-	)
-	const accessToken = result?.[0] ?? user.lapseData.accessToken
-	if (!accessToken) return null
-
-	const timelapse = await fetchLapseTimelapse(accessToken, id)
+	const timelapse = await fetchLapseTimelapse(user, session, id)
 	if (!timelapse) return null
 
 	return {
@@ -100,13 +87,19 @@ export const getTimelapse = query(type("string"), async timelapseId => {
 })
 
 async function fetchThumbnail(
-	accessToken: string,
+	user: User,
+	session: string,
 	id: string
 ): Promise<[string, string | null]> {
 	try {
-		const timelapse = await fetchLapseTimelapse(accessToken, id)
+		const timelapse = await fetchLapseTimelapse(user, session, id)
 		return [id, timelapse?.thumbnailUrl ?? null]
-	} catch {
+	} catch (error) {
+		if (
+			isRedirect(error) ||
+			error instanceof LapseAuthenticationRequiredError
+		)
+			throw error
 		return [id, null]
 	}
 }
@@ -117,20 +110,13 @@ async function fetchThumbnail(
 export const getTimelapseThumbnails = query(
 	timelapseThumbnailIds,
 	async timelapseIds => {
-		const { user } = await authorise()
-
-		const [result] = await db.query<string[][]>(
-			"SELECT VALUE lapseData.accessToken FROM $user",
-			{ user: user.id }
-		)
-		const accessToken = result?.[0] ?? user.lapseData.accessToken
-		if (!accessToken) return {}
+		const { session, user } = await authorise()
 
 		const ids = [...new Set(timelapseIds.filter(Boolean))]
 		const pairs = await mapWithConcurrency(
 			ids,
 			MAX_CONCURRENT_TIMELAPSE_REQUESTS,
-			id => fetchThumbnail(accessToken, id)
+			id => fetchThumbnail(user, session, id)
 		)
 		return Object.fromEntries(pairs)
 	}
