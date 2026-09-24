@@ -84,6 +84,9 @@ export class ReviewIdle {
 		this.ranges = []
 		this.analyzing = false
 		this.analyzed = false
+		// Invalidate the scan token too. IdleAnalysis watches this revision and cancels any
+		// in-flight job before it can publish ranges for the old review.
+		this.revision = this.revision < 0 ? 0 : this.revision + 1
 	}
 
 	/**

@@ -23,6 +23,8 @@ type IdleAnalysisOptions = {
 	 * Scan token. A negative value adopts the cached ranges; `0` or more starts a scan, and changing the value forces a fresh one.
 	 */
 	revision: () => number
+	/** Override the frame analyzer, primarily for isolated lifecycle tests. */
+	analyze?: typeof analyzeIdle
 }
 
 export class IdleAnalysis {
@@ -37,6 +39,7 @@ export class IdleAnalysis {
 	#job: IdleAnalysisJob | null = null
 	#token = 0
 	#handledRevision = -2
+	#invalidationRevision = -2
 
 	constructor(options: IdleAnalysisOptions) {
 		this.#options = options
@@ -48,6 +51,10 @@ export class IdleAnalysis {
 			// Read the rate (and whether detection has settled) so the scan starts once it is known. Every revision is handled once; later dependency changes (e.g. the video's duration arriving) must not restart a scan that's under way.
 			const rate = this.#options.frameRate()
 			const detectionDone = this.#options.ready()
+			if (rev !== this.#invalidationRevision) {
+				this.#invalidationRevision = rev
+				this.#invalidate()
+			}
 			if (rev === this.#handledRevision) return
 
 			// A negative revision usually means "trust the cache". Wait for the frame rate first: a cache sampled off-frame (an older build, or one from a failed detection) is re-scanned so its ranges line up with the ticks instead of being adopted as-is.
@@ -77,6 +84,14 @@ export class IdleAnalysis {
 		this.#token += 1
 	}
 
+	#invalidate() {
+		this.#cancel()
+		this.ranges = []
+		this.progress = 0
+		this.analyzing = false
+		this.complete = false
+	}
+
 	/** Adopt a usable cached scan. Returns whether it was adopted (a misaligned cache is re-scanned instead). */
 	#adoptCache(rate: number): boolean {
 		const cachedRanges = untrack(this.#options.cached)
@@ -101,7 +116,8 @@ export class IdleAnalysis {
 
 		const token = this.#token
 		const sameFrame = untrack(this.#options.threshold)
-		const current = analyzeIdle(url, total, rate, sameFrame, {
+		const analyze = this.#options.analyze ?? analyzeIdle
+		const current = analyze(url, total, rate, sameFrame, {
 			onProgress: value => {
 				if (token === this.#token) this.progress = value
 			},

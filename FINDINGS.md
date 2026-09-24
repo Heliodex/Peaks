@@ -124,16 +124,21 @@ The remaining material security follow-up is bearer-token protection at rest. Ac
 
 A browser smoke test after the schema change completed OAuth, loaded the profile and thumbnails, loaded a timelapse, rendered the video, and produced no browser console errors.
 
-## Open medium-priority findings
+## Medium-priority findings
 
 ### Idle scans are not explicitly cancelled on reset
 
-`ReviewSession` calls `ReviewIdle.reset()` when the open review changes. `ReviewIdle.reset()` still clears public state but does not explicitly cancel the active `IdleAnalysis` job. Source-generation checks prevent stale captured frames from being inserted, but the analysis job itself should still expose or receive cancellation.
+**Status: Resolved.**
+
+`ReviewIdle.reset()` now advances the scan revision as well as clearing the published state. `IdleAnalysis` watches that revision, cancels any active job before readiness or source checks can return early, invalidates its callback token, and clears partial state. This prevents a scan from the previous review from publishing ranges after a reset.
+
+Regression tests cover both sides of the lifecycle: `ReviewIdle.reset()` advances the invalidation revision, and `IdleAnalysis` cancels an active job when that revision changes.
 
 Relevant files:
 
-- `src/routes/(main)/review-session.svelte.ts`
 - `src/routes/(main)/review-idle.svelte.ts`
+- `src/lib/idle-time.svelte.ts`
+- `tests/idle-analysis.test.ts`
 
 ### History restoration can differ between SSR and CSR
 
@@ -198,7 +203,7 @@ A future refactor could separate pure domain/schema modules, the Lapse API clien
 
 Latest verification for the current tree:
 
-- `bun test`: 121 tests passed.
+- `bun test`: 123 tests passed.
 - `bun run check`: passed with 0 errors and 0 warnings.
 - `bun run build`: passed.
 - `bun audit`: no known vulnerabilities in 175 checked packages.
