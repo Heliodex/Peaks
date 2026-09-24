@@ -14,35 +14,54 @@ const globalState = globalThis as unknown as {
 }
 globalState.__surreal ??= {}
 
-if (!building && !globalState.__surreal.instance) {
-	const instance = new Surreal({
-		codecOptions: { useNativeDates: true },
-		engines: { ...createNodeEngines() },
-	})
-	// Assign synchronously so a concurrent reload sees the same instance instead of creating a second one.
-	globalState.__surreal.instance = instance
-	globalState.__surreal.ready = (async () => {
-		if (instance.isConnected) return
+async function initialiseDatabase(instance: Surreal): Promise<void> {
+	if (!instance.isConnected) {
 		console.log("Starting SurrealDB")
 		await instance.connect("surrealkv://./data/surreal", {
 			namespace: "main",
 			database: "main",
 		})
-		console.log("Running init query")
-		await instance.query(initQuery)
-		console.log("Database ready!")
-	})().catch(err => {
-		// Allow the next reload/import to retry instead of caching a dead promise
-		delete globalState.__surreal?.instance
-		delete globalState.__surreal?.ready
-		throw err
-	})
+	}
+	console.log("Running init query")
+	await instance.query(initQuery)
+	console.log("Database ready!")
+}
+
+if (!building) {
+	const existingInstance = globalState.__surreal.instance
+	if (existingInstance) {
+		// Vite can invalidate this module when a schema query changes. Re-run the idempotent
+		// init query after the existing connection is ready so HMR does not leave stale schema.
+		const previousReady = globalState.__surreal.ready ?? Promise.resolve()
+		globalState.__surreal.ready = previousReady
+			.then(() => initialiseDatabase(existingInstance))
+			.catch(err => {
+				delete globalState.__surreal?.instance
+				delete globalState.__surreal?.ready
+				throw err
+			})
+	} else {
+		const instance = new Surreal({
+			codecOptions: { useNativeDates: true },
+			engines: { ...createNodeEngines() },
+		})
+		// Assign synchronously so a concurrent reload sees the same instance instead of creating a second one.
+		globalState.__surreal.instance = instance
+		globalState.__surreal.ready = initialiseDatabase(instance).catch(
+			err => {
+				// Allow the next reload/import to retry instead of caching a dead promise
+				delete globalState.__surreal?.instance
+				delete globalState.__surreal?.ready
+				throw err
+			}
+		)
+	}
 }
 
 export const db = globalState.__surreal.instance as Surreal
 
 // Block dependents until the (single, shared) connection + init query finish.
-// On reload this resolves immediately because the promise is already settled.
+// On reload this waits for the idempotent schema refresh before exporting the connection.
 await (globalState.__surreal.ready as Promise<void>)
 
 type RecordIdTypes = {
