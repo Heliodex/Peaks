@@ -8,8 +8,6 @@
 	"scripts": {
 		"build": "vite build",
 		"buildview": "vite build && vite preview",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"dev": "vite dev",
 		"lint": "oxlint && biome check",
 		"lint:fix": "oxlint --fix && biome check --fix",
@@ -18,7 +16,9 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"preview": "vite preview",
 		"prod": "bun i -p && vite build",
-		"serve": "bunx pm2 start"
+		"serve": "bunx pm2 start",
+		"svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"svelte:check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"dependencies": {
 		"@surrealdb/node": "^3.1.0",
