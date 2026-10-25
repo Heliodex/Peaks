@@ -5,8 +5,8 @@ import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 
 interface ReviewIdleOptions {
-	openId: () => string
 	entries: () => ProjectTimelapse[]
+	openId: () => string
 	updateProject: (update: (project: Project) => Project) => void
 }
 

@@ -37,11 +37,11 @@ const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/
 const OVERLAP_EPSILON = 1e-9
 
 export interface ShareState {
-	projectId: string
-	selections: TimelineSelection[]
-	projectName: string
-	project: ProjectTimelapse[]
 	openId: string
+	project: ProjectTimelapse[]
+	projectId: string
+	projectName: string
+	selections: TimelineSelection[]
 }
 
 export type DecodedShare = ShareState & {
@@ -68,8 +68,8 @@ type SharePayload = [
 	string,
 ]
 interface ParsedSharePayload {
-	state: ShareState
 	selections: Map<string, TimelineSelection[]>
+	state: ShareState
 }
 
 const idSchema = type("string").atMostLength(MAX_ID_LENGTH)
@@ -123,14 +123,14 @@ function toBase64Url(bytes: Uint8Array): string {
 	let binary = ""
 	for (const byte of bytes) binary += String.fromCharCode(byte)
 	return btoa(binary)
-		.replaceAll('+', "-")
-		.replaceAll('/', "_")
+		.replaceAll("+", "-")
+		.replaceAll("/", "_")
 		.replace(/=+$/, "")
 }
 
 function fromBase64Url(value: string): Uint8Array {
 	if (!BASE64URL_PATTERN.test(value)) throw new Error("Invalid base64url")
-	const base64 = value.replaceAll('-', "+").replaceAll('_', "/")
+	const base64 = value.replaceAll("-", "+").replaceAll("_", "/")
 	const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4)
 	const binary = atob(padded)
 	const bytes = new Uint8Array(binary.length)

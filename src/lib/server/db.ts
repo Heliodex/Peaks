@@ -66,8 +66,8 @@ await (globalState.__surreal.ready as Promise<void>)
 
 interface RecordIdTypes {
 	hasSession: string
-	user: string
 	session: string
+	user: string
 }
 
 export const HasSession = new Table("hasSession")

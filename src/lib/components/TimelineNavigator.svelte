@@ -146,9 +146,8 @@ function onPointerMove(event: PointerEvent) {
 function onPointerUp(event: PointerEvent) {
 	const track = event.currentTarget as HTMLElement
 	drag = null
-	if (track.hasPointerCapture(event.pointerId)) 
+	if (track.hasPointerCapture(event.pointerId))
 		track.releasePointerCapture(event.pointerId)
-	
 }
 </script>
 

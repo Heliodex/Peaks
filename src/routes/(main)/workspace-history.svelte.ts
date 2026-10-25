@@ -7,61 +7,61 @@ import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 
 export interface WorkspaceSnapshot {
-	projects: Project[]
 	currentProjectId: string
 	/** The open timelapse id, or empty when none is open. */
 	openId: string
+	projects: Project[]
 	selections: TimelineSelection[]
 }
 
 export interface HistoryNode {
+	children: string[]
 	id: string
+	label: string
+	parent: string | null
 	/** Monotonic creation order, used for pruning and stable ordering. */
 	seq: number
-	label: string
 	snapshot: WorkspaceSnapshot
-	parent: string | null
-	children: string[]
 }
 
 /** A node placed in the settings graph. */
 export interface HistoryGraphNode {
-	id: string
-	label: string
-	/** Centre position in layout pixels. */
-	x: number
-	y: number
-	/** Whether the label fits beside the node without colliding with the next one. */
-	showLabel: boolean
 	/** The node the live state is at. */
 	current: boolean
+	id: string
+	label: string
 	/** An ancestor of the current node (the branch we're on). */
 	onPath: boolean
 	/** A direct child of the current node, reachable with redo. */
 	redoable: boolean
+	/** Whether the label fits beside the node without colliding with the next one. */
+	showLabel: boolean
+	/** Centre position in layout pixels. */
+	x: number
+	y: number
 }
 
 export interface HistoryGraphEdge {
-	from: string
-	to: string
 	/** SVG path data for the curved connector. */
 	d: string
+	from: string
 	/** Whether the edge belongs to the current lineage. */
 	onPath: boolean
+	to: string
 }
 
 export interface HistoryGraph {
-	nodes: HistoryGraphNode[]
 	edges: HistoryGraphEdge[]
-	width: number
 	height: number
+	nodes: HistoryGraphNode[]
+	width: number
 }
 
 interface WorkspaceHistoryOptions {
-	/** Read a deep clone of the workspace's current state. */
-	read: () => WorkspaceSnapshot
 	/** Restore a snapshot into the workspace. */
 	apply: (snapshot: WorkspaceSnapshot) => void
+	/** Read a deep clone of the workspace's current state. */
+	read: () => WorkspaceSnapshot
 }
 
 // Wait for edits to settle (a pointer drag fires many updates) before recording a single node.
@@ -414,9 +414,8 @@ export class WorkspaceHistory {
 		const place = (node: HistoryNode, depth: number): number => {
 			const children = childNodes(node)
 			let column: number
-			if (children.length === 0) 
-				column = nextColumn++
-			 else {
+			if (children.length === 0) column = nextColumn++
+			else {
 				const columns = children.map(child => place(child, depth + 1))
 				column = (columns[0] + columns.at(-1)) / 2
 			}
@@ -921,9 +920,9 @@ function parseNodes(value: unknown): Record<string, HistoryNode> | null {
 }
 
 interface PersistedHistory {
-	nodes: Record<string, HistoryNode>
 	currentId: string
 	nextId: number
+	nodes: Record<string, HistoryNode>
 }
 
 /** Load and fully validate a persisted history tree. */

@@ -7,7 +7,7 @@ const KEY_PATH = "/__peaks-thumbnails"
 // Upper bound on how many sources' thumbnails to retain per kind, so storage can't creep up across sessions.
 const MAX_PERSISTED_SOURCES = 12
 
-export interface StoredThumbnail { key: number; blob: Blob }
+export interface StoredThumbnail { blob: Blob key: number; }
 
 function keyFor(kind: string, source: string, key: number): string {
 	const params = new URLSearchParams({

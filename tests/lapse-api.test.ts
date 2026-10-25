@@ -127,9 +127,9 @@ describe("Lapse API response validation", () => {
 
 describe("Lapse API request bounds", () => {
 	test("converts a network failure into a typed request error", async () => {
-		globalThis.fetch = (async () => {
+		globalThis.fetch = async () => {
 			throw new TypeError("network details should not escape")
-		})
+		}
 
 		await expect(
 			fetchLapseJson("https://api.example.test", {}),
@@ -137,14 +137,14 @@ describe("Lapse API request bounds", () => {
 	})
 
 	test("aborts requests that exceed the timeout", async () => {
-		globalThis.fetch = ((_input, init) =>
+		globalThis.fetch = (_input, init) =>
 			new Promise((_resolve, reject) => {
 				init?.signal?.addEventListener(
 					"abort",
 					() => reject(new DOMException("aborted", "AbortError")),
 					{ once: true },
 				)
-			}))
+			})
 
 		await expect(
 			fetchLapseJson("https://api.example.test", {}, 5),
@@ -152,7 +152,7 @@ describe("Lapse API request bounds", () => {
 	})
 
 	test("keeps the timeout active while reading the response body", async () => {
-		globalThis.fetch = ((_input, init) =>
+		globalThis.fetch = (_input, init) =>
 			Promise.resolve({
 				json: async () =>
 					new Promise((_resolve, reject) => {
@@ -167,7 +167,7 @@ describe("Lapse API request bounds", () => {
 					}),
 				ok: true,
 				status: 200,
-			} as Response as unknown as Response))
+			} as Response as unknown as Response)
 
 		await expect(
 			fetchLapseJson("https://api.example.test", {}, 5),

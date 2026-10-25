@@ -74,9 +74,9 @@ export class TimelineViewport {
 		const duration = this.#options.duration()
 		if (duration <= 0) return 0
 		const frameRate = this.#options.frameRate()
-		if (frameRate > 0) 
+		if (frameRate > 0)
 			return Math.min(duration, MIN_VISIBLE_FRAMES / frameRate)
-		
+
 		// Without a known frame rate, don't zoom in past one second.
 		return Math.min(duration, 1)
 	}

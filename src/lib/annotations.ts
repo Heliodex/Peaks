@@ -74,17 +74,17 @@ export type SelectionColors =
 export type AnnotationColor = Exclude<keyof typeof SELECTION_COLORS, "neutral">
 
 export interface AnnotationReason {
-	id: string
-	label: string
-	/** Short phrase used in the written description, e.g. "spent researching". */
-	summaryLabel: string
+	color: AnnotationColor
 	/**
 	 * Fraction (0-1) of a selection's duration removed from the actual time: `1` removes the whole stretch, `0` leaves it untouched.
 	 */
 	deflation: number
 	/** Parenthetical note for the description, e.g. "2/3 deflated". */
 	deflationLabel: string
-	color: AnnotationColor
+	id: string
+	label: string
+	/** Short phrase used in the written description, e.g. "spent researching". */
+	summaryLabel: string
 }
 
 // positions can change, IDs must remain constant
@@ -213,10 +213,10 @@ export const effectiveIdleRanges = (
 
 /** Recorded time removed by a single annotation reason. */
 export interface AnnotationDeflation {
-	/** Annotation reason id. */
-	reason: string
 	/** Recorded seconds removed by this reason. */
 	duration: number
+	/** Annotation reason id. */
+	reason: string
 }
 
 /**
@@ -352,9 +352,7 @@ export function describeTimelapse({
 	if (idleTotal + deflatedTotal > 0) {
 		const finalDuration = Math.max(0, duration - idleTotal - deflatedTotal)
 		parts.push(`Final time after deflation ${formatClock(finalDuration)}.`)
-	} else 
-		parts.push("No deflation was applied.")
-	
+	} else parts.push("No deflation was applied.")
 
 	return parts.join(" ")
 }

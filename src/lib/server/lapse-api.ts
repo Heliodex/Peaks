@@ -86,26 +86,26 @@ const timelapseResponseSchema = type({
 })
 
 export interface LapseUserInfo {
-	id: string
-	handle: string
 	displayName: string
+	handle: string
+	id: string
 	profilePictureUrl: string
 }
 
 export interface LapseTimelapse {
+	createdAt: number
+	description: string
+	duration: number
 	id: string
 	name: string
-	description: string
-	visibility: "UNLISTED" | "PUBLIC" | "FAILED_PROCESSING"
-	createdAt: number
-	playbackUrl: string | null
-	thumbnailUrl: string | null
-	duration: number
 	owner: {
 		handle: string
 		displayName: string
 		profilePictureUrl: string
 	}
+	playbackUrl: string | null
+	thumbnailUrl: string | null
+	visibility: "UNLISTED" | "PUBLIC" | "FAILED_PROCESSING"
 }
 
 export class LapseApiResponseError extends Error {
@@ -194,9 +194,9 @@ export function parseLapseTimelapseResponse(value: unknown): LapseTimelapse {
 }
 
 export interface LapseJsonResult {
-	status: number
-	ok: boolean
 	body: unknown
+	ok: boolean
+	status: number
 }
 
 /** Fetch and parse a Lapse JSON response within one bounded request lifetime. */

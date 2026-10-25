@@ -1,12 +1,12 @@
 <script lang="ts" module>
 export interface ContextMenuItem {
-	label: string
-	/** Style the item as destructive. */
-	danger?: boolean
 	/** Mark the item as currently selected. */
 	active?: boolean
+	/** Style the item as destructive. */
+	danger?: boolean
 	/** Open the link in a new tab instead of running an action. */
 	href?: string
+	label: string
 	/** Colour dot shown beside the label. */
 	markerClass?: string
 	onSelect?: () => void

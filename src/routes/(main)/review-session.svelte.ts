@@ -13,11 +13,11 @@ const SHARE_ENCODE_DEBOUNCE_MS = 200
 const URL_WRITE_DEBOUNCE_MS = 300
 
 interface ShareState {
-	projectId: string
 	id: string
-	selections: TimelineSelection[]
-	projectName: string
 	project: ProjectTimelapse[]
+	projectId: string
+	projectName: string
+	selections: TimelineSelection[]
 }
 
 interface PendingSelection {
@@ -26,22 +26,22 @@ interface PendingSelection {
 }
 
 interface ReviewSessionOptions {
-	/** Encoded `/{state}` path (empty on the landing page). */
-	routeParam: () => string
-	projectId: () => string
-	projectName: () => string
-	project: () => ProjectTimelapse[]
-	projectLoaded: () => boolean
+	encodeShare?: typeof encodeShare
+	navigate?: typeof goto
 	/** Adopt the project carried by a decoded path. */
 	onDecoded: (decoded: DecodedShare) => void
 	/** Clear the open timelapse's idle analysis (the underlying video may change). */
 	onResetIdle: () => void
 	/** Report whether the latest selection persistence write failed. */
 	onStorageError: (failed: boolean) => void
+	project: () => ProjectTimelapse[]
+	projectId: () => string
+	projectLoaded: () => boolean
+	projectName: () => string
+	/** Encoded `/{state}` path (empty on the landing page). */
+	routeParam: () => string
 	/** Injectable collaborators keep lifecycle tests isolated from browser APIs. */
 	saveSelections?: typeof saveSelections
-	encodeShare?: typeof encodeShare
-	navigate?: typeof goto
 }
 
 export class ReviewSession {

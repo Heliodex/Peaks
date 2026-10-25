@@ -19,20 +19,20 @@ import {
 	type ViewWindow,
 } from "./timeline.js"
 
-export interface CachedFrame { time: number; url: string; fresh: boolean }
+export interface CachedFrame { fresh: boolean time: number; url: string; }
 
 export interface LayoutFrame {
-	time: number
-	url: string
 	fresh: boolean
 	left: number
+	time: number
+	url: string
 	width: number
 }
 
 export interface FrameStripOptions {
-	src: () => string
 	duration: () => number
 	frameRate: () => number
+	src: () => string
 	view: () => ViewWindow
 }
 
@@ -227,8 +227,8 @@ function createCapturePool(): CapturePool {
 const POOL_SIZE = 2
 
 interface CaptureJob {
-	source: string
 	generation: number
+	source: string
 	time: number
 }
 

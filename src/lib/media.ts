@@ -43,12 +43,12 @@ export const seekVideo = (
 			video.removeEventListener("abort", onError)
 			signal?.removeEventListener("abort", onAbort)
 		}
-		if (timeoutMs !== undefined) 
+		if (timeoutMs !== undefined)
 			timer = setTimeout(() => {
 				cleanup()
 				reject(new Error("Seek timed out"))
 			}, timeoutMs)
-		
+
 		video.addEventListener("seeked", onSeeked)
 		video.addEventListener("error", onError)
 		video.addEventListener("abort", onError)

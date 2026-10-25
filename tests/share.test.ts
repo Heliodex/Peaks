@@ -41,8 +41,8 @@ async function encodePayload(payload: unknown): Promise<string> {
 	let binary = ""
 	for (const byte of compressed) binary += String.fromCharCode(byte)
 	return btoa(binary)
-		.replaceAll('+', "-")
-		.replaceAll('/', "_")
+		.replaceAll("+", "-")
+		.replaceAll("/", "_")
 		.replace(/=+$/, "")
 }
 

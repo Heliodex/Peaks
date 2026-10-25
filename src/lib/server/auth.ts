@@ -56,12 +56,12 @@ export async function createSession(user: RecordId<"user">): Promise<string> {
 }
 
 export interface LapseData {
-	id: string
-	handle: string
-	displayName: string
-	profilePictureUrl: string
 	accessToken: string
 	accessTokenExpiresAt: number
+	displayName: string
+	handle: string
+	id: string
+	profilePictureUrl: string
 	refreshToken?: string
 }
 
@@ -243,8 +243,8 @@ export async function generatePkcePair(): Promise<{
 		new TextEncoder().encode(verifier),
 	)
 	const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-		.replaceAll('+', "-")
-		.replaceAll('/', "_")
+		.replaceAll("+", "-")
+		.replaceAll("/", "_")
 		.replace(/=+$/, "")
 
 	return { challenge, verifier }

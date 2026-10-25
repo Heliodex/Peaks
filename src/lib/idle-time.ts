@@ -3,11 +3,11 @@
 import { lapseProxyUrl } from "./lapse.js"
 import { seekVideo } from "./media.js"
 
-export interface IdleRange { start: number; end: number }
+export interface IdleRange { end: number start: number; }
 
 export interface IdleAnalysisJob {
-	promise: Promise<IdleRange[]>
 	cancel: () => void
+	promise: Promise<IdleRange[]>
 }
 
 // Comparison thumbnail size (pixels). Deliberately tiny: downscaling averages out video-compression noise so a static scene reads as identical, while any real movement still shifts enough pixels to clear the threshold.
@@ -198,11 +198,11 @@ export const waitForData = (
 	})
 
 interface VideoSampler {
+	discard: () => void
 	/** Media duration reported by the loaded element, if known. */
 	duration: () => number | null
 	ensure: () => Promise<HTMLVideoElement>
 	seek: (target: number) => Promise<HTMLVideoElement>
-	discard: () => void
 }
 
 /**

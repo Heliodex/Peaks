@@ -8,11 +8,14 @@ import { goto } from "$app/navigation"
 import { getTimelapse } from "./api.remote.js"
 import type { ReviewTimelapse } from "./review-types.js"
 
-interface ResolvedId { id: string; meta: ReviewTimelapse | null }
+interface ResolvedId {
+	id: string
+	meta: ReviewTimelapse | null
+}
 interface LoadOperation {
 	id: number
-	projectId: string
 	openId: string
+	projectId: string
 }
 
 /** A project entry for a timelapse whose metadata hasn't resolved yet. */
@@ -85,14 +88,14 @@ async function resolveIds(
 }
 
 interface TimelapseLoaderOptions {
-	openId: () => string
+	clearPendingWrites: () => void
 	entries: () => ProjectTimelapse[]
+	markPending: (id: string) => void
+	openId: () => string
 	projectId: () => string
 	projectName: () => string
 	setError: (error: string | null) => void
 	updateProject: (update: (project: Project) => Project) => void
-	markPending: (id: string) => void
-	clearPendingWrites: () => void
 }
 
 export class TimelapseLoader {

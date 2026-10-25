@@ -2,24 +2,24 @@
 import { isInteractiveTarget } from "#lib/dom.js"
 
 interface ReviewShortcutsOptions {
-	/** Toggle the project search dialog. */
-	toggleSearch: () => void
-	/** Whether a video is available to fullscreen. */
-	hasVideo: () => boolean
-	/** Toggle fullscreen playback. */
-	toggleFullscreen: () => void
 	/** Create and open a new project. */
 	createProject: () => void
 	/** The open project's timelapses. */
 	entries: () => { id: string }[]
-	/** The currently open timelapse id (empty when none). */
-	openId: () => string
+	/** Whether a video is available to fullscreen. */
+	hasVideo: () => boolean
 	/** Open a timelapse by id. */
 	open: (id: string) => void
-	/** Step the workspace back through its history. */
-	undo: () => void
+	/** The currently open timelapse id (empty when none). */
+	openId: () => string
 	/** Step the workspace forward through its history. */
 	redo: () => void
+	/** Toggle fullscreen playback. */
+	toggleFullscreen: () => void
+	/** Toggle the project search dialog. */
+	toggleSearch: () => void
+	/** Step the workspace back through its history. */
+	undo: () => void
 }
 
 /**

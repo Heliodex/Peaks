@@ -35,9 +35,9 @@ export const lapseLogin = form(async () => {
 })
 
 interface LapseProfile {
-	id: string
-	handle: string
 	displayName: string
+	handle: string
+	id: string
 	profilePictureUrl: string
 }
 
