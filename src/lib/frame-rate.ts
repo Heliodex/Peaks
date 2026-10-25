@@ -12,7 +12,7 @@ interface FrameCallbackMetadata {
 }
 type FrameCallback = (now: number, metadata: FrameCallbackMetadata) => void
 type ProbeVideo = HTMLVideoElement & {
-	requestVideoFrameCallback?: (callback: FrameCallback) => number
+	requestVideoFrameCallback?(callback: FrameCallback): number
 }
 
 // Video frame rates are stable per source, so remember successful probes and reuse them instead of decoding another hidden video when a timelapse reopens.

@@ -9,7 +9,7 @@ export interface ContextMenuItem {
 	label: string
 	/** Colour dot shown beside the label. */
 	markerClass?: string
-	onSelect?: () => void
+	onSelect?(): void
 }
 
 /** Fallback size of a two-item menu, used to keep it inside the viewport. */
@@ -46,7 +46,7 @@ let {
 	label: string
 	items: ContextMenuItem[]
 	/** Dismiss the menu; `restoreFocus` is set when a keyboard dismissal should return focus. */
-	onClose: (restoreFocus?: boolean) => void
+	onClose(restoreFocus?: boolean): void
 } = $props()
 
 let menuEl = $state<HTMLDivElement>()

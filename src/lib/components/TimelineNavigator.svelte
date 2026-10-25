@@ -42,9 +42,9 @@ let {
 	idleAnalyzing?: boolean
 	ignoreIdle?: boolean
 	view?: ViewWindow
-	onviewchange?: (view: ViewWindow) => void
+	onviewchange?(view: ViewWindow): void
 	/** Capture a frame from the shared timeline pool (avoids another video). */
-	captureFrame: (time: number, epsilon?: number) => Promise<CapturedFrame>
+	captureFrame(time: number, epsilon?: number): Promise<CapturedFrame>
 } = $props()
 
 // Smallest on-screen width (px) the zoom window may shrink to

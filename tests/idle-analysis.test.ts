@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, mock, test } from "bun:test"
 import type { IdleAnalysisJob, IdleRange } from "#lib/idle-time.js"
 
-const jobs: { cancel: () => void }[] = []
+const jobs: { cancel(): void }[] = []
 const analyzeIdle = mock((): IdleAnalysisJob => {
 	const job = {
 		cancel: mock(() => {}),
@@ -17,8 +17,8 @@ mock.module("svelte", () => ({
 }))
 
 const runtime = globalThis as typeof globalThis & {
-	$state?: (value: unknown) => unknown
-	$effect?: (effect: () => unknown) => unknown
+	$state?(value: unknown): unknown
+	$effect?(effect: () => unknown): unknown
 }
 const previousState = runtime.$state
 const previousEffect = runtime.$effect

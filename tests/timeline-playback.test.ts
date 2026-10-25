@@ -24,9 +24,9 @@ const frameRatePath = new URL("../src/lib/frame-rate.ts", import.meta.url)
 mock.module(frameRatePath, () => ({ detectFrameRate }))
 
 const runtime = globalThis as typeof globalThis & {
-	$state?: (value: unknown) => unknown
-	$derived?: (value: unknown) => unknown
-	$effect?: (effect: () => unknown) => unknown
+	$state?(value: unknown): unknown
+	$derived?(value: unknown): unknown
+	$effect?(effect: () => unknown): unknown
 }
 const previousState = runtime.$state
 const previousDerived = runtime.$derived

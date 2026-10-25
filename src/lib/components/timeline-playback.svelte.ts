@@ -7,10 +7,10 @@ import { snapToFrame } from "#lib/timeline.js"
 export const FALLBACK_FRAME_RATE = 30
 
 interface TimelinePlaybackOptions {
-	onDuration: (duration: number) => void
-	onFrameRate: (rate: number) => void
-	src: () => string
-	video: () => HTMLVideoElement | undefined
+	onDuration(duration: number): void
+	onFrameRate(rate: number): void
+	src(): string
+	video(): HTMLVideoElement | undefined
 }
 
 export class TimelinePlayback {

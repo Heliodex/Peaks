@@ -12,14 +12,14 @@ import type { ReviewIdle } from "./review-idle.svelte.js"
 import type { ReviewTimelapse } from "./review-types.js"
 
 interface ReviewSyncOptions {
-	entries: () => ProjectTimelapse[]
+	entries(): ProjectTimelapse[]
 	idle: ReviewIdle
-	loaded: () => boolean
-	openId: () => string
-	pendingAdds: { has: (id: string) => boolean; delete: (id: string) => void }
-	removeEntry: (id: string) => void
-	selections: () => TimelineSelection[]
-	updateProject: (update: (project: Project) => Project) => void
+	loaded(): boolean
+	openId(): string
+	pendingAdds: { has(id: string): boolean; delete(id: string): void }
+	removeEntry(id: string): void
+	selections(): TimelineSelection[]
+	updateProject(update: (project: Project) => Project): void
 }
 
 /** Whether two annotation breakdowns carry the same reasons and durations. */

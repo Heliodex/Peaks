@@ -19,9 +19,9 @@ let {
 }: {
 	entries: ProjectTimelapse[]
 	submittedId: string
-	onLoad: (id: string) => void
-	onRemoveTimelapse: (id: string) => void
-	onReorderProject: (entries: ProjectTimelapse[]) => void
+	onLoad(id: string): void
+	onRemoveTimelapse(id: string): void
+	onReorderProject(entries: ProjectTimelapse[]): void
 } = $props()
 
 const clipboard = createCopyToClipboard()

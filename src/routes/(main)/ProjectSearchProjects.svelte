@@ -17,9 +17,9 @@ let {
 	active: number
 	expandedProjectId: string | null
 	currentProjectId: string
-	onOpen: (project: Project) => void
-	onExpand: (project: Project) => void
-	onHover: (index: number) => void
+	onOpen(project: Project): void
+	onExpand(project: Project): void
+	onHover(index: number): void
 } = $props()
 
 // Motion is skipped for reduced-motion users.

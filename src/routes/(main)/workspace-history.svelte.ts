@@ -59,9 +59,9 @@ export interface HistoryGraph {
 
 interface WorkspaceHistoryOptions {
 	/** Restore a snapshot into the workspace. */
-	apply: (snapshot: WorkspaceSnapshot) => void
+	apply(snapshot: WorkspaceSnapshot): void
 	/** Read a deep clone of the workspace's current state. */
-	read: () => WorkspaceSnapshot
+	read(): WorkspaceSnapshot
 }
 
 // Wait for edits to settle (a pointer drag fires many updates) before recording a single node.

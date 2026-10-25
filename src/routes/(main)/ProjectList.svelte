@@ -22,11 +22,11 @@ let {
 	currentProjectId: string
 	/** Project whose name field should take focus, set right after creating one. */
 	focusNameId?: string | null
-	onRenameProject: (id: string, name: string) => void
-	onReorderProjects: (projects: Project[]) => void
-	onSelectProject: (id: string) => void
-	onRemoveProject: (id: string) => void
-	onNameFocused: () => void
+	onRenameProject(id: string, name: string): void
+	onReorderProjects(projects: Project[]): void
+	onSelectProject(id: string): void
+	onRemoveProject(id: string): void
+	onNameFocused(): void
 } = $props()
 
 // Which project is being renamed inline, if any.

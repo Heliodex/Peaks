@@ -14,8 +14,8 @@ let {
 	entries: ProjectTimelapse[]
 	active: number
 	currentTimelapseId: string
-	onOpen: (id: string) => void
-	onHover: (index: number) => void
+	onOpen(id: string): void
+	onHover(index: number): void
 } = $props()
 
 // Motion is skipped for reduced-motion users.

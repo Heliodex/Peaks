@@ -21,10 +21,10 @@ let {
 	ignoreIdle: boolean
 	idleThreshold: number
 	thresholdIndex: number
-	onToggleIgnoreIdle: (value: boolean) => void
-	onSetIdleThreshold: (value: number) => void
-	onResetIdleThreshold: () => void
-	onRecalculateIdle: () => void
+	onToggleIgnoreIdle(value: boolean): void
+	onSetIdleThreshold(value: number): void
+	onResetIdleThreshold(): void
+	onRecalculateIdle(): void
 } = $props()
 </script>
 

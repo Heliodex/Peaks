@@ -7,7 +7,7 @@ let {
 	submittedId: string
 	/** Validation failure from the last attempt to add a timelapse by id. */
 	loadError?: string | null
-	onLoad: (id: string) => void
+	onLoad(id: string): void
 } = $props()
 
 // Editable copy of the path id.

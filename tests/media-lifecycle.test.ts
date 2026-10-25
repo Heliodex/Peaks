@@ -12,9 +12,9 @@ type FakeVideo = EventTarget & {
 	src: string
 	onloadeddata: (() => void) | null
 	onerror: (() => void) | null
-	pause: () => void
-	load: () => void
-	removeAttribute: (name: string) => void
+	pause(): void
+	load(): void
+	removeAttribute(name: string): void
 }
 
 const fakeVideo = (): FakeVideo => {

@@ -11,20 +11,20 @@ interface IdleAnalysisOptions {
 	/** Override the frame analyzer, primarily for isolated lifecycle tests. */
 	analyze?: typeof analyzeIdle
 	/** Ranges from a previous scan, shown without re-analyzing. */
-	cached: () => IdleRange[]
-	duration: () => number
-	frameRate: () => number
+	cached(): IdleRange[]
+	duration(): number
+	frameRate(): number
 	/**
 	 * Whether frame-rate detection has settled. A scan waits for this so it samples whole frames and its ranges line up with the timeline's ticks.
 	 */
-	ready: () => boolean
+	ready(): boolean
 	/**
 	 * Scan token. A negative value adopts the cached ranges; `0` or more starts a scan, and changing the value forces a fresh one.
 	 */
-	revision: () => number
-	src: () => string
+	revision(): number
+	src(): string
 	/** Mean absolute frame difference at or below which frames count as idle. */
-	threshold: () => number
+	threshold(): number
 }
 
 export class IdleAnalysis {

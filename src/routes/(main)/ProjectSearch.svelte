@@ -16,9 +16,9 @@ let {
 	projects: Project[]
 	currentProjectId: string
 	currentTimelapseId: string
-	onSelect: (id: string) => void
-	onLoadTimelapse: (projectId: string, timelapseId: string) => void
-	onClose: () => void
+	onSelect(id: string): void
+	onLoadTimelapse(projectId: string, timelapseId: string): void
+	onClose(): void
 } = $props()
 
 // Which list the arrow keys and the search field act on.

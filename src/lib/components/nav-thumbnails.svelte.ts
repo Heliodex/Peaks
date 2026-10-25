@@ -20,9 +20,9 @@ const navFrameCache = createObjectUrlCache<string[]>({
 
 interface NavThumbnailsOptions {
 	/** Capture a frame from the shared timeline pool (avoids another video). */
-	captureFrame: (time: number, epsilon?: number) => Promise<CapturedFrame>
-	duration: () => number
-	src: () => string
+	captureFrame(time: number, epsilon?: number): Promise<CapturedFrame>
+	duration(): number
+	src(): string
 }
 
 export class NavThumbnails {

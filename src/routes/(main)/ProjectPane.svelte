@@ -39,15 +39,15 @@ let {
 	loadError?: string | null
 	/** A local-storage persistence failure. */
 	storageError?: string | null
-	onLoad: (id: string) => void
-	onRemoveTimelapse: (id: string) => void
-	onRenameProject: (id: string, name: string) => void
-	onReorderProject: (entries: ProjectTimelapse[]) => void
-	onReorderProjects: (projects: Project[]) => void
-	onSelectProject: (id: string) => void
-	onCreateProject: () => void
-	onRemoveProject: (id: string) => void
-	onNameFocused: () => void
+	onLoad(id: string): void
+	onRemoveTimelapse(id: string): void
+	onRenameProject(id: string, name: string): void
+	onReorderProject(entries: ProjectTimelapse[]): void
+	onReorderProjects(projects: Project[]): void
+	onSelectProject(id: string): void
+	onCreateProject(): void
+	onRemoveProject(id: string): void
+	onNameFocused(): void
 } = $props()
 </script>
 

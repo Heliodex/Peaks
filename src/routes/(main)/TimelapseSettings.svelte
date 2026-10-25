@@ -15,10 +15,10 @@ let {
 }: {
 	/** Stretch the timeline across the full window when true. */
 	justifyTimeline: boolean
-	onToggleJustifyTimeline: (value: boolean) => void
+	onToggleJustifyTimeline(value: boolean): void
 	/** Seconds the left/right arrow keys jump through the video. */
 	seekStep: number
-	onSetSeekStep: (value: number) => void
+	onSetSeekStep(value: number): void
 	/** Whole-workspace undo/redo history. */
 	history: WorkspaceHistory
 } = $props()

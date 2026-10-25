@@ -32,10 +32,10 @@ let {
 	idleAnalyzing: boolean
 	ignoreIdle: boolean
 	idleThreshold: number
-	onToggleIgnoreIdle: (value: boolean) => void
-	onSetIdleThreshold: (value: number) => void
-	onResetIdleThreshold: () => void
-	onRecalculateIdle: () => void
+	onToggleIgnoreIdle(value: boolean): void
+	onSetIdleThreshold(value: number): void
+	onResetIdleThreshold(): void
+	onRecalculateIdle(): void
 } = $props()
 
 /** Idle ranges that count towards the maths (none while overridden). */

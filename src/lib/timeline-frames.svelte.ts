@@ -34,10 +34,10 @@ export interface LayoutFrame {
 }
 
 export interface FrameStripOptions {
-	duration: () => number
-	frameRate: () => number
-	src: () => string
-	view: () => ViewWindow
+	duration(): number
+	frameRate(): number
+	src(): string
+	view(): ViewWindow
 }
 
 // Number of thumbnails aimed for across the visible window
@@ -187,9 +187,9 @@ async function hydrate(source: string) {
 
 interface CapturePool {
 	/** Get (or lazily create) the pool's capturer at `index` for `source`. */
-	capturer: (index: number, source: string) => FrameCapturer
+	capturer(index: number, source: string): FrameCapturer
 	/** Dispose every pooled capturer. */
-	dispose: () => void
+	dispose(): void
 }
 
 /**

@@ -18,9 +18,9 @@ const MAX_FRAME_TICKS = 240
 const HOVER_TOOLTIP_FLIP_PERCENT = 95
 
 interface TimelineViewportOptions {
-	duration: () => number
-	frameRate: () => number
-	src: () => string
+	duration(): number
+	frameRate(): number
+	src(): string
 }
 
 export class TimelineViewport {

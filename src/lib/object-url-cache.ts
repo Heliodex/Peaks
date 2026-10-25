@@ -10,7 +10,7 @@ interface ObjectUrlCacheOptions<T> {
 	/** Most sources to keep before evicting the least recently used. */
 	max: number
 	/** Object URLs held by one cached value, for revocation on eviction. */
-	urls: (value: T) => string[]
+	urls(value: T): string[]
 }
 
 export function createObjectUrlCache<T>({

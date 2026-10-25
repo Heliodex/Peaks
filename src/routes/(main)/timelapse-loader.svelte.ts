@@ -88,14 +88,14 @@ async function resolveIds(
 }
 
 interface TimelapseLoaderOptions {
-	clearPendingWrites: () => void
-	entries: () => ProjectTimelapse[]
-	markPending: (id: string) => void
-	openId: () => string
-	projectId: () => string
-	projectName: () => string
-	setError: (error: string | null) => void
-	updateProject: (update: (project: Project) => Project) => void
+	clearPendingWrites(): void
+	entries(): ProjectTimelapse[]
+	markPending(id: string): void
+	openId(): string
+	projectId(): string
+	projectName(): string
+	setError(error: string | null): void
+	updateProject(update: (project: Project) => Project): void
 }
 
 export class TimelapseLoader {

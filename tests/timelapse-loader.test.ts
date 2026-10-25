@@ -20,7 +20,7 @@ mock.module("$app/navigation", () => ({ goto }))
 mock.module(apiRemotePath, () => ({ getTimelapse }))
 
 const runtime = globalThis as typeof globalThis & {
-	$state?: { snapshot: (value: unknown) => unknown }
+	$state?: { snapshot(value: unknown): unknown }
 }
 const previousState = runtime.$state
 runtime.$state = { snapshot: value => structuredClone(value) }

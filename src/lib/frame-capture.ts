@@ -12,9 +12,9 @@ export interface CapturedFrame {
 
 export interface FrameCapturer {
 	/** Seek to `time` and return a small JPEG snapshot. */
-	captureAt: (time: number, epsilon?: number) => Promise<CapturedFrame>
+	captureAt(time: number, epsilon?: number): Promise<CapturedFrame>
 	/** Release the underlying video element. */
-	dispose: () => void
+	dispose(): void
 }
 
 /** Encode a canvas as a JPEG blob (the async counterpart of `toDataURL`). */

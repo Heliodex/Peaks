@@ -8,7 +8,7 @@ let {
 }: {
 	view: ViewWindow
 	ticks: number[]
-	ontrackwidth: (width: number) => void
+	ontrackwidth(width: number): void
 } = $props()
 
 /** Report the measured width so the parent can hide ticks when they get too dense. */

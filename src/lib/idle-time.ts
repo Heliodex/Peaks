@@ -9,7 +9,7 @@ export interface IdleRange {
 }
 
 export interface IdleAnalysisJob {
-	cancel: () => void
+	cancel(): void
 	promise: Promise<IdleRange[]>
 }
 
@@ -143,8 +143,8 @@ export function mergeIdleRanges(intervals: IdleRange[]): IdleRange[] {
 }
 
 interface IdleCallbacks {
-	onProgress?: (progress: number) => void
-	onRanges?: (ranges: IdleRange[]) => void
+	onProgress?(progress: number): void
+	onRanges?(ranges: IdleRange[]): void
 }
 
 const delay = (ms: number): Promise<void> =>
@@ -197,11 +197,11 @@ export const waitForData = (
 	})
 
 interface VideoSampler {
-	discard: () => void
+	discard(): void
 	/** Media duration reported by the loaded element, if known. */
-	duration: () => number | null
-	ensure: () => Promise<HTMLVideoElement>
-	seek: (target: number) => Promise<HTMLVideoElement>
+	duration(): number | null
+	ensure(): Promise<HTMLVideoElement>
+	seek(target: number): Promise<HTMLVideoElement>
 }
 
 /**

@@ -39,12 +39,12 @@ let {
 	seekStep: number
 	/** Whole-workspace undo/redo, shown in the settings tab. */
 	history: WorkspaceHistory
-	onToggleIgnoreIdle: (value: boolean) => void
-	onSetIdleThreshold: (value: number) => void
-	onResetIdleThreshold: () => void
-	onRecalculateIdle: () => void
-	onToggleJustifyTimeline: (value: boolean) => void
-	onSetSeekStep: (value: number) => void
+	onToggleIgnoreIdle(value: boolean): void
+	onSetIdleThreshold(value: number): void
+	onResetIdleThreshold(): void
+	onRecalculateIdle(): void
+	onToggleJustifyTimeline(value: boolean): void
+	onSetSeekStep(value: number): void
 } = $props()
 
 type Tab = "data" | "settings"

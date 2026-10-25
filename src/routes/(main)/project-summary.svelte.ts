@@ -6,9 +6,9 @@ import { entryFinalDuration } from "./review-format.js"
 import type { ProjectTotals } from "./review-types.js"
 
 interface ProjectSummaryOptions {
-	entries: () => ProjectTimelapse[]
+	entries(): ProjectTimelapse[]
 	/** Link appended to the description, or empty when the project isn't shareable. */
-	shareLink: () => string
+	shareLink(): string
 }
 
 export class ProjectSummary {

@@ -9,7 +9,7 @@ let {
 }: {
 	frames: LayoutFrame[]
 	frameCount: number
-	frameTime: (index: number) => number
+	frameTime(index: number): number
 } = $props()
 </script>
 

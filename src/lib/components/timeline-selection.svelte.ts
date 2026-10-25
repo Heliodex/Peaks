@@ -36,15 +36,15 @@ const DRAG_THRESHOLD_PX = 4
 const MIN_SELECTION_PX = 4
 
 interface SelectionEditorOptions {
-	duration: () => number
-	frameRate: () => number
-	pointerToTime: (clientX: number, track: HTMLElement) => number
-	seekTo: (seconds: number) => void
-	selections: () => TimelineSelection[]
-	setSelections: (selections: TimelineSelection[]) => void
-	setView: (view: ViewWindow) => void
-	view: () => ViewWindow
-	viewSpan: () => number
+	duration(): number
+	frameRate(): number
+	pointerToTime(clientX: number, track: HTMLElement): number
+	seekTo(seconds: number): void
+	selections(): TimelineSelection[]
+	setSelections(selections: TimelineSelection[]): void
+	setView(view: ViewWindow): void
+	view(): ViewWindow
+	viewSpan(): number
 }
 
 export class SelectionEditor {

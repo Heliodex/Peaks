@@ -21,16 +21,16 @@ const { ReviewSession } = await import(
 const effects: (() => unknown)[] = []
 const runtime = globalThis as typeof globalThis & {
 	$state?: ((value: unknown) => unknown) & {
-		snapshot: (value: unknown) => unknown
+		snapshot(value: unknown): unknown
 	}
-	$derived?: (value: unknown) => unknown
-	$effect?: (effect: () => unknown) => unknown
+	$derived?(value: unknown): unknown
+	$effect?(effect: () => unknown): unknown
 }
 const previousState = runtime.$state
 const previousDerived = runtime.$derived
 const previousEffect = runtime.$effect
 const state = ((value: unknown) => value) as ((value: unknown) => unknown) & {
-	snapshot: (value: unknown) => unknown
+	snapshot(value: unknown): unknown
 }
 state.snapshot = value => value
 runtime.$state = state
