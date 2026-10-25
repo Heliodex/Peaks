@@ -1,53 +1,39 @@
 {
 	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-	"formatter": {
-		"indentWidth": 4
-	},
-	"linter": {
-		"rules": {
-			"correctness": {
-				"noUndeclaredDependencies": "off"
-			},
-			"suspicious": {
-				"noEvolvingTypes": "off",
-				"noConsole": "off"
-			},
-			"nursery": {
-				"useExplicitType": "off"
-			},
-			"style": {
-				"useLiteralEnumMembers": "error",
-				"useNodejsImportProtocol": "error",
-				"useAsConstAssertion": "error",
-				"useEnumInitializers": "error",
-				"useSelfClosingElements": "error",
-				"useSingleVarDeclarator": "error",
-				"noUnusedTemplateLiteral": "error",
-				"useNumberNamespace": "error",
-				"noInferrableTypes": "error",
-				"useExponentiationOperator": "error",
-				"useTemplate": "error",
-				"noParameterAssign": "error",
-				"noNonNullAssertion": "error",
-				"useDefaultParameterLast": "error",
-				"useImportType": "error",
-				"useExportType": "error",
-				"noUselessElse": "error",
-				"useShorthandFunctionType": "error"
+	"assist": {
+		"actions": {
+			"source": {
+				"noDuplicateClasses": "on",
+				"organizeImports": "on",
+				"useSortedAttributes": "on",
+				"useSortedEnumMembers": "on",
+				"useSortedInterfaceMembers": "on",
+				"useSortedKeys": "on",
+				"useSortedPackageJson": "on",
+				"useSortedProperties": "on",
+				"useSortedSelectionSet": "on",
+				"useSortedTypeFields": "on"
 			}
-		}
+		},
+		"enabled": true
 	},
 	"css": {
 		"parser": {
 			"tailwindDirectives": true
 		}
 	},
-	"javascript": {
-		"formatter": {
-			"semicolons": "asNeeded",
-			"trailingCommas": "es5",
-			"arrowParentheses": "asNeeded"
-		}
+	"files": {
+		"includes": [
+			"**/*.ts",
+			"**/*.js",
+			"**/*.svelte",
+			"**/*.json",
+			"!.svelte-kit",
+			"!build"
+		]
+	},
+	"formatter": {
+		"indentWidth": 4
 	},
 	"html": {
 		"experimentalFullSupportEnabled": true,
@@ -55,24 +41,42 @@
 			"enabled": true
 		}
 	},
+	"javascript": {
+		"formatter": {
+			"arrowParentheses": "asNeeded",
+			"bracketSameLine": false,
+			"operatorLinebreak": "before",
+			"semicolons": "asNeeded",
+			"trailingCommas": "all"
+		}
+	},
 	"overrides": [
 		{
-			"includes": [".svelte-kit/**", "build/**"],
-			"formatter": {
-				"enabled": false
-			}
+			"assist": {
+				"actions": {
+					"source": {
+						"useSortedKeys": "off"
+					}
+				}
+			},
+			"includes": ["package.json"]
 		},
 		{
 			"includes": ["**/*.svelte"],
 			"linter": {
 				"rules": {
-					"style": {
-						"useConst": "off",
-						"useImportType": "off"
-					},
 					"correctness": {
-						"noUnusedVariables": "off",
-						"noUnusedImports": "off"
+						"noUnusedImports": "off",
+						"noUnusedLabels": "off",
+						"noUnusedVariables": "off"
+					},
+					"style": {
+						"useConst": "off"
+					},
+					"suspicious": {
+						"noConfusingLabels": "off",
+						"noEvolvingTypes": "off",
+						"noImplicitAnyLet": "off"
 					}
 				}
 			}
