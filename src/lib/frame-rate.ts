@@ -6,7 +6,10 @@ const MIN_FRAMES = 3
 // Give up after this long, e.g. for extremely low frame rate videos
 const PROBE_TIMEOUT_MS = 6000
 
-interface FrameCallbackMetadata { mediaTime: number presentedFrames: number; }
+interface FrameCallbackMetadata {
+	mediaTime: number
+	presentedFrames: number
+}
 type FrameCallback = (now: number, metadata: FrameCallbackMetadata) => void
 type ProbeVideo = HTMLVideoElement & {
 	requestVideoFrameCallback?: (callback: FrameCallback) => number

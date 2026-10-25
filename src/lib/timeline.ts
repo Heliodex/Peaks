@@ -7,7 +7,10 @@ export interface TimelineSelection {
 	reason?: string
 	start: number
 }
-export interface ViewWindow { end: number start: number; }
+export interface ViewWindow {
+	end: number
+	start: number
+}
 
 /**
  * Lapse timelapses play back 60× faster than real time, so a duration measured on the timeline (playback seconds) maps to 60 seconds of recorded time.

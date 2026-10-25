@@ -19,7 +19,11 @@ import {
 	type ViewWindow,
 } from "./timeline.js"
 
-export interface CachedFrame { fresh: boolean time: number; url: string; }
+export interface CachedFrame {
+	fresh: boolean
+	time: number
+	url: string
+}
 
 export interface LayoutFrame {
 	fresh: boolean
@@ -77,9 +81,8 @@ const trimFramesNear = (
 /** Revoke the object URLs of frames that `kept` dropped. */
 function revokeDropped(candidates: CachedFrame[], kept: CachedFrame[]) {
 	const keptSet = new Set(kept)
-	for (const frame of candidates) 
+	for (const frame of candidates)
 		if (!keptSet.has(frame)) URL.revokeObjectURL(frame.url)
-	
 }
 
 /** Whether a frame within `tolerance` of `time` is already cached. */
@@ -110,9 +113,8 @@ function layoutFrames(
 			bestDistance = distance
 			best = frame
 		}
-		if (best && bestDistance <= maxDistance && !picks.includes(best)) 
+		if (best && bestDistance <= maxDistance && !picks.includes(best))
 			picks.push(best)
-		
 	}
 	picks.sort((a, b) => a.time - b.time)
 	return picks.map((frame, i) => {

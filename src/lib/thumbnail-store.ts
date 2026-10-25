@@ -7,7 +7,10 @@ const KEY_PATH = "/__peaks-thumbnails"
 // Upper bound on how many sources' thumbnails to retain per kind, so storage can't creep up across sessions.
 const MAX_PERSISTED_SOURCES = 12
 
-export interface StoredThumbnail { blob: Blob key: number; }
+export interface StoredThumbnail {
+	blob: Blob
+	key: number
+}
 
 function keyFor(kind: string, source: string, key: number): string {
 	const params = new URLSearchParams({
@@ -23,9 +26,8 @@ let cachePromise: Promise<Cache | null> | null = null
 
 function openCache(): Promise<Cache | null> {
 	if (typeof caches === "undefined") return Promise.resolve(null)
-	if (!cachePromise) 
-		cachePromise = caches.open(CACHE_NAME).catch(() => null)
-	
+	if (!cachePromise) cachePromise = caches.open(CACHE_NAME).catch(() => null)
+
 	return cachePromise
 }
 
@@ -151,8 +153,7 @@ export async function pruneThumbnails(): Promise<void> {
 }
 
 // Trim anything left over from previous sessions, once per page load, but wait until after first paint so pruning can't delay the initial thumbnails.
-if (typeof window !== "undefined") 
+if (typeof window !== "undefined")
 	if (typeof requestIdleCallback === "function")
 		requestIdleCallback(pruneThumbnails)
 	else setTimeout(pruneThumbnails, 3000)
-
