@@ -93,7 +93,7 @@ const idleArraySchema = idleTupleSchema.array().atMostLength(MAX_IDLE_RANGES)
 const idleRangesSchema = type.or(idleArraySchema, "null")
 const ignoreIdleSchema = type("0 | 1")
 const thresholdSchema = type("number").narrow(value =>
-	IDLE_THRESHOLD_SCALE.includes(value)
+	IDLE_THRESHOLD_SCALE.includes(value),
 )
 const projectTupleSchema = type([
 	idSchema,
@@ -142,7 +142,7 @@ function fromBase64Url(value: string): Uint8Array {
 const asArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
 	bytes.buffer.slice(
 		bytes.byteOffset,
-		bytes.byteOffset + bytes.byteLength
+		bytes.byteOffset + bytes.byteLength,
 	) as ArrayBuffer
 
 /** Compress `bytes` with raw DEFLATE, which carries no zlib/gzip wrapper. */
@@ -190,7 +190,7 @@ async function inflate(bytes: Uint8Array): Promise<Uint8Array | null> {
 }
 
 const toSelectionTuple = (
-	selection: TimelineSelection
+	selection: TimelineSelection,
 ): ShareSelectionTuple => [
 	Math.round(selection.start * 1000),
 	Math.round(selection.end * 1000),
@@ -199,26 +199,26 @@ const toSelectionTuple = (
 
 function isValidRange(start: number, end: number, durationMs: number): boolean {
 	return (
-		Number.isInteger(start) &&
-		Number.isInteger(end) &&
-		start >= 0 &&
-		end >= start &&
-		end <= durationMs
+		Number.isInteger(start)
+		&& Number.isInteger(end)
+		&& start >= 0
+		&& end >= start
+		&& end <= durationMs
 	)
 }
 
 function hasOverlaps(
-	ranges: readonly { start: number; end: number }[]
+	ranges: readonly { start: number; end: number }[],
 ): boolean {
 	const sorted = ranges.toSorted((a, b) => a.start - b.start || a.end - b.end)
 	return sorted.some(
 		(range, index) =>
-			index > 0 && range.start < sorted[index - 1].end - OVERLAP_EPSILON
+			index > 0 && range.start < sorted[index - 1].end - OVERLAP_EPSILON,
 	)
 }
 
 function hasDuplicateStarts(
-	ranges: readonly { start: number; end: number }[]
+	ranges: readonly { start: number; end: number }[],
 ): boolean {
 	const starts = new Set<number>()
 	return ranges.some(range => {
@@ -236,7 +236,7 @@ function buildProjectEntry(
 	ignore: boolean,
 	idleRanges: IdleRange[] | undefined,
 	selections: TimelineSelection[],
-	idleThreshold: number
+	idleThreshold: number,
 ): ProjectTimelapse {
 	// Idle only counts towards the maths when it isn't being ignored.
 	const effectiveRanges = ignore ? [] : (idleRanges ?? [])
@@ -261,7 +261,7 @@ function buildProjectEntry(
 function parseSelection(
 	value: unknown,
 	index: number,
-	duration: number
+	duration: number,
 ): TimelineSelection | null {
 	if (!selectionTupleSchema.allows(value)) return null
 	const [start, end, reason] = value as ShareSelectionTuple
@@ -279,7 +279,7 @@ function parseSelection(
 
 function parseSelections(
 	value: unknown,
-	duration: number
+	duration: number,
 ): TimelineSelection[] | null {
 	if (!selectionArraySchema.allows(value)) return null
 	const selections: TimelineSelection[] = []
@@ -302,7 +302,7 @@ function parseIdleTuple(value: unknown, duration: number): IdleRange | null {
 /** Parse encoded idle ranges: `null` means never scanned, `[]` means none. */
 function parseIdleRanges(
 	value: unknown,
-	duration: number
+	duration: number,
 ): IdleRange[] | undefined | null {
 	if (value === null) return undefined
 	if (!idleArraySchema.allows(value)) return null
@@ -320,7 +320,7 @@ function parseIdleRanges(
 function parseProjectEntry(
 	value: unknown,
 	openId: string,
-	openSelections: TimelineSelection[]
+	openSelections: TimelineSelection[],
 ): { entry: ProjectTimelapse; selections: TimelineSelection[] } | null {
 	if (!Array.isArray(value)) return null
 	const [
@@ -333,14 +333,14 @@ function parseProjectEntry(
 		rawThreshold,
 	] = value
 	if (
-		typeof id !== "string" ||
-		!id ||
-		typeof name !== "string" ||
-		typeof duration !== "number" ||
-		!Number.isFinite(duration) ||
-		duration < 0 ||
-		(ignoreIdle !== 0 && ignoreIdle !== 1) ||
-		typeof rawThreshold !== "number"
+		typeof id !== "string"
+		|| !id
+		|| typeof name !== "string"
+		|| typeof duration !== "number"
+		|| !Number.isFinite(duration)
+		|| duration < 0
+		|| (ignoreIdle !== 0 && ignoreIdle !== 1)
+		|| typeof rawThreshold !== "number"
 	)
 		return null
 
@@ -361,7 +361,7 @@ function parseProjectEntry(
 			ignoreIdle === 1,
 			idleRanges,
 			selections,
-			idleThreshold
+			idleThreshold,
 		),
 		selections,
 	}
@@ -372,7 +372,7 @@ function parsePayloadParts(
 	rawSelections: ShareSelectionTuple[],
 	projectName: string,
 	rawProject: unknown[],
-	openId: string
+	openId: string,
 ): ParsedSharePayload | null {
 	const selections = parseSelections(rawSelections, MAX_DURATION_SECONDS)
 	if (!selections || (!openId && selections.length > 0)) return null
@@ -388,21 +388,21 @@ function parsePayloadParts(
 		if (Array.isArray(nestedIdleRanges))
 			totalIdleRanges += nestedIdleRanges.length
 		if (
-			totalSelections > MAX_TOTAL_SELECTIONS ||
-			totalIdleRanges > MAX_TOTAL_IDLE_RANGES
+			totalSelections > MAX_TOTAL_SELECTIONS
+			|| totalIdleRanges > MAX_TOTAL_IDLE_RANGES
 		)
 			return null
 	}
 	if (openId) {
 		const openEntry = rawProject.find(
-			rawEntry => Array.isArray(rawEntry) && rawEntry[0] === openId
+			rawEntry => Array.isArray(rawEntry) && rawEntry[0] === openId,
 		)
 		const openEntrySelections = Array.isArray(openEntry)
 			? openEntry[5]
 			: null
 		if (
-			Array.isArray(openEntrySelections) &&
-			openEntrySelections.length > 0
+			Array.isArray(openEntrySelections)
+			&& openEntrySelections.length > 0
 		)
 			return null
 	}
@@ -421,14 +421,14 @@ function parsePayloadParts(
 	const openEntry = openId ? entries.find(entry => entry.id === openId) : null
 	if (openId && !openEntry) return null
 	if (
-		openEntry &&
-		selections.some(
+		openEntry
+		&& selections.some(
 			selection =>
 				!isValidRange(
 					Math.round(selection.start * 1000),
 					Math.round(selection.end * 1000),
-					Math.round(openEntry.duration * 1000)
-				)
+					Math.round(openEntry.duration * 1000),
+				),
 		)
 	)
 		return null
@@ -454,7 +454,7 @@ function parsePayload(payload: unknown): ParsedSharePayload | null {
 		rawSelections,
 		projectName,
 		rawProject,
-		openId
+		openId,
 	)
 }
 
@@ -496,10 +496,10 @@ export async function encodeShare(state: ShareState): Promise<string> {
 
 export async function decodeShare(value: string): Promise<DecodedShare | null> {
 	if (
-		typeof value !== "string" ||
-		value.length === 0 ||
-		value.length > MAX_ENCODED_SHARE_LENGTH ||
-		!BASE64URL_PATTERN.test(value)
+		typeof value !== "string"
+		|| value.length === 0
+		|| value.length > MAX_ENCODED_SHARE_LENGTH
+		|| !BASE64URL_PATTERN.test(value)
 	)
 		return null
 
@@ -507,7 +507,7 @@ export async function decodeShare(value: string): Promise<DecodedShare | null> {
 		const bytes = await inflate(fromBase64Url(value))
 		if (!bytes) return null
 		const payload: unknown = JSON.parse(
-			new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+			new TextDecoder("utf-8", { fatal: true }).decode(bytes),
 		)
 		const parsed = parsePayload(payload)
 		if (!parsed) return null

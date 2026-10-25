@@ -34,12 +34,12 @@ const filteredProjects = $derived.by(() => {
 	const needle = projectQuery.trim().toLowerCase()
 	if (!needle) return projects
 	return projects.filter(project =>
-		project.name.toLowerCase().includes(needle)
+		project.name.toLowerCase().includes(needle),
 	)
 })
 
 const expandedProject = $derived(
-	projects.find(project => project.id === expandedProjectId) ?? null
+	projects.find(project => project.id === expandedProjectId) ?? null,
 )
 
 const filteredTimelapses = $derived.by(() => {
@@ -47,21 +47,21 @@ const filteredTimelapses = $derived.by(() => {
 	const needle = timelapseQuery.trim().toLowerCase()
 	if (!needle) return entries
 	return entries.filter(entry =>
-		(entry.name || entry.id).toLowerCase().includes(needle)
+		(entry.name || entry.id).toLowerCase().includes(needle),
 	)
 })
 
 // Each highlight is clamped on read, so filtering can never leave it pointing past the end of a list that just shrank.
 const activeProject = $derived(
-	Math.min(projectIndex, Math.max(0, filteredProjects.length - 1))
+	Math.min(projectIndex, Math.max(0, filteredProjects.length - 1)),
 )
 const activeTimelapse = $derived(
-	Math.min(timelapseIndex, Math.max(0, filteredTimelapses.length - 1))
+	Math.min(timelapseIndex, Math.max(0, filteredTimelapses.length - 1)),
 )
 
 // The list the search field is driving, and the highlighted row within it, exposed to assistive tech as a combobox.
 const activeListId = $derived(
-	mode === "projects" ? "search-projects-list" : "search-timelapses-list"
+	mode === "projects" ? "search-projects-list" : "search-timelapses-list",
 )
 const activeOptionId = $derived(
 	mode === "projects"
@@ -70,7 +70,7 @@ const activeOptionId = $derived(
 			: undefined
 		: filteredTimelapses.length > 0
 			? `search-timelapse-${activeTimelapse}`
-			: undefined
+			: undefined,
 )
 
 // Appearance animations for the timelapse pane and its breadcrumb.
@@ -78,15 +78,15 @@ const activeOptionId = $derived(
 const breadcrumbTransition = $derived<SlideParams>(
 	prefersReducedMotion.current
 		? { duration: 0 }
-		: { duration: 150, axis: "x" }
+		: { duration: 150, axis: "x" },
 )
 const dialogTransition = $derived(
 	prefersReducedMotion.current
 		? { duration: 0 }
-		: { duration: 150, start: 0.97, opacity: 0 }
+		: { duration: 150, start: 0.97, opacity: 0 },
 )
 const backdropTransition = $derived(
-	prefersReducedMotion.current ? { duration: 0 } : { duration: 150 }
+	prefersReducedMotion.current ? { duration: 0 } : { duration: 150 },
 )
 
 // The search field, so collapsing (or expanding) can put the caret back in it after a click moves focus to a row button.
@@ -122,13 +122,13 @@ function move(step: number) {
 	if (mode === "projects") {
 		if (filteredProjects.length === 0) return
 		projectIndex =
-			(activeProject + step + filteredProjects.length) %
-			filteredProjects.length
+			(activeProject + step + filteredProjects.length)
+			% filteredProjects.length
 	} else {
 		if (filteredTimelapses.length === 0) return
 		timelapseIndex =
-			(activeTimelapse + step + filteredTimelapses.length) %
-			filteredTimelapses.length
+			(activeTimelapse + step + filteredTimelapses.length)
+			% filteredTimelapses.length
 	}
 }
 
@@ -295,12 +295,8 @@ function handleKeydown(event: KeyboardEvent) {
 				<kbd>→</kbd>
 				timelapses
 			</span>
-			<span class="flex items-center gap-1">
-				<kbd>↵</kbd> open
-			</span>
-			<span class="flex items-center gap-1">
-				<kbd>esc</kbd> close
-			</span>
+			<span class="flex items-center gap-1"> <kbd>↵</kbd> open </span>
+			<span class="flex items-center gap-1"> <kbd>esc</kbd> close </span>
 		</div>
 	</div>
 </div>

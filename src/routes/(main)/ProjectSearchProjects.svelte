@@ -24,7 +24,7 @@ let {
 
 // Motion is skipped for reduced-motion users.
 const scrollBehavior = $derived(
-	prefersReducedMotion.current ? "auto" : "smooth"
+	prefersReducedMotion.current ? "auto" : "smooth",
 )
 
 function scrollProjectIntoView(node: HTMLDivElement) {
@@ -55,7 +55,7 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 			{const selected = $derived(
 				mode === "projects"
 					? index === active
-					: project.id === expandedProjectId
+					: project.id === expandedProjectId,
 			)}
 			<div
 				role="presentation"

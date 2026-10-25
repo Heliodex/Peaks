@@ -159,7 +159,7 @@ let suppressSelectionMenu = false
 
 function setSelectionReason(id: string, reason: string) {
 	selections = selections.map(selection =>
-		selection.id === id ? { ...selection, reason } : selection
+		selection.id === id ? { ...selection, reason } : selection,
 	)
 }
 
@@ -184,7 +184,7 @@ function onTrackPointerUp(event: PointerEvent) {
 function onSelectionContextMenu(
 	event: MouseEvent,
 	sel: TimelineSelection,
-	index: number
+	index: number,
 ) {
 	// Right-clicking the delete button does nothing; the track still suppresses the native menu.
 	if ((event.target as HTMLElement).closest("[data-delete]")) return
@@ -232,7 +232,7 @@ function onPointerMove(event: PointerEvent) {
 
 	// Hovering: preview-scrub and remember which selection is under the pointer.
 	const selectionEl = (event.target as HTMLElement).closest<HTMLElement>(
-		"[data-selection-id]"
+		"[data-selection-id]",
 	)
 	editor.hoveredSelectionId = selectionEl?.dataset.selectionId ?? null
 	viewport.hoverTime = pointerToTime(event.clientX, track)
@@ -256,11 +256,11 @@ function onKeyDown(event: KeyboardEvent) {
 		ArrowDown: () => playback.stepFrame(-1),
 		ArrowLeft: () =>
 			playback.seekTo(
-				clamp(playback.currentTime - seekStep, 0, duration)
+				clamp(playback.currentTime - seekStep, 0, duration),
 			),
 		ArrowRight: () =>
 			playback.seekTo(
-				clamp(playback.currentTime + seekStep, 0, duration)
+				clamp(playback.currentTime + seekStep, 0, duration),
 			),
 	}
 	const action = actions[event.key]
@@ -279,12 +279,17 @@ function onKeyDown(event: KeyboardEvent) {
 {#snippet selectionHandle(
 	side: "start" | "end",
 	sel: TimelineSelection,
-	handleClass: string
+	handleClass: string,
 )}
 	<div
 		data-resize={side}
 		data-selection-id={sel.id}
-		class={["absolute inset-y-0", side === "start" ? "-left-1" : "-right-1", "flex w-2 cursor-ew-resize items-center justify-center transition-opacity", editor.controlsClass(sel.id)]}
+		class={[
+			"absolute inset-y-0",
+			side === "start" ? "-left-1" : "-right-1",
+			"flex w-2 cursor-ew-resize items-center justify-center transition-opacity",
+			editor.controlsClass(sel.id),
+		]}
 		role="presentation"
 	>
 		<span
@@ -297,12 +302,14 @@ function onKeyDown(event: KeyboardEvent) {
 	{const layoutFrames = $derived(frameStrip.layout)}
 	<div class="flex min-h-0 w-full flex-1 flex-col pt-3">
 		<div
-			class={["relative min-h-0 w-full flex-1 touch-none border border-line select-none", editor.drag?.kind ===
-				"create"
+			class={[
+				"relative min-h-0 w-full flex-1 touch-none border border-line select-none",
+				editor.drag?.kind === "create"
 					? "cursor-text"
 					: editor.pan
 						? "cursor-grabbing"
-						: '']}
+						: "",
+			]}
 			onpointerdown={onTrackPointerDown}
 			onpointermove={onPointerMove}
 			onpointerup={onTrackPointerUp}
@@ -327,17 +334,17 @@ function onKeyDown(event: KeyboardEvent) {
 			<!-- Idle stretches where the picture never changes (time spent AFK) -->
 			{#each visibleIdleRanges as range (range.start)}
 				{const idleStart = $derived(
-					Math.max(range.start, viewport.view.start)
+					Math.max(range.start, viewport.view.start),
 				)}
 				{const idleEnd = $derived(
-					Math.min(range.end, viewport.view.end)
+					Math.min(range.end, viewport.view.end),
 				)}
 				{#if idleEnd > idleStart}
 					<div
 						class="pointer-events-none absolute bottom-0 h-3 border-x border-t border-amber-400/50 bg-amber-400/25"
 						style:left="{percentWithin(idleStart, viewport.view)}%"
-						style:width="{percentWithin(idleEnd, viewport.view) -
-							percentWithin(idleStart, viewport.view)}%"
+						style:width="{percentWithin(idleEnd, viewport.view)
+							- percentWithin(idleStart, viewport.view)}%"
 					></div>
 				{/if}
 			{/each}
@@ -345,10 +352,10 @@ function onKeyDown(event: KeyboardEvent) {
 			<!-- Selections, clamped to the visible window -->
 			{#each selections as sel, i (sel.id)}
 				{const visibleStart = $derived(
-					Math.max(sel.start, viewport.view.start)
+					Math.max(sel.start, viewport.view.start),
 				)}
 				{const visibleEnd = $derived(
-					Math.min(sel.end, viewport.view.end)
+					Math.min(sel.end, viewport.view.end),
 				)}
 				{const color = $derived(selectionColors(sel.reason))}
 				{#if visibleEnd > visibleStart}
@@ -365,9 +372,12 @@ function onKeyDown(event: KeyboardEvent) {
 						data-selection-id={sel.id}
 						oncontextmenu={event =>
 							onSelectionContextMenu(event, sel, i)}
-						style:left="{percentWithin(visibleStart, viewport.view)}%"
-						style:width="{percentWithin(visibleEnd, viewport.view) -
-							percentWithin(visibleStart, viewport.view)}%"
+						style:left="{percentWithin(
+							visibleStart,
+							viewport.view,
+						)}%"
+						style:width="{percentWithin(visibleEnd, viewport.view)
+							- percentWithin(visibleStart, viewport.view)}%"
 					>
 						<div
 							class={[
@@ -378,7 +388,11 @@ function onKeyDown(event: KeyboardEvent) {
 						></div>
 
 						{#if sel.start >= viewport.view.start}
-							{@render selectionHandle("start", sel, color.handle)}
+							{@render selectionHandle(
+								"start",
+								sel,
+								color.handle,
+							)}
 						{/if}
 
 						{#if sel.end <= viewport.view.end}
@@ -402,18 +416,22 @@ function onKeyDown(event: KeyboardEvent) {
 				{/if}
 			{/each}
 
-			{#if playback.playheadTime >= viewport.view.start &&
-				playback.playheadTime <= viewport.view.end}
+			{#if playback.playheadTime >= viewport.view.start
+				&& playback.playheadTime <= viewport.view.end}
 				<div
 					class="pointer-events-none absolute inset-y-0 w-0.5 -translate-x-1/2 bg-primary-500 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
-					style:left="{percentWithin(playback.playheadTime, viewport.view)}%"
+					style:left="{percentWithin(
+						playback.playheadTime,
+						viewport.view,
+					)}%"
 				></div>
 			{/if}
 
 			<!-- Idle-scan progress: how far frame checking has reached -->
 			{#if idleAnalyzing && !ignoreIdle && idleProgress > 0}
 				{const scanTime = $derived(idleProgress * duration)}
-				{#if scanTime >= viewport.view.start && scanTime <= viewport.view.end}
+				{#if scanTime >= viewport.view.start
+					&& scanTime <= viewport.view.end}
 					<div
 						class="pointer-events-none absolute inset-y-0 w-10 -translate-x-full bg-linear-to-r from-amber-500/0 to-amber-500/30 border-amber-500 border-r-2 shadow-[0_0_3px_rgba(0,0,0,0.7)]"
 						style:left="{percentWithin(scanTime, viewport.view)}%"
@@ -421,7 +439,8 @@ function onKeyDown(event: KeyboardEvent) {
 				{/if}
 			{/if}
 
-			{#if viewport.hoverTime !== null && editor.hoveredSelectionId === null}
+			{#if viewport.hoverTime !== null
+				&& editor.hoveredSelectionId === null}
 				<div
 					class="pointer-events-none absolute top-1 border border-line bg-black/85 px-1.5 py-0.5 text-xs text-white tabular-nums"
 					class:mr-1={viewport.hoverTooltipFlip}
@@ -461,7 +480,7 @@ function onKeyDown(event: KeyboardEvent) {
 		{#if selectionMenu}
 			{const current = selectionMenu}
 			{const target = selections.find(
-				selection => selection.id === current.id
+				selection => selection.id === current.id,
 			)}
 			{#if target}
 				<ContextMenu

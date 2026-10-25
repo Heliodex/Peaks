@@ -57,7 +57,7 @@ async function cancelBody(response: Response): Promise<void> {
 async function fetchMedia(
 	target: URL,
 	request: Request,
-	redirects = 0
+	redirects = 0,
 ): Promise<Response> {
 	let upstream: Response
 	try {
@@ -70,11 +70,11 @@ async function fetchMedia(
 	}
 
 	const isRedirect =
-		upstream.status === 301 ||
-		upstream.status === 302 ||
-		upstream.status === 303 ||
-		upstream.status === 307 ||
-		upstream.status === 308
+		upstream.status === 301
+		|| upstream.status === 302
+		|| upstream.status === 303
+		|| upstream.status === 307
+		|| upstream.status === 308
 	if (!isRedirect) return upstream
 
 	if (redirects >= MAX_REDIRECTS) {
@@ -111,7 +111,7 @@ function forwardHeaders(upstream: Response): Headers {
 	// `private` keeps the authenticated response out of shared caches.
 	headers.set(
 		"cache-control",
-		cacheable ? "private, max-age=31536000, immutable" : "no-store"
+		cacheable ? "private, max-age=31536000, immutable" : "no-store",
 	)
 	return headers
 }

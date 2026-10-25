@@ -28,7 +28,7 @@ const clipboard = createCopyToClipboard()
 
 /** The entry menu currently open, and where to show it. */
 let menu = $state<{ id: string; name: string; x: number; y: number } | null>(
-	null
+	null,
 )
 // Focus to restore when the menu is dismissed with Escape.
 let previousFocus: HTMLElement | null = null
@@ -38,12 +38,12 @@ let copiedAt = $state<{ x: number; y: number } | null>(null)
 // Drag-and-drop / keyboard reordering of the project's timelapses.
 const reorder = new ListReorder(
 	() => entries,
-	updated => onReorderProject(updated)
+	updated => onReorderProject(updated),
 )
 
 // Rows fade and slide in and out; instant for reduced-motion users. Transitions are local, so switching projects doesn't animate them.
 const rowTransition = $derived(
-	prefersReducedMotion.current ? { duration: 0 } : { duration: 150, y: -6 }
+	prefersReducedMotion.current ? { duration: 0 } : { duration: 150, y: -6 },
 )
 
 /** Open an entry's context menu at the pointer, or beside the row when triggered from the keyboard. */
@@ -120,7 +120,7 @@ function copyId(id: string, x: number, y: number) {
 				<span
 					class="flex min-w-0 items-center gap-1 text-xs text-neutral-400 tabular-nums"
 					title="Original {formatDuration(
-						entry.duration
+						entry.duration,
 					)} → final {formatDuration(finalDuration)}"
 				>
 					<span class="truncate"

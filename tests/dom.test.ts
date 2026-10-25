@@ -3,7 +3,7 @@ import { isInteractiveTarget, isTyping } from "#lib/dom.js"
 
 const element = (
 	matches: (selector: string) => boolean,
-	isContentEditable = false
+	isContentEditable = false,
 ): EventTarget =>
 	({
 		isContentEditable,
@@ -19,7 +19,7 @@ const event = (path: EventTarget[], withComposedPath = true): Event =>
 describe("DOM event target helpers", () => {
 	test("recognises typing targets", () => {
 		expect(isTyping(element(selector => selector.includes("input")))).toBe(
-			true
+			true,
 		)
 		expect(isTyping(element(() => false, true))).toBe(true)
 		expect(isTyping(element(() => false))).toBe(false)
@@ -45,7 +45,7 @@ describe("DOM event target helpers", () => {
 	test("uses the composed path for controls inside shadow DOM", () => {
 		const shadowChild = element(() => false)
 		const videoHost = element(selector =>
-			selector.includes("video[controls]")
+			selector.includes("video[controls]"),
 		)
 		expect(isInteractiveTarget(event([shadowChild, videoHost]))).toBe(true)
 	})
@@ -62,7 +62,7 @@ describe("DOM event target helpers", () => {
 			isInteractiveTarget({
 				target: button,
 				composedPath: () => [],
-			} as unknown as Event)
+			} as unknown as Event),
 		).toBe(true)
 	})
 })

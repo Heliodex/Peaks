@@ -46,7 +46,7 @@ describe("media operation cancellation", () => {
 			asVideoElement(video),
 			1,
 			1_000,
-			controller.signal
+			controller.signal,
 		)
 
 		controller.abort()
@@ -57,7 +57,7 @@ describe("media operation cancellation", () => {
 	test("seekVideo rejects when a seek times out", async () => {
 		const video = fakeVideo()
 		await expect(seekVideo(asVideoElement(video), 1, 5)).rejects.toThrow(
-			"timed out"
+			"timed out",
 		)
 	})
 
@@ -67,7 +67,7 @@ describe("media operation cancellation", () => {
 		const pending = waitForData(
 			asVideoElement(video),
 			controller.signal,
-			1_000
+			1_000,
 		)
 
 		video.dispatchEvent(new Event("loadeddata"))
@@ -80,8 +80,8 @@ describe("media operation cancellation", () => {
 			waitForData(
 				asVideoElement(timedOut),
 				new AbortController().signal,
-				5
-			)
+				5,
+			),
 		).rejects.toThrow("timed out")
 
 		const cancelled = fakeVideo()
@@ -89,7 +89,7 @@ describe("media operation cancellation", () => {
 		const pending = waitForData(
 			asVideoElement(cancelled),
 			controller.signal,
-			1_000
+			1_000,
 		)
 		controller.abort()
 		await expect(pending).rejects.toThrow("cancelled")
@@ -105,7 +105,7 @@ describe("media operation cancellation", () => {
 
 		try {
 			const capturer = createFrameCapturer(
-				"https://video.example/source.mp4"
+				"https://video.example/source.mp4",
 			)
 			const pending = capturer.captureAt(0)
 			await Promise.resolve()

@@ -20,29 +20,29 @@ describe("Lapse media proxy URL validation", () => {
 	test("rejects non-video, non-HTTPS, and arbitrary-host targets", () => {
 		expect(() =>
 			parseLapseMediaTarget(
-				"https://lookout.hackclub.com/api/media/id/thumbnail.jpg"
-			)
+				"https://lookout.hackclub.com/api/media/id/thumbnail.jpg",
+			),
 		).toThrow()
 		expect(() =>
 			parseLapseMediaTarget(
-				"http://lookout.hackclub.com/api/media/id/video.mp4"
-			)
+				"http://lookout.hackclub.com/api/media/id/video.mp4",
+			),
 		).toThrow()
 		expect(() =>
-			parseLapseMediaTarget("https://example.com/api/media/id/video.mp4")
+			parseLapseMediaTarget("https://example.com/api/media/id/video.mp4"),
 		).toThrow()
 	})
 
 	test("rejects credentials and non-default ports", () => {
 		expect(() =>
 			parseLapseMediaTarget(
-				"https://user:password@lookout.hackclub.com/api/media/id/video.mp4"
-			)
+				"https://user:password@lookout.hackclub.com/api/media/id/video.mp4",
+			),
 		).toThrow()
 		expect(() =>
 			parseLapseMediaTarget(
-				"https://lookout.hackclub.com:8443/api/media/id/video.mp4"
-			)
+				"https://lookout.hackclub.com:8443/api/media/id/video.mp4",
+			),
 		).toThrow()
 	})
 
@@ -54,16 +54,16 @@ describe("Lapse media proxy URL validation", () => {
 	test("rejects redirects outside the media allowlist", () => {
 		const base = parseLapseMediaTarget(videoUrl)
 		expect(() =>
-			parseLapseMediaRedirect("https://example.com/video.mp4", base)
+			parseLapseMediaRedirect("https://example.com/video.mp4", base),
 		).toThrow()
 		expect(() =>
-			parseLapseMediaRedirect("https://127.0.0.1/video.mp4", base)
+			parseLapseMediaRedirect("https://127.0.0.1/video.mp4", base),
 		).toThrow()
 		expect(() =>
 			parseLapseMediaRedirect(
 				"https://attacker.r2.cloudflarestorage.com/other/video.mp4",
-				base
-			)
+				base,
+			),
 		).toThrow()
 	})
 })

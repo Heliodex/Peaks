@@ -5,12 +5,12 @@ type Meta = { name: string; duration: number }
 
 const getTimelapse = mock(
 	(_id: string): Promise<Meta> =>
-		Promise.resolve({ name: "Timelapse", duration: 1 })
+		Promise.resolve({ name: "Timelapse", duration: 1 }),
 )
 const goto = mock((_url: string): Promise<void> => Promise.resolve())
 const apiRemotePath = new URL(
 	"../src/routes/(main)/api.remote.ts",
-	import.meta.url
+	import.meta.url,
 ).pathname
 
 mock.module("$app/navigation", () => ({ goto }))
@@ -122,7 +122,7 @@ describe("TimelapseLoader", () => {
 		const first = deferred<Meta>()
 		const second = deferred<Meta>()
 		getTimelapse.mockImplementation(id =>
-			id === "first" ? first.promise : second.promise
+			id === "first" ? first.promise : second.promise,
 		)
 		const { loader, state } = createHarness()
 

@@ -32,7 +32,7 @@ let {
 // Which project is being renamed inline, if any.
 let renamingId = $state<string | null>(null)
 let menu = $state<{ id: string; name: string; x: number; y: number } | null>(
-	null
+	null,
 )
 // Focus to restore when the menu is dismissed with Escape.
 let previousFocus: HTMLElement | null = null
@@ -40,12 +40,12 @@ let previousFocus: HTMLElement | null = null
 // Drag-and-drop / keyboard reordering of the projects.
 const reorder = new ListReorder(
 	() => projects,
-	updated => onReorderProjects(updated)
+	updated => onReorderProjects(updated),
 )
 
 // Rows fade and slide in and out; instant for reduced-motion users. Transitions are local, so switching projects doesn't animate them.
 const rowTransition = $derived(
-	prefersReducedMotion.current ? { duration: 0 } : { duration: 150, y: -6 }
+	prefersReducedMotion.current ? { duration: 0 } : { duration: 150, y: -6 },
 )
 
 // A freshly created project asks for its name field; start renaming it so the request isn't lost.
@@ -121,7 +121,8 @@ function closeMenu(restoreFocus = false) {
 				<input
 					type="text"
 					value={project.name}
-					onchange={e => commitRename(project.id, e.currentTarget.value)}
+					onchange={e =>
+						commitRename(project.id, e.currentTarget.value)}
 					onblur={() => stopRename(project.id)}
 					onkeydown={e => {
 						if (e.key === "Escape") {

@@ -92,11 +92,11 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		idleRanges: rawIdleRanges,
 	} = value as Record<string, unknown>
 	if (
-		typeof id !== "string" ||
-		typeof name !== "string" ||
-		typeof description !== "string" ||
-		!isFiniteNonNegative(duration) ||
-		!isFiniteNonNegative(idleDuration)
+		typeof id !== "string"
+		|| typeof name !== "string"
+		|| typeof description !== "string"
+		|| !isFiniteNonNegative(duration)
+		|| !isFiniteNonNegative(idleDuration)
 	)
 		return null
 
@@ -110,7 +110,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		ignoreIdle: ignoreIdle === true,
 		// Entries stored before the threshold was adjustable – or off the selectable scale – snap to the nearest option.
 		idleThreshold: nearestIdleThreshold(
-			isFiniteNonNegative(idleThreshold) ? idleThreshold : Number.NaN
+			isFiniteNonNegative(idleThreshold) ? idleThreshold : Number.NaN,
 		),
 		description,
 		...(idleRanges !== undefined ? { idleRanges } : {}),
@@ -129,7 +129,7 @@ function parseTimelapses(value: unknown): ProjectTimelapse[] {
  * It's wider than base64url, so each character carries more entropy and ids can be shorter while staying JSON-safe.
  */
 const ID_ALPHABET = Array.from({ length: 0x7f - 0x20 }, (_, i) =>
-	String.fromCharCode(0x20 + i)
+	String.fromCharCode(0x20 + i),
 )
 	.filter(char => char !== '"' && char !== "\\")
 	.join("")
@@ -200,8 +200,8 @@ function parseStore(value: unknown): ProjectStore | null {
 		.filter((project): project is Project => Boolean(project))
 	if (parsed.length === 0) return null
 	const current =
-		typeof currentId === "string" &&
-		parsed.some(project => project.id === currentId)
+		typeof currentId === "string"
+		&& parsed.some(project => project.id === currentId)
 			? currentId
 			: parsed[0].id
 	return { projects: parsed, currentId: current }

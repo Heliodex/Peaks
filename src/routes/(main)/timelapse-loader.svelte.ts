@@ -42,12 +42,12 @@ function idProblems(missing: string[], unchecked: string[]): string[] {
 	const problems: string[] = []
 	if (missing.length > 0)
 		problems.push(
-			`No timelapse found for ID${missing.length > 1 ? "s" : ""} ${formatIdList(missing)}.`
+			`No timelapse found for ID${missing.length > 1 ? "s" : ""} ${formatIdList(missing)}.`,
 		)
 
 	if (unchecked.length > 0)
 		problems.push(
-			`Couldn't check ID${unchecked.length > 1 ? "s" : ""} ${formatIdList(unchecked)}. Please try again.`
+			`Couldn't check ID${unchecked.length > 1 ? "s" : ""} ${formatIdList(unchecked)}. Please try again.`,
 		)
 
 	return problems
@@ -57,7 +57,7 @@ function idProblems(missing: string[], unchecked: string[]): string[] {
 async function resolveIds(
 	ids: string[],
 	current: string,
-	known: Set<string>
+	known: Set<string>,
 ): Promise<{
 	valid: ResolvedId[]
 	missing: string[]
@@ -79,7 +79,7 @@ async function resolveIds(
 			} catch {
 				unchecked.push(id)
 			}
-		})
+		}),
 	)
 	return { valid, missing, unchecked }
 }
@@ -105,9 +105,9 @@ export class TimelapseLoader {
 
 	#isCurrent(operation: LoadOperation): boolean {
 		return (
-			operation.id === this.#loadToken &&
-			operation.projectId === this.#options.projectId() &&
-			operation.openId === this.#options.openId()
+			operation.id === this.#loadToken
+			&& operation.projectId === this.#options.projectId()
+			&& operation.openId === this.#options.openId()
 		)
 	}
 
@@ -159,12 +159,12 @@ export class TimelapseLoader {
 		// Ids already in the project were validated when added (and the metadata effect re-checks on open), so only new ids need resolving.
 		// Everything resolves in parallel; pasted order is restored afterwards.
 		const known = new Set(
-			$state.snapshot(this.#options.entries()).map(entry => entry.id)
+			$state.snapshot(this.#options.entries()).map(entry => entry.id),
 		)
 		const { valid, missing, unchecked } = await resolveIds(
 			ids,
 			operation.openId,
-			known
+			known,
 		)
 		if (!this.#isCurrent(operation)) return
 		const byInputOrder = inputOrderComparator(ids)
@@ -195,7 +195,7 @@ export class TimelapseLoader {
 		} catch (error) {
 			if (error instanceof SharePayloadError)
 				this.#options.setError(
-					"This project is too large to share as a URL."
+					"This project is too large to share as a URL.",
 				)
 			return
 		}

@@ -170,8 +170,8 @@ function canvasGestures(node: HTMLDivElement) {
 			MAX_SCALE,
 			Math.max(
 				MIN_SCALE,
-				current.scale * Math.exp(-event.deltaY * 0.0015)
-			)
+				current.scale * Math.exp(-event.deltaY * 0.0015),
+			),
 		)
 		const cursorX = event.clientX - rect.left
 		const cursorY = event.clientY - rect.top
@@ -189,7 +189,7 @@ function canvasGestures(node: HTMLDivElement) {
 
 /** Snap the field back to the stored value when it loses focus, so a cleared or out-of-range entry doesn't linger. */
 function normalizeSeekInput(
-	event: FocusEvent & { currentTarget: HTMLInputElement }
+	event: FocusEvent & { currentTarget: HTMLInputElement },
 ) {
 	event.currentTarget.value = String(seekStep)
 }
@@ -290,8 +290,8 @@ function normalizeSeekInput(
 				role="application"
 				aria-label="History graph. Drag to pan, scroll to zoom, and activate a node to jump to it."
 				class="relative h-72 touch-none overflow-hidden border border-line-soft bg-black select-none {dragging
-					? 'cursor-grabbing'
-					: 'cursor-grab'}"
+					? "cursor-grabbing"
+					: "cursor-grab"}"
 				onpointerdown={startPan}
 				onpointermove={movePan}
 				onpointerup={endPan}
@@ -353,10 +353,10 @@ function normalizeSeekInput(
 							{#if node.showLabel}
 								<span
 									class="pointer-events-none absolute top-1/2 left-full ml-1.5 -translate-y-1/2 whitespace-nowrap text-xs {node.current
-										? 'text-primary-300'
+										? "text-primary-300"
 										: node.onPath
-											? 'text-neutral-300'
-											: 'text-neutral-500'}"
+											? "text-neutral-300"
+											: "text-neutral-500"}"
 									aria-hidden="true"
 								>
 									{node.label}

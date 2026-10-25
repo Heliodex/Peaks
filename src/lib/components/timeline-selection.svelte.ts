@@ -90,14 +90,14 @@ export class SelectionEditor {
 
 	#updateSelection(
 		id: string,
-		patch: Partial<Omit<TimelineSelection, "id">>
+		patch: Partial<Omit<TimelineSelection, "id">>,
 	) {
 		this.#options.setSelections(
 			this.#options
 				.selections()
 				.map(other =>
-					other.id === id ? { ...other, ...patch } : other
-				)
+					other.id === id ? { ...other, ...patch } : other,
+				),
 		)
 	}
 
@@ -139,7 +139,7 @@ export class SelectionEditor {
 	#startResize(
 		event: PointerEvent,
 		track: HTMLElement,
-		resizeEl: HTMLElement
+		resizeEl: HTMLElement,
 	): boolean {
 		const id = resizeEl.dataset.selectionId
 		const selection = this.#options.selections().find(s => s.id === id)
@@ -148,7 +148,7 @@ export class SelectionEditor {
 		const { left, right } = this.#neighborBounds(
 			id,
 			selection.start,
-			selection.end
+			selection.end,
 		)
 		const minLength = this.#minSelectionLength(track)
 		if (resizeEl.dataset.resize === "start") {
@@ -175,7 +175,7 @@ export class SelectionEditor {
 	#startMove(
 		event: PointerEvent,
 		track: HTMLElement,
-		selectionEl: HTMLElement
+		selectionEl: HTMLElement,
 	): boolean {
 		const id = selectionEl.dataset.selectionId
 		const selection = this.#options.selections().find(s => s.id === id)
@@ -185,14 +185,14 @@ export class SelectionEditor {
 		const { left, right } = this.#neighborBounds(
 			id,
 			selection.start,
-			selection.end
+			selection.end,
 		)
 		this.drag = {
 			kind: "move",
 			id,
 			offset:
-				this.#options.pointerToTime(event.clientX, track) -
-				selection.start,
+				this.#options.pointerToTime(event.clientX, track)
+				- selection.start,
 			length,
 			min: left,
 			max: Math.max(left, right - length),
@@ -207,10 +207,10 @@ export class SelectionEditor {
 		const anchor = clamp(
 			snapToFrame(
 				this.#options.pointerToTime(event.clientX, track),
-				this.#options.frameRate()
+				this.#options.frameRate(),
 			),
 			0,
-			this.#options.duration()
+			this.#options.duration(),
 		)
 		const { left, right } = this.#neighborBounds("", anchor, anchor)
 		if (right - left <= 0) return
@@ -268,7 +268,7 @@ export class SelectionEditor {
 		const start = clamp(
 			snapToFrame(this.pan.startView - delta, this.#options.frameRate()),
 			0,
-			Math.max(0, this.#options.duration() - this.pan.span)
+			Math.max(0, this.#options.duration() - this.pan.span),
 		)
 		this.#options.setView({ start, end: start + this.pan.span })
 	}
@@ -277,18 +277,18 @@ export class SelectionEditor {
 	#updateDrag(
 		state: NonNullable<DragState>,
 		time: number,
-		event: PointerEvent
+		event: PointerEvent,
 	) {
 		const frameRate = this.#options.frameRate()
 		if (state.kind === "create") {
 			const end = clamp(
 				snapToFrame(time, frameRate),
 				state.min,
-				state.max
+				state.max,
 			)
 			state.moved =
-				state.moved ||
-				Math.abs(event.clientX - state.anchorX) >= DRAG_THRESHOLD_PX
+				state.moved
+				|| Math.abs(event.clientX - state.anchorX) >= DRAG_THRESHOLD_PX
 			this.#updateSelection(state.id, {
 				start: Math.min(state.anchor, end),
 				end: Math.max(state.anchor, end),
@@ -301,7 +301,7 @@ export class SelectionEditor {
 			const start = clamp(
 				snapToFrame(time - state.offset, frameRate),
 				state.min,
-				state.max
+				state.max,
 			)
 			this.#updateSelection(state.id, {
 				start,
@@ -312,7 +312,7 @@ export class SelectionEditor {
 		const edge = clamp(snapToFrame(time, frameRate), state.min, state.max)
 		this.#updateSelection(
 			state.id,
-			state.kind === "resize-start" ? { start: edge } : { end: edge }
+			state.kind === "resize-start" ? { start: edge } : { end: edge },
 		)
 		// Seek to the exact new boundary so the frame is visible while resizing.
 		this.#options.seekTo(edge)
@@ -330,7 +330,7 @@ export class SelectionEditor {
 		this.#updateDrag(
 			state,
 			this.#options.pointerToTime(event.clientX, track),
-			event
+			event,
 		)
 		return true
 	}
@@ -353,7 +353,7 @@ export class SelectionEditor {
 			// An un-dragged press (or an empty range) is discarded like a click.
 			if (!state.moved || !created || created.end - created.start <= 0) {
 				this.#options.setSelections(
-					this.#options.selections().filter(s => s.id !== state.id)
+					this.#options.selections().filter(s => s.id !== state.id),
 				)
 			}
 		}
@@ -362,7 +362,7 @@ export class SelectionEditor {
 	deleteSelection(id: string, event: MouseEvent) {
 		event.stopPropagation()
 		this.#options.setSelections(
-			this.#options.selections().filter(s => s.id !== id)
+			this.#options.selections().filter(s => s.id !== id),
 		)
 		if (this.hoveredSelectionId === id) this.hoveredSelectionId = null
 	}

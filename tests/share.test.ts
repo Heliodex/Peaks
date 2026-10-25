@@ -15,7 +15,7 @@ import {
 
 const entry = (
 	id: string,
-	overrides: Partial<ProjectTimelapse> = {}
+	overrides: Partial<ProjectTimelapse> = {},
 ): ProjectTimelapse => ({
 	id,
 	name: "Timelapse",
@@ -32,7 +32,7 @@ async function encodePayload(payload: unknown): Promise<string> {
 	const bytes = new TextEncoder().encode(JSON.stringify(payload))
 	const buffer = bytes.buffer.slice(
 		bytes.byteOffset,
-		bytes.byteOffset + bytes.byteLength
+		bytes.byteOffset + bytes.byteLength,
 	)
 	const stream = new Blob([buffer])
 		.stream()
@@ -171,7 +171,7 @@ describe("share links", () => {
 
 	test("rejects oversized encoded and decompressed payloads", async () => {
 		expect(
-			await decodeShare("a".repeat(MAX_ENCODED_SHARE_LENGTH + 1))
+			await decodeShare("a".repeat(MAX_ENCODED_SHARE_LENGTH + 1)),
 		).toBeNull()
 
 		const compressedBomb = await encodePayload([
@@ -239,12 +239,12 @@ describe("share links", () => {
 	test("rejects excessive nested collections", async () => {
 		const projects = Array.from(
 			{ length: MAX_PROJECT_ENTRIES + 1 },
-			(_, index) => [`t${index}`, "Timelapse", 1, 0, null, [], 0.005]
+			(_, index) => [`t${index}`, "Timelapse", 1, 0, null, [], 0.005],
 		)
 		expect(
 			await decodeShare(
-				await encodePayload(["p1", [], "Project", projects, "t0"])
-			)
+				await encodePayload(["p1", [], "Project", projects, "t0"]),
+			),
 		).toBeNull()
 
 		const selections = Array.from({ length: MAX_SELECTIONS + 1 }, () => [
@@ -260,8 +260,8 @@ describe("share links", () => {
 					"Project",
 					[["t1", "Timelapse", 1, 0, null, [], 0.005]],
 					"t1",
-				])
-			)
+				]),
+			),
 		).toBeNull()
 
 		const aggregateSelections = Array.from({ length: 401 }, () => [
@@ -281,7 +281,7 @@ describe("share links", () => {
 				null,
 				aggregateSelections,
 				0.005,
-			]
+			],
 		)
 		expect(
 			await decodeShare(
@@ -291,8 +291,8 @@ describe("share links", () => {
 					"Project",
 					selectionProjects,
 					"",
-				])
-			)
+				]),
+			),
 		).toBeNull()
 
 		const idleRanges = Array.from({ length: MAX_IDLE_RANGES + 1 }, () => [
@@ -306,8 +306,8 @@ describe("share links", () => {
 					"Project",
 					[["t1", "Timelapse", 1, 0, idleRanges, [], 0.005]],
 					"t1",
-				])
-			)
+				]),
+			),
 		).toBeNull()
 
 		const idleProjectCount =
@@ -325,7 +325,7 @@ describe("share links", () => {
 				]),
 				[],
 				0.005,
-			]
+			],
 		)
 		expect(
 			await decodeShare(
@@ -335,15 +335,15 @@ describe("share links", () => {
 					"Project",
 					aggregateIdleProjects,
 					"",
-				])
-			)
+				]),
+			),
 		).toBeNull()
 	})
 
 	test("does not persist selections while decoding", async () => {
 		const previous = Object.getOwnPropertyDescriptor(
 			globalThis,
-			"localStorage"
+			"localStorage",
 		)
 		const writes: string[] = []
 		Object.defineProperty(globalThis, "localStorage", {
@@ -378,7 +378,7 @@ describe("share links", () => {
 				projectName: "x".repeat(MAX_NAME_LENGTH + 1),
 				project: [entry("t1")],
 				openId: "t1",
-			})
+			}),
 		).rejects.toThrow()
 	})
 })

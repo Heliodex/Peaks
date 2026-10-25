@@ -46,8 +46,8 @@ export class ProjectWorkspace {
 
 	/** The project currently open in the panel. */
 	currentProject = $derived(
-		this.projects.find(project => project.id === this.currentProjectId) ??
-			this.projects[0]
+		this.projects.find(project => project.id === this.currentProjectId)
+			?? this.projects[0],
 	)
 	projectName = $derived(this.currentProject?.name ?? DEFAULT_PROJECT_NAME)
 	projectEntries = $derived(this.currentProject?.timelapses ?? [])
@@ -56,7 +56,7 @@ export class ProjectWorkspace {
 
 	constructor(
 		closeTimelapse: () => void,
-		save: typeof saveProjects = saveProjects
+		save: typeof saveProjects = saveProjects,
 	) {
 		this.#closeTimelapse = closeTimelapse
 		this.#saveProjects = save
@@ -110,7 +110,7 @@ export class ProjectWorkspace {
 	updateCurrentProject(update: (project: Project) => Project) {
 		const id = this.activeProjectId
 		this.projects = this.projects.map(project =>
-			project.id === id ? update(project) : project
+			project.id === id ? update(project) : project,
 		)
 	}
 
@@ -118,7 +118,7 @@ export class ProjectWorkspace {
 	renameProject(id: string, name: string) {
 		const trimmed = name.trim() || DEFAULT_PROJECT_NAME
 		this.projects = this.projects.map(project =>
-			project.id === id ? { ...project, name: trimmed } : project
+			project.id === id ? { ...project, name: trimmed } : project,
 		)
 	}
 
@@ -172,7 +172,7 @@ export class ProjectWorkspace {
 			matchesSharedProject(project, decoded)
 		const existing =
 			this.projects.find(
-				project => project.id === decoded.projectId && matches(project)
+				project => project.id === decoded.projectId && matches(project),
 			) ?? this.projects.find(matches)
 		if (existing) {
 			// The decoded session is already current; switch projects without closing it.
@@ -199,7 +199,7 @@ export class ProjectWorkspace {
 		const localTimelapseIds = new Set(
 			this.projects
 				.filter(item => item.id !== id)
-				.flatMap(item => item.timelapses.map(entry => entry.id))
+				.flatMap(item => item.timelapses.map(entry => entry.id)),
 		)
 		let storageFailed = false
 		for (const [timelapseId, selections] of decoded.selectionsByTimelapse) {

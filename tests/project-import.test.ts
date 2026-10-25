@@ -17,14 +17,14 @@ describe("shared project imports", () => {
 		const projects = [project("Project", "a"), project("Project (2)", "b")]
 
 		expect(uniqueImportedProjectName(projects, "Project (2)")).toBe(
-			"Project (3)"
+			"Project (3)",
 		)
 		expect(uniqueImportedProjectName(projects, "Project")).toBe(
-			"Project (3)"
+			"Project (3)",
 		)
 		expect(uniqueImportedProjectName(projects, "Other")).toBe("Other")
 		expect(uniqueImportedProjectName(projects, "   ")).toBe(
-			DEFAULT_PROJECT_NAME
+			DEFAULT_PROJECT_NAME,
 		)
 	})
 
@@ -63,7 +63,7 @@ describe("shared project imports", () => {
 		}
 
 		expect(
-			matchesSharedProject(local, decoded, () => [storedSelection])
+			matchesSharedProject(local, decoded, () => [storedSelection]),
 		).toBe(true)
 		const unannotated = { id: selection.id, start: 1, end: 2 }
 		const decodedWithoutReason = {
@@ -74,7 +74,7 @@ describe("shared project imports", () => {
 		expect(
 			matchesSharedProject(local, decodedWithoutReason, () => [
 				{ ...unannotated, reason: "obsolete" },
-			])
+			]),
 		).toBe(true)
 		expect(matchesSharedProject(local, decoded, () => [])).toBe(false)
 		expect(
@@ -84,13 +84,13 @@ describe("shared project imports", () => {
 					...decoded,
 					project: [{ ...decoded.project[0], idleRanges: [] }],
 				},
-				() => [storedSelection]
-			)
+				() => [storedSelection],
+			),
 		).toBe(false)
 		expect(
 			matchesSharedProject({ ...local, name: "Other" }, decoded, () => [
 				storedSelection,
-			])
+			]),
 		).toBe(false)
 	})
 })

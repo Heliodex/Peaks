@@ -149,7 +149,7 @@ export const ANNOTATION_REASONS: AnnotationReason[] = [
 
 /** Look up an annotation reason by id, tolerating unset/unknown ids. */
 export function findAnnotationReason(
-	id: string | null | undefined
+	id: string | null | undefined,
 ): AnnotationReason | undefined {
 	if (!id) return undefined
 	return ANNOTATION_REASONS.find(reason => reason.id === id)
@@ -157,7 +157,7 @@ export function findAnnotationReason(
 
 /** Overlay colours for a selection, falling back to grey when no reason is set. */
 export function selectionColors(
-	id: string | null | undefined
+	id: string | null | undefined,
 ): SelectionColors {
 	const reason = findAnnotationReason(id)
 	return SELECTION_COLORS[reason?.color ?? "neutral"]
@@ -168,14 +168,14 @@ export function selectionColors(
  */
 export function nonIdleDuration(
 	selection: TimelineSelection,
-	idleRanges: IdleRange[]
+	idleRanges: IdleRange[],
 ): number {
 	const length = Math.max(0, selection.end - selection.start)
 	let idle = 0
 	for (const range of idleRanges) {
 		const overlap =
-			Math.min(selection.end, range.end) -
-			Math.max(selection.start, range.start)
+			Math.min(selection.end, range.end)
+			- Math.max(selection.start, range.start)
 		if (overlap > 0) idle += overlap
 	}
 	return Math.max(0, length - idle)
@@ -186,14 +186,14 @@ export function nonIdleDuration(
  */
 export function selectionDeflation(
 	selection: TimelineSelection,
-	idleRanges: IdleRange[]
+	idleRanges: IdleRange[],
 ): number {
 	const reason = findAnnotationReason(selection.reason)
 	if (!reason) return 0
 	return (
-		nonIdleDuration(selection, idleRanges) *
-		reason.deflation *
-		PLAYBACK_TO_RECORDED
+		nonIdleDuration(selection, idleRanges)
+		* reason.deflation
+		* PLAYBACK_TO_RECORDED
 	)
 }
 
@@ -208,7 +208,7 @@ export const idleRecordedSeconds = (idleRanges: IdleRange[]): number =>
 /** Idle ranges that count towards the maths (none while overridden). */
 export const effectiveIdleRanges = (
 	ignoreIdle: boolean,
-	idleRanges: IdleRange[]
+	idleRanges: IdleRange[],
 ): IdleRange[] => (ignoreIdle ? [] : idleRanges)
 
 /** Recorded time removed by a single annotation reason. */
@@ -224,7 +224,7 @@ export type AnnotationDeflation = {
  */
 export const deflationByReason = (
 	selections: TimelineSelection[],
-	idleRanges: IdleRange[]
+	idleRanges: IdleRange[],
 ): AnnotationDeflation[] =>
 	ANNOTATION_REASONS.map(reason => ({
 		reason: reason.id,
@@ -233,7 +233,7 @@ export const deflationByReason = (
 			.reduce(
 				(sum, selection) =>
 					sum + selectionDeflation(selection, idleRanges),
-				0
+				0,
 			),
 	})).filter(entry => entry.duration > 0)
 
@@ -277,10 +277,10 @@ function mergeSpans(spans: { start: number; end: number }[]): {
  */
 function idleDescription(
 	idleRanges: IdleRange[],
-	selections: TimelineSelection[]
+	selections: TimelineSelection[],
 ): string | null {
 	const manualIdle = selections.filter(
-		selection => selection.reason === "idle"
+		selection => selection.reason === "idle",
 	)
 	if (idleRanges.length === 0 && manualIdle.length === 0) return null
 
@@ -288,7 +288,7 @@ function idleDescription(
 	const manualStretch =
 		manualIdle.reduce(
 			(sum, selection) => sum + nonIdleDuration(selection, idleRanges),
-			0
+			0,
 		) * PLAYBACK_TO_RECORDED
 	const idleReason = ANNOTATION_REASONS.find(reason => reason.id === "idle")
 	return `${formatClock(idleTotal + manualStretch)} spent idle: ${formatSpans(mergeSpans([...idleRanges, ...manualIdle]))} (${idleReason?.deflationLabel ?? "removed"}).`
@@ -299,13 +299,13 @@ function idleDescription(
  */
 function reasonDescriptions(
 	selections: TimelineSelection[],
-	idleRanges: IdleRange[]
+	idleRanges: IdleRange[],
 ): string[] {
 	const descriptions: string[] = []
 	for (const reason of ANNOTATION_REASONS) {
 		if (reason.id === "idle") continue
 		const matches = selections.filter(
-			selection => selection.reason === reason.id
+			selection => selection.reason === reason.id,
 		)
 		if (matches.length === 0) continue
 
@@ -314,10 +314,10 @@ function reasonDescriptions(
 			matches.reduce(
 				(sum, selection) =>
 					sum + nonIdleDuration(selection, idleRanges),
-				0
+				0,
 			) * PLAYBACK_TO_RECORDED
 		descriptions.push(
-			`${formatClock(stretch)} ${reason.summaryLabel}: ${formatSpans(matches)} (${reason.deflationLabel}).`
+			`${formatClock(stretch)} ${reason.summaryLabel}: ${formatSpans(matches)} (${reason.deflationLabel}).`,
 		)
 	}
 	return descriptions
@@ -345,7 +345,7 @@ export function describeTimelapse({
 
 	const deflatedTotal = selections.reduce(
 		(sum, selection) => sum + selectionDeflation(selection, idleRanges),
-		0
+		0,
 	)
 	parts.push(...reasonDescriptions(selections, idleRanges))
 

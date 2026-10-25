@@ -43,7 +43,7 @@ const decodePathParam = (pathname: string): string =>
 const routeParam = $derived(
 	page.params.id !== undefined
 		? decodePathParam((page.shallow?.url ?? page.url).pathname)
-		: ""
+		: "",
 )
 
 let videoEl = $state<HTMLVideoElement>()
@@ -81,7 +81,7 @@ function applySnapshot(snapshot: WorkspaceSnapshot) {
 	workspace.currentProjectId = snapshot.currentProjectId
 	session.submittedId = snapshot.openId
 	session.selections = $state.snapshot(
-		snapshot.selections
+		snapshot.selections,
 	) as TimelineSelection[]
 	// When the open timelapse changes, its own seeding effect reloads the idle ranges; otherwise refresh them here.
 	if (snapshot.openId === previousOpenId) {
@@ -136,7 +136,7 @@ const RESIZE_STEP = 16
 function keyboardResize(
 	event: KeyboardEvent,
 	resize: (delta: number) => void,
-	deltaForKey: (key: string) => number | null
+	deltaForKey: (key: string) => number | null,
 ) {
 	const delta = deltaForKey(event.key)
 	if (delta === null) return
@@ -148,21 +148,21 @@ const onLeftHandleKeydown = (event: KeyboardEvent) =>
 	keyboardResize(
 		event,
 		dx => panes.resizeLeftBy(dx),
-		key => (key === "ArrowRight" ? 1 : key === "ArrowLeft" ? -1 : null)
+		key => (key === "ArrowRight" ? 1 : key === "ArrowLeft" ? -1 : null),
 	)
 
 const onRightHandleKeydown = (event: KeyboardEvent) =>
 	keyboardResize(
 		event,
 		dx => panes.resizeRightBy(dx),
-		key => (key === "ArrowLeft" ? 1 : key === "ArrowRight" ? -1 : null)
+		key => (key === "ArrowLeft" ? 1 : key === "ArrowRight" ? -1 : null),
 	)
 
 const onTimelineHandleKeydown = (event: KeyboardEvent) =>
 	keyboardResize(
 		event,
 		dy => panes.resizeTimelineBy(dy),
-		key => (key === "ArrowUp" ? 1 : key === "ArrowDown" ? -1 : null)
+		key => (key === "ArrowUp" ? 1 : key === "ArrowDown" ? -1 : null),
 	)
 
 /** Matches the grip's CSS fade-out, so a recentre doesn't happen mid-transition. */
@@ -183,7 +183,7 @@ function positionGrip(
 	handle: HTMLElement,
 	orientation: "vertical" | "horizontal",
 	clientX: number,
-	clientY: number
+	clientY: number,
 ) {
 	const pending = gripResetTimers.get(handle)
 	if (pending !== undefined) {
@@ -205,7 +205,7 @@ function scheduleGripReset(handle: HTMLElement) {
 		setTimeout(() => {
 			gripResetTimers.delete(handle)
 			handle.style.removeProperty("--grip-position")
-		}, GRIP_RESET_DELAY_MS)
+		}, GRIP_RESET_DELAY_MS),
 	)
 }
 
@@ -214,7 +214,7 @@ function moveGrip(event: PointerEvent, orientation: "vertical" | "horizontal") {
 		event.currentTarget as HTMLElement,
 		orientation,
 		event.clientX,
-		event.clientY
+		event.clientY,
 	)
 }
 
@@ -232,7 +232,7 @@ function resetGrip(event: PointerEvent) {
 function beginResize(
 	event: PointerEvent,
 	orientation: "vertical" | "horizontal",
-	onpointerdown: (event: PointerEvent) => void
+	onpointerdown: (event: PointerEvent) => void,
 ) {
 	const handle = event.currentTarget as HTMLElement
 	positionGrip(handle, orientation, event.clientX, event.clientY)
@@ -250,7 +250,7 @@ function onWindowResizeMove(event: PointerEvent) {
 			state.handle,
 			state.orientation,
 			event.clientX,
-			event.clientY
+			event.clientY,
 		)
 }
 
@@ -423,9 +423,10 @@ const summary = new ProjectSummary({
 {/snippet}
 
 <main
-	class={["dashboard", justifyTimeline
-		? "timeline-justified"
-		: "timeline-centred"]}
+	class={[
+		"dashboard",
+		justifyTimeline ? "timeline-justified" : "timeline-centred",
+	]}
 	style="--left-width: {panes.leftWidth}px; --right-width: {panes.rightWidth}px; --timeline-height: {panes.timelineRowHeight};"
 >
 	<ProjectPane
@@ -548,7 +549,7 @@ const summary = new ProjectSummary({
 					{/if}
 				{:else}
 					{@render centeredState(
-						`No timelapse found for ID "${session.submittedId}".`
+						`No timelapse found for ID "${session.submittedId}".`,
 					)}
 				{/if}
 			</svelte:boundary>
@@ -565,7 +566,7 @@ const summary = new ProjectSummary({
 		/>
 	{:else}
 		{@render centeredState(
-			"No timelapses in this project. Add one from the Project panel."
+			"No timelapses in this project. Add one from the Project panel.",
 		)}
 	{/if}
 </main>

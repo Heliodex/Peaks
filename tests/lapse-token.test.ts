@@ -20,10 +20,10 @@ describe("Lapse token handling", () => {
 			parseLapseTokenResponse({
 				...validToken,
 				refresh_token: "refresh-token",
-			})
+			}),
 		).toEqual({ ...validToken, refresh_token: "refresh-token" })
 		expect(
-			parseLapseTokenResponse({ ...validToken, refresh_token: null })
+			parseLapseTokenResponse({ ...validToken, refresh_token: null }),
 		).toEqual(validToken)
 	})
 
@@ -37,7 +37,7 @@ describe("Lapse token handling", () => {
 			{ ...validToken, refresh_token: 42 },
 		])
 			expect(() => parseLapseTokenResponse(value)).toThrow(
-				LapseTokenResponseError
+				LapseTokenResponseError,
 			)
 	})
 

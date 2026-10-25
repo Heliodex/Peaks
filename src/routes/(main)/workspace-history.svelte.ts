@@ -94,8 +94,8 @@ function snapshotSize(snapshot: WorkspaceSnapshot): number {
 
 // Equal snapshots always serialize to the same length, so a size difference proves inequality and lets most comparisons skip the expensive stringify entirely.
 const sameSnapshot = (a: WorkspaceSnapshot, b: WorkspaceSnapshot): boolean =>
-	snapshotSize(a) === snapshotSize(b) &&
-	JSON.stringify(a) === JSON.stringify(b)
+	snapshotSize(a) === snapshotSize(b)
+	&& JSON.stringify(a) === JSON.stringify(b)
 
 /**
  * A cubic Bézier connector between two node centres. Both control points sit at the vertical midpoint, so the curve leaves the parent and enters the child straight down and bends smoothly across, instead of kinking like a straight line.
@@ -108,13 +108,13 @@ const edgePath = (x1: number, y1: number, x2: number, y2: number): string => {
 const countTimelapses = (snapshot: WorkspaceSnapshot): number =>
 	snapshot.projects.reduce(
 		(total, project) => total + project.timelapses.length,
-		0
+		0,
 	)
 
 /** A human label for a selection edit, or null when the selections are unchanged. */
 function describeSelections(
 	prev: TimelineSelection[],
-	next: TimelineSelection[]
+	next: TimelineSelection[],
 ): string | null {
 	if (JSON.stringify(prev) === JSON.stringify(next)) return null
 	if (next.length > prev.length) return "Add selection"
@@ -129,7 +129,7 @@ function describeSelections(
 			return "Change annotation"
 		if (
 			Math.abs(
-				selection.end - selection.start - (before.end - before.start)
+				selection.end - selection.start - (before.end - before.start),
 			) > 1e-6
 		)
 			return "Resize selection"
@@ -141,23 +141,23 @@ function describeSelections(
 /** A label for a change within the same project's timelapses (idle overrides, reorders), or null. */
 function describeEntryChange(
 	prev: WorkspaceSnapshot,
-	next: WorkspaceSnapshot
+	next: WorkspaceSnapshot,
 ): string | null {
 	for (const project of next.projects) {
 		const before = prev.projects.find(item => item.id === project.id)
 		if (!before) continue
 
 		if (
-			before.timelapses.length === project.timelapses.length &&
-			before.timelapses.some(
-				(entry, i) => entry.id !== project.timelapses[i]?.id
+			before.timelapses.length === project.timelapses.length
+			&& before.timelapses.some(
+				(entry, i) => entry.id !== project.timelapses[i]?.id,
 			)
 		)
 			return "Reorder timelapses"
 
 		for (const entry of project.timelapses) {
 			const beforeEntry = before.timelapses.find(
-				item => item.id === entry.id
+				item => item.id === entry.id,
 			)
 			if (!beforeEntry) continue
 			if (beforeEntry.ignoreIdle !== entry.ignoreIdle)
@@ -168,10 +168,10 @@ function describeEntryChange(
 				return "Recalculate idle time"
 			// Ranges of different lengths are certainly different, so only equal-length lists need the full comparison.
 			if (
-				(beforeEntry.idleRanges?.length ?? -1) !==
-					(entry.idleRanges?.length ?? -1) ||
-				JSON.stringify(beforeEntry.idleRanges) !==
-					JSON.stringify(entry.idleRanges)
+				(beforeEntry.idleRanges?.length ?? -1)
+					!== (entry.idleRanges?.length ?? -1)
+				|| JSON.stringify(beforeEntry.idleRanges)
+					!== JSON.stringify(entry.idleRanges)
 			)
 				return "Recalculate idle time"
 		}
@@ -182,7 +182,7 @@ function describeEntryChange(
 /** Describe how two snapshots differ, for the history tree. */
 export function describeChange(
 	prev: WorkspaceSnapshot,
-	next: WorkspaceSnapshot
+	next: WorkspaceSnapshot,
 ): string {
 	if (countTimelapses(next) > countTimelapses(prev)) return "Add timelapse"
 	if (countTimelapses(next) < countTimelapses(prev)) return "Remove timelapse"
@@ -193,8 +193,10 @@ export function describeChange(
 		if (before && before.name !== project.name) return "Rename project"
 	}
 	if (
-		next.projects.length === prev.projects.length &&
-		prev.projects.some((project, i) => project.id !== next.projects[i]?.id)
+		next.projects.length === prev.projects.length
+		&& prev.projects.some(
+			(project, i) => project.id !== next.projects[i]?.id,
+		)
 	)
 		return "Reorder projects"
 
@@ -202,16 +204,16 @@ export function describeChange(
 		return next.openId ? "Open timelapse" : "Close timelapse"
 	if (prev.currentProjectId !== next.currentProjectId) return "Switch project"
 	return (
-		describeSelections(prev.selections, next.selections) ??
-		describeEntryChange(prev, next) ??
-		"Change"
+		describeSelections(prev.selections, next.selections)
+		?? describeEntryChange(prev, next)
+		?? "Change"
 	)
 }
 
 /** The ids on the path from `currentId` up to the root, which pruning never removes. */
 function pathIds(
 	nodes: Record<string, HistoryNode>,
-	currentId: string
+	currentId: string,
 ): Set<string> {
 	const ids = new Set<string>()
 	for (
@@ -227,7 +229,7 @@ function pathIds(
 /** The oldest leaf that pruning may remove, or null when only the current branch is left. */
 function oldestLeaf(
 	nodes: Record<string, HistoryNode>,
-	protectedIds: Set<string>
+	protectedIds: Set<string>,
 ): HistoryNode | null {
 	let oldest: HistoryNode | null = null
 	for (const node of Object.values(nodes)) {
@@ -240,7 +242,7 @@ function oldestLeaf(
 /** Remove a leaf, detaching it from its parent. */
 function removeLeaf(
 	nodes: Record<string, HistoryNode>,
-	leaf: HistoryNode
+	leaf: HistoryNode,
 ): Record<string, HistoryNode> {
 	const next = { ...nodes }
 	delete next[leaf.id]
@@ -257,7 +259,7 @@ function removeLeaf(
 function pruneLeaves(
 	nodes: Record<string, HistoryNode>,
 	currentId: string,
-	limit: number
+	limit: number,
 ): Record<string, HistoryNode> {
 	let result = nodes
 	while (Object.keys(result).length > limit) {
@@ -271,7 +273,7 @@ function pruneLeaves(
 /** Every node reachable from `rootId` by following children. */
 function reachableIds(
 	nodes: Record<string, HistoryNode>,
-	rootId: string
+	rootId: string,
 ): Set<string> {
 	const keep = new Set<string>()
 	const stack = [rootId]
@@ -290,7 +292,7 @@ function reachableIds(
  */
 function dropOldestPathNode(
 	nodes: Record<string, HistoryNode>,
-	currentId: string
+	currentId: string,
 ): Record<string, HistoryNode> | null {
 	const chain: HistoryNode[] = []
 	for (
@@ -326,7 +328,7 @@ function nodesSize(nodes: Record<string, HistoryNode>): number {
 function pruneToBudget(
 	nodes: Record<string, HistoryNode>,
 	currentId: string,
-	maxBytes: number
+	maxBytes: number,
 ): Record<string, HistoryNode> {
 	let result = nodes
 	let total = nodesSize(result)
@@ -503,7 +505,9 @@ export class WorkspaceHistory {
 		clearTimeout(this.#timer)
 		this.#timer = setTimeout(
 			() => this.#record(),
-			Object.keys(this.nodes).length === 0 ? INITIAL_SETTLE_MS : SETTLE_MS
+			Object.keys(this.nodes).length === 0
+				? INITIAL_SETTLE_MS
+				: SETTLE_MS,
 		)
 	}
 
@@ -615,14 +619,14 @@ const MAX_PERSISTED_BYTES = 1_500_000
 export function saveHistory(
 	nodes: Record<string, HistoryNode>,
 	currentId: string,
-	nextId: number
+	nextId: number,
 ): void {
 	if (typeof localStorage === "undefined") return
 	// A branch that can't fit even as a single node means no useful tree can be stored, so skip the pruning work entirely.
 	const current = nodes[currentId]
 	if (
-		!current ||
-		snapshotSize(current.snapshot) + NODE_OVERHEAD > MAX_PERSISTED_BYTES
+		!current
+		|| snapshotSize(current.snapshot) + NODE_OVERHEAD > MAX_PERSISTED_BYTES
 	) {
 		try {
 			localStorage.removeItem(STORAGE_KEY)
@@ -663,7 +667,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isHistoryString = (
 	value: unknown,
-	maxLength = MAX_HISTORY_STRING_LENGTH
+	maxLength = MAX_HISTORY_STRING_LENGTH,
 ): value is string => typeof value === "string" && value.length <= maxLength
 
 const isHistoryId = (value: unknown): value is string =>
@@ -679,17 +683,17 @@ function parseIdleRange(value: unknown, duration: number): IdleRange | null {
 	if (!isRecord(value)) return null
 	const { start, end } = value
 	if (
-		!isFiniteNonNegative(start) ||
-		!isFiniteNonNegative(end) ||
-		end < start ||
-		end > duration + 1e-6
+		!isFiniteNonNegative(start)
+		|| !isFiniteNonNegative(end)
+		|| end < start
+		|| end > duration + 1e-6
 	)
 		return null
 	return { start, end }
 }
 
 function parseAnnotation(
-	value: unknown
+	value: unknown,
 ): ProjectTimelapse["annotations"][number] | null {
 	if (!isRecord(value)) return null
 	const { reason, duration } = value
@@ -711,15 +715,15 @@ function parseTimelapse(value: unknown): ProjectTimelapse | null {
 		idleRanges: rawIdleRanges,
 	} = value
 	if (
-		!isHistoryId(id) ||
-		!isHistoryString(name) ||
-		!isHistoryString(description) ||
-		!isFiniteNonNegative(duration) ||
-		!isFiniteNonNegative(idleDuration) ||
-		typeof ignoreIdle !== "boolean" ||
-		!isFiniteNonNegative(idleThreshold) ||
-		!Array.isArray(annotations) ||
-		annotations.length > MAX_HISTORY_ANNOTATIONS
+		!isHistoryId(id)
+		|| !isHistoryString(name)
+		|| !isHistoryString(description)
+		|| !isFiniteNonNegative(duration)
+		|| !isFiniteNonNegative(idleDuration)
+		|| typeof ignoreIdle !== "boolean"
+		|| !isFiniteNonNegative(idleThreshold)
+		|| !Array.isArray(annotations)
+		|| annotations.length > MAX_HISTORY_ANNOTATIONS
 	)
 		return null
 
@@ -729,16 +733,16 @@ function parseTimelapse(value: unknown): ProjectTimelapse | null {
 	let idleRanges: IdleRange[] | undefined
 	if (rawIdleRanges !== undefined) {
 		if (
-			!Array.isArray(rawIdleRanges) ||
-			rawIdleRanges.length > MAX_HISTORY_IDLE_RANGES
+			!Array.isArray(rawIdleRanges)
+			|| rawIdleRanges.length > MAX_HISTORY_IDLE_RANGES
 		)
 			return null
 		const parsedRanges = rawIdleRanges.map(range =>
-			parseIdleRange(range, duration)
+			parseIdleRange(range, duration),
 		)
 		if (parsedRanges.some(range => range === null)) return null
 		idleRanges = parsedRanges.filter(
-			(range): range is IdleRange => range !== null
+			(range): range is IdleRange => range !== null,
 		)
 	}
 
@@ -749,9 +753,9 @@ function parseTimelapse(value: unknown): ProjectTimelapse | null {
 		idleDuration,
 		annotations: parsedAnnotations.filter(
 			(
-				annotation
+				annotation,
 			): annotation is ProjectTimelapse["annotations"][number] =>
-				annotation !== null
+				annotation !== null,
 		),
 		ignoreIdle,
 		idleThreshold,
@@ -764,17 +768,17 @@ function parseProject(value: unknown): Project | null {
 	if (!isRecord(value)) return null
 	const { id, name, timelapses } = value
 	if (
-		!isHistoryId(id) ||
-		!isHistoryString(name) ||
-		!Array.isArray(timelapses) ||
-		timelapses.length > MAX_HISTORY_TIMELAPSES
+		!isHistoryId(id)
+		|| !isHistoryString(name)
+		|| !Array.isArray(timelapses)
+		|| timelapses.length > MAX_HISTORY_TIMELAPSES
 	)
 		return null
 
 	const parsedTimelapses = timelapses.map(parseTimelapse)
 	if (parsedTimelapses.some(timelapse => timelapse === null)) return null
 	const parsed = parsedTimelapses.filter(
-		(timelapse): timelapse is ProjectTimelapse => timelapse !== null
+		(timelapse): timelapse is ProjectTimelapse => timelapse !== null,
 	)
 	if (new Set(parsed.map(timelapse => timelapse.id)).size !== parsed.length)
 		return null
@@ -785,11 +789,11 @@ function parseSelection(value: unknown): TimelineSelection | null {
 	if (!isRecord(value)) return null
 	const { id, start, end, reason } = value
 	if (
-		!isHistoryId(id) ||
-		!isFiniteNonNegative(start) ||
-		!isFiniteNonNegative(end) ||
-		end < start ||
-		(reason !== undefined && !isHistoryString(reason))
+		!isHistoryId(id)
+		|| !isFiniteNonNegative(start)
+		|| !isFiniteNonNegative(end)
+		|| end < start
+		|| (reason !== undefined && !isHistoryString(reason))
 	)
 		return null
 	return { id, start, end, ...(reason !== undefined ? { reason } : {}) }
@@ -799,20 +803,20 @@ function parseSnapshot(value: unknown): WorkspaceSnapshot | null {
 	if (!isRecord(value)) return null
 	const { projects, currentProjectId, openId, selections } = value
 	if (
-		!Array.isArray(projects) ||
-		projects.length === 0 ||
-		projects.length > MAX_HISTORY_PROJECTS ||
-		!isHistoryId(currentProjectId) ||
-		!isHistoryString(openId, MAX_HISTORY_ID_LENGTH) ||
-		!Array.isArray(selections) ||
-		selections.length > MAX_HISTORY_SELECTIONS
+		!Array.isArray(projects)
+		|| projects.length === 0
+		|| projects.length > MAX_HISTORY_PROJECTS
+		|| !isHistoryId(currentProjectId)
+		|| !isHistoryString(openId, MAX_HISTORY_ID_LENGTH)
+		|| !Array.isArray(selections)
+		|| selections.length > MAX_HISTORY_SELECTIONS
 	)
 		return null
 
 	const parsedProjects = projects.map(parseProject)
 	if (parsedProjects.some(project => project === null)) return null
 	const parsed = parsedProjects.filter(
-		(project): project is Project => project !== null
+		(project): project is Project => project !== null,
 	)
 	if (new Set(parsed.map(project => project.id)).size !== parsed.length)
 		return null
@@ -821,16 +825,16 @@ function parseSnapshot(value: unknown): WorkspaceSnapshot | null {
 	const parsedSelections = selections.map(parseSelection)
 	if (parsedSelections.some(selection => selection === null)) return null
 	const parsedSelectionValues = parsedSelections.filter(
-		(selection): selection is TimelineSelection => selection !== null
+		(selection): selection is TimelineSelection => selection !== null,
 	)
 	if (
-		new Set(parsedSelectionValues.map(selection => selection.id)).size !==
-		parsedSelectionValues.length
+		new Set(parsedSelectionValues.map(selection => selection.id)).size
+		!== parsedSelectionValues.length
 	)
 		return null
 
 	const currentProject = parsed.find(
-		project => project.id === currentProjectId
+		project => project.id === currentProjectId,
 	)
 	const openTimelapse = openId
 		? currentProject?.timelapses.find(timelapse => timelapse.id === openId)
@@ -838,9 +842,9 @@ function parseSnapshot(value: unknown): WorkspaceSnapshot | null {
 	if (openId && !openTimelapse) return null
 	if (!openId && parsedSelectionValues.length > 0) return null
 	if (
-		openTimelapse &&
-		parsedSelectionValues.some(
-			selection => selection.end > openTimelapse.duration + 1e-6
+		openTimelapse
+		&& parsedSelectionValues.some(
+			selection => selection.end > openTimelapse.duration + 1e-6,
 		)
 	)
 		return null
@@ -857,13 +861,13 @@ function parseNode(value: unknown): HistoryNode | null {
 	if (!isRecord(value)) return null
 	const { id, seq, label, snapshot, parent, children } = value
 	if (
-		!isHistoryId(id) ||
-		!isSafeNonNegativeInteger(seq) ||
-		!isHistoryString(label) ||
-		(parent !== null && !isHistoryId(parent)) ||
-		!Array.isArray(children) ||
-		children.length > MAX_NODES ||
-		!children.every(isHistoryId)
+		!isHistoryId(id)
+		|| !isSafeNonNegativeInteger(seq)
+		|| !isHistoryString(label)
+		|| (parent !== null && !isHistoryId(parent))
+		|| !Array.isArray(children)
+		|| children.length > MAX_NODES
+		|| !children.every(isHistoryId)
 	)
 		return null
 	const parsedSnapshot = parseSnapshot(snapshot)

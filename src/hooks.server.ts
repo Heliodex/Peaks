@@ -56,7 +56,7 @@ const finish: Handle = async ({ event, resolve }) => {
 			userLog(user),
 			methodColours[method] || method,
 			" ".repeat(7 - method.length),
-			pathnameColour(decodeURI(pathname) + search)
+			pathnameColour(decodeURI(pathname) + search),
 		)
 	} catch (e) {
 		console.error("Could not log request:", e)
@@ -89,9 +89,9 @@ export const handle: Handle = async e => {
 
 	const lapseData = user.lapseData
 	if (
-		!lapseData ||
-		(isLapseAccessExpired(lapseData.accessTokenExpiresAt) &&
-			!lapseData.refreshToken)
+		!lapseData
+		|| (isLapseAccessExpired(lapseData.accessTokenExpiresAt)
+			&& !lapseData.refreshToken)
 	) {
 		await clearLapseCredentials(user.id).catch(() => {})
 		await invalidateSession(session).catch(() => {})

@@ -58,7 +58,7 @@ function createProbeVideo(src: string): ProbeVideo {
  */
 function measureWithFrameCallbacks(
 	video: ProbeVideo,
-	finish: (fps: number) => void
+	finish: (fps: number) => void,
 ): boolean {
 	const requestFrame = video.requestVideoFrameCallback
 	if (typeof requestFrame !== "function") return false
@@ -89,7 +89,7 @@ function measureWithFrameCallbacks(
 /** Fallback measurement for browsers without `requestVideoFrameCallback`, polling the playback quality counters. */
 function measureWithPolling(
 	video: ProbeVideo,
-	finish: (fps: number) => void
+	finish: (fps: number) => void,
 ): () => void {
 	let interval: ReturnType<typeof setInterval> | undefined
 	video

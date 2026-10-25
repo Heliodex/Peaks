@@ -47,7 +47,7 @@ export const getLapseData = query(async () => {
 	// Only public profile fields are returned to the client – never the access/refresh tokens
 	const [result] = await db.query<LapseProfile[][]>(
 		"SELECT VALUE lapseData FROM $user",
-		{ user: user.id }
+		{ user: user.id },
 	)
 	const lapseData = result?.[0] ?? null
 	if (!lapseData) return null
@@ -89,15 +89,15 @@ export const getTimelapse = query(type("string"), async timelapseId => {
 async function fetchThumbnail(
 	user: User,
 	session: string,
-	id: string
+	id: string,
 ): Promise<[string, string | null]> {
 	try {
 		const timelapse = await fetchLapseTimelapse(user, session, id)
 		return [id, timelapse?.thumbnailUrl ?? null]
 	} catch (error) {
 		if (
-			isRedirect(error) ||
-			error instanceof LapseAuthenticationRequiredError
+			isRedirect(error)
+			|| error instanceof LapseAuthenticationRequiredError
 		)
 			throw error
 		return [id, null]
@@ -116,8 +116,8 @@ export const getTimelapseThumbnails = query(
 		const pairs = await mapWithConcurrency(
 			ids,
 			MAX_CONCURRENT_TIMELAPSE_REQUESTS,
-			id => fetchThumbnail(user, session, id)
+			id => fetchThumbnail(user, session, id),
 		)
 		return Object.fromEntries(pairs)
-	}
+	},
 )

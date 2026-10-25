@@ -32,7 +32,7 @@ const clipboard = createCopyToClipboard()
 
 /** The entry menu currently open, and where to show it. */
 let menu = $state<{ id: string; name: string; x: number; y: number } | null>(
-	null
+	null,
 )
 // Focus to restore when the menu is dismissed with Escape.
 let previousFocus: HTMLElement | null = null
@@ -43,16 +43,16 @@ let copiedAt = $state<{ x: number; y: number } | null>(null)
 const cardTransition = $derived(
 	prefersReducedMotion.current
 		? { duration: 0 }
-		: { duration: 180, start: 0.9 }
+		: { duration: 180, start: 0.9 },
 )
 const cardShift = $derived(
-	prefersReducedMotion.current ? { duration: 0 } : { duration: 180 }
+	prefersReducedMotion.current ? { duration: 0 } : { duration: 180 },
 )
 
 // Drag cards from anywhere to reorder them.
 const reorder = new ListReorder(
 	() => entries,
-	updated => onReorder(updated)
+	updated => onReorder(updated),
 )
 
 // The card being dragged dims while its drag image follows the pointer, so mark it.
@@ -101,7 +101,7 @@ $effect(() => {
 			if (cancelled) return
 			const batch = ids.slice(
 				index,
-				index + MAX_TIMELAPSE_THUMBNAIL_BATCH_SIZE
+				index + MAX_TIMELAPSE_THUMBNAIL_BATCH_SIZE,
 			)
 			loaded = {
 				...loaded,
@@ -135,11 +135,11 @@ $effect(() => {
 				ondragstart={event => reorder.startDrag(event, entry.id)}
 				ondragend={reorder.endDrag}
 				class={[
-	"group relative",
-	reorder.draggingId === entry.id
-		? "opacity-40 outline-2 outline-dashed outline-primary-500/60"
-		: "",
-]}
+					"group relative",
+					reorder.draggingId === entry.id
+						? "opacity-40 outline-2 outline-dashed outline-primary-500/60"
+						: "",
+				]}
 			>
 				<button
 					type="button"

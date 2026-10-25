@@ -26,7 +26,7 @@ const toBlob = (canvas: HTMLCanvasElement, quality: number): Promise<Blob> =>
 					? resolve(blob)
 					: reject(new Error("Failed to encode frame")),
 			"image/jpeg",
-			quality
+			quality,
 		)
 	})
 
@@ -38,7 +38,7 @@ function createFrameEncoder(width: number, quality: number) {
 		canvas.width = width
 		canvas.height = Math.max(
 			1,
-			Math.round((width * el.videoHeight) / (el.videoWidth || 1))
+			Math.round((width * el.videoHeight) / (el.videoWidth || 1)),
 		)
 		const ctx = canvas.getContext("2d")
 		if (!ctx) throw new Error("No canvas context")
@@ -59,7 +59,7 @@ const disposedError = () => new Error("Frame capturer disposed")
 export function createFrameCapturer(
 	src: string,
 	width = 160,
-	quality = 0.7
+	quality = 0.7,
 ): FrameCapturer {
 	const video = document.createElement("video")
 	video.muted = true
@@ -100,14 +100,14 @@ export function createFrameCapturer(
 
 	async function runCapture(
 		time: number,
-		epsilon: number
+		epsilon: number,
 	): Promise<CapturedFrame> {
 		if (disposed || controller.signal.aborted) throw disposedError()
 		const el = await ready
 		if (disposed || controller.signal.aborted) throw disposedError()
 		const target = Math.max(
 			0,
-			Math.min(time, (el.duration || time) - epsilon)
+			Math.min(time, (el.duration || time) - epsilon),
 		)
 		await seekVideo(el, target, SEEK_TIMEOUT_MS, controller.signal)
 		if (disposed || controller.signal.aborted) throw disposedError()
@@ -129,7 +129,7 @@ export function createFrameCapturer(
 		const task = queue.then(() => runCapture(time, epsilon))
 		queue = task.then(
 			() => undefined,
-			() => undefined
+			() => undefined,
 		)
 		return task
 	}

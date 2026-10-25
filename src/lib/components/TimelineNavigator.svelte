@@ -108,7 +108,7 @@ function onPointerDown(event: PointerEvent) {
 	const start = clamp(
 		snapToFrame(time - length / 2, frameRate),
 		0,
-		Math.max(0, duration - length)
+		Math.max(0, duration - length),
 	)
 	onviewchange({ start, end: start + length })
 }
@@ -123,21 +123,21 @@ function onPointerMove(event: PointerEvent) {
 		const start = clamp(
 			snapToFrame(time - state.offset, frameRate),
 			0,
-			Math.max(0, duration - state.length)
+			Math.max(0, duration - state.length),
 		)
 		onviewchange({ start, end: start + state.length })
 	} else if (state.kind === "resize-start") {
 		const start = clamp(
 			snapToFrame(time, frameRate),
 			0,
-			Math.max(0, view.end - state.minLength)
+			Math.max(0, view.end - state.minLength),
 		)
 		onviewchange({ start, end: view.end })
 	} else {
 		const end = clamp(
 			snapToFrame(time, frameRate),
 			view.start + state.minLength,
-			duration
+			duration,
 		)
 		onviewchange({ start: view.start, end })
 	}

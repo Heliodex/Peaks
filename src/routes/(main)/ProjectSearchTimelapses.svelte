@@ -20,10 +20,10 @@ let {
 
 // Motion is skipped for reduced-motion users.
 const scrollBehavior = $derived(
-	prefersReducedMotion.current ? "auto" : "smooth"
+	prefersReducedMotion.current ? "auto" : "smooth",
 )
 const paneTransition = $derived(
-	prefersReducedMotion.current ? { duration: 0 } : { x: 16, duration: 200 }
+	prefersReducedMotion.current ? { duration: 0 } : { x: 16, duration: 200 },
 )
 
 function scrollTimelapseIntoView(node: HTMLDivElement) {

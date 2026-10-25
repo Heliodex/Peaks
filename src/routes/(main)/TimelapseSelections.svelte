@@ -17,12 +17,12 @@ let {
 } = $props()
 
 const sortedSelections = $derived(
-	[...selections].sort((a, b) => a.start - b.start)
+	[...selections].sort((a, b) => a.start - b.start),
 )
 
 function setSelectionReason(id: string, reason: string) {
 	selections = selections.map(selection =>
-		selection.id === id ? { ...selection, reason } : selection
+		selection.id === id ? { ...selection, reason } : selection,
 	)
 }
 
@@ -44,7 +44,7 @@ function removeSelection(id: string) {
 		<ul class="flex flex-col gap-1 text-sm">
 			{#each sortedSelections as sel, i (sel.id)}
 				{const deflation = $derived(
-					selectionDeflation(sel, activeIdleRanges)
+					selectionDeflation(sel, activeIdleRanges),
 				)}
 				{const color = $derived(selectionColors(sel.reason))}
 				<li

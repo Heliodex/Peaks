@@ -10,7 +10,7 @@ describe("timelapse thumbnail batches", () => {
 	test("limits the number of IDs accepted by the remote schema", () => {
 		const valid = Array.from(
 			{ length: MAX_TIMELAPSE_THUMBNAIL_BATCH_SIZE },
-			(_, index) => `id-${index}`
+			(_, index) => `id-${index}`,
 		)
 		const tooMany = [...valid, "one-too-many"]
 
@@ -33,7 +33,7 @@ describe("timelapse thumbnail batches", () => {
 				await Promise.resolve()
 				active--
 				return value * 2
-			}
+			},
 		)
 
 		expect(results).toEqual(values.map(value => value * 2))

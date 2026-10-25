@@ -44,8 +44,8 @@ export function parseLapseMediaTarget(value: string): URL {
 	const url = parseUrl(value)
 	assertCommonUrl(url)
 	if (
-		!LAPSE_MEDIA_ORIGINS.has(url.origin) ||
-		!LAPSE_MEDIA_PATHS.some(path => path.test(url.pathname))
+		!LAPSE_MEDIA_ORIGINS.has(url.origin)
+		|| !LAPSE_MEDIA_PATHS.some(path => path.test(url.pathname))
 	)
 		invalid("URL is not an allowed Lapse video")
 	return url
@@ -72,8 +72,8 @@ export function parseLapseMediaRedirect(location: string, base: URL): URL {
 	}
 
 	if (
-		url.hostname.endsWith(R2_HOST_SUFFIX) &&
-		R2_MEDIA_PATH.test(url.pathname)
+		url.hostname.endsWith(R2_HOST_SUFFIX)
+		&& R2_MEDIA_PATH.test(url.pathname)
 	)
 		return url
 

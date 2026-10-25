@@ -33,7 +33,7 @@ function openCache(): Promise<Cache | null> {
 async function requestsFor(
 	cache: Cache,
 	kind: string,
-	source: string
+	source: string,
 ): Promise<Request[]> {
 	const matches: Request[] = []
 	for (const request of await cache.keys()) {
@@ -51,7 +51,7 @@ async function requestsFor(
 /** Every stored thumbnail for a `(kind, source)` pair, keyed by number. */
 export async function loadThumbnails(
 	kind: string,
-	source: string
+	source: string,
 ): Promise<StoredThumbnail[]> {
 	const cache = await openCache()
 	if (!cache) return []
@@ -75,7 +75,7 @@ export async function saveThumbnail(
 	kind: string,
 	source: string,
 	key: number,
-	blob: Blob
+	blob: Blob,
 ): Promise<void> {
 	const cache = await openCache()
 	if (!cache) return
@@ -84,7 +84,7 @@ export async function saveThumbnail(
 			keyFor(kind, source, key),
 			new Response(blob, {
 				headers: { "content-type": "image/jpeg" },
-			})
+			}),
 		)
 	} catch {
 		// Storage may be full or unavailable; persistence is optional.
@@ -94,7 +94,7 @@ export async function saveThumbnail(
 /** Forget every stored thumbnail for a `(kind, source)` pair. */
 export async function deleteThumbnails(
 	kind: string,
-	source: string
+	source: string,
 ): Promise<void> {
 	const cache = await openCache()
 	if (!cache) return

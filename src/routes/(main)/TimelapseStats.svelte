@@ -46,20 +46,23 @@ const annotationDeflation = $derived(
 	selections.reduce(
 		(sum, selection) =>
 			sum + selectionDeflation(selection, activeIdleRanges),
-		0
-	)
+		0,
+	),
 )
 
 /** Time removed from the actual duration as idle, in recorded seconds. */
 const idleDuration = $derived(idleRecordedSeconds(activeIdleRanges))
 
 const actualDuration = $derived(
-	Math.max(0, (timelapse?.duration ?? 0) - idleDuration - annotationDeflation)
+	Math.max(
+		0,
+		(timelapse?.duration ?? 0) - idleDuration - annotationDeflation,
+	),
 )
 
 /** Slider position: the open timelapse's threshold as an index into the scale. */
 const thresholdIndex = $derived(
-	Math.max(0, IDLE_THRESHOLD_SCALE.indexOf(idleThreshold))
+	Math.max(0, IDLE_THRESHOLD_SCALE.indexOf(idleThreshold)),
 )
 
 const description = $derived(
@@ -70,7 +73,7 @@ const description = $derived(
 				idleRanges: activeIdleRanges,
 				selections,
 			})
-		: ""
+		: "",
 )
 </script>
 

@@ -45,7 +45,7 @@ export async function GET({ cookies, url }: RequestEvent) {
 			500,
 			dev
 				? `Lapse OAuth callback failed: ${message}`
-				: "Lapse OAuth callback failed"
+				: "Lapse OAuth callback failed",
 		)
 	}
 

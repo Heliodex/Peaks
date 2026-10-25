@@ -3,7 +3,7 @@ import { createNodeEngines } from "@surrealdb/node"
 import { RecordId, Surreal } from "surrealdb"
 
 const query = await Bun.file(
-	new URL("../src/lib/server/getSessionAndUser.surql", import.meta.url)
+	new URL("../src/lib/server/getSessionAndUser.surql", import.meta.url),
 ).text()
 
 async function createDatabase(): Promise<Surreal> {
@@ -26,7 +26,7 @@ async function createDatabase(): Promise<Surreal> {
 async function createSession(
 	db: Surreal,
 	id: string,
-	expires: Date
+	expires: Date,
 ): Promise<Record<string, unknown>> {
 	const sess = new RecordId("session", id)
 	await db.query(
@@ -35,7 +35,7 @@ async function createSession(
 			sess,
 			id,
 			expires,
-		}
+		},
 	)
 	await db.query("RELATE user:one->hasSession->$sess", { sess })
 	const [, , , , result] = await db.query<Record<string, unknown>[]>(query, {
@@ -52,16 +52,16 @@ describe("session validation", () => {
 			const result = await createSession(
 				db,
 				"near",
-				new Date(before + 24 * 60 * 60 * 1000)
+				new Date(before + 24 * 60 * 60 * 1000),
 			)
 			expect(result.renewed).toBe(true)
 			expect(result.session).toBe("near")
 
 			const [stored] = await db.query<{ expires: string }[]>(
-				"SELECT expires FROM session:near"
+				"SELECT expires FROM session:near",
 			)
 			expect(new Date(stored[0].expires).getTime()).toBeGreaterThan(
-				Date.now() + 29 * 24 * 60 * 60 * 1000
+				Date.now() + 29 * 24 * 60 * 60 * 1000,
 			)
 		} finally {
 			await db.close()
@@ -77,10 +77,10 @@ describe("session validation", () => {
 			expect(result.session).toBe("fresh")
 
 			const [stored] = await db.query<{ expires: string }[]>(
-				"SELECT expires FROM session:fresh"
+				"SELECT expires FROM session:fresh",
 			)
 			expect(new Date(stored[0].expires).getTime()).toBe(
-				expires.getTime()
+				expires.getTime(),
 			)
 		} finally {
 			await db.close()
@@ -93,7 +93,7 @@ describe("session validation", () => {
 			const result = await createSession(
 				db,
 				"expired",
-				new Date(Date.now() - 1000)
+				new Date(Date.now() - 1000),
 			)
 			expect(result.renewed).toBe(false)
 			expect(result.session).toBeUndefined()

@@ -20,7 +20,7 @@ const STORAGE_KEY = "peaks:history"
 const MAX_PERSISTED_BYTES = 1_500_000
 
 const timelapse = (
-	overrides: Partial<ProjectTimelapse> = {}
+	overrides: Partial<ProjectTimelapse> = {},
 ): ProjectTimelapse => ({
 	id: "t1",
 	name: "Timelapse",
@@ -36,11 +36,11 @@ const timelapse = (
 const project = (
 	id: string,
 	name: string,
-	entries: ProjectTimelapse[] = [timelapse()]
+	entries: ProjectTimelapse[] = [timelapse()],
 ): Project => ({ id, name, timelapses: entries })
 
 const snapshot = (
-	overrides: Partial<WorkspaceSnapshot> = {}
+	overrides: Partial<WorkspaceSnapshot> = {},
 ): WorkspaceSnapshot => ({
 	projects: [project("p1", "Project")],
 	currentProjectId: "p1",
@@ -50,7 +50,7 @@ const snapshot = (
 })
 
 const selection = (
-	overrides: Partial<TimelineSelection> = {}
+	overrides: Partial<TimelineSelection> = {},
 ): TimelineSelection => ({
 	id: "s1",
 	start: 0,
@@ -72,8 +72,8 @@ describe("describeChange: projects", () => {
 		expect(
 			describeChange(
 				snapshot(),
-				snapshot({ projects: [project("p1", "Renamed")] })
-			)
+				snapshot({ projects: [project("p1", "Renamed")] }),
+			),
 		).toBe("Rename project")
 	})
 	test("reorder", () => {
@@ -127,21 +127,21 @@ describe("describeChange: selections", () => {
 	test("move keeps the length", () => {
 		const moved = withSelection(selection({ start: 1, end: 3 }))
 		expect(describeChange(withSelection(selection()), moved)).toBe(
-			"Move selection"
+			"Move selection",
 		)
 	})
 	test("resize changes the length", () => {
 		const resized = withSelection(selection({ end: 4 }))
 		expect(describeChange(withSelection(selection()), resized)).toBe(
-			"Resize selection"
+			"Resize selection",
 		)
 	})
 	test("changing the reason wins over the position", () => {
 		const reannoted = withSelection(
-			selection({ start: 1, end: 3, reason: "plan" })
+			selection({ start: 1, end: 3, reason: "plan" }),
 		)
 		expect(describeChange(withSelection(selection()), reannoted)).toBe(
-			"Change annotation"
+			"Change annotation",
 		)
 	})
 })
@@ -154,20 +154,20 @@ describe("describeChange: idle overrides", () => {
 
 	test("ignore idle", () => {
 		expect(
-			describeChange(snapshot(), withEntry({ ignoreIdle: true }))
+			describeChange(snapshot(), withEntry({ ignoreIdle: true })),
 		).toBe("Ignore idle time")
 	})
 	test("idle sensitivity", () => {
 		expect(
-			describeChange(snapshot(), withEntry({ idleThreshold: 0.2 }))
+			describeChange(snapshot(), withEntry({ idleThreshold: 0.2 })),
 		).toBe("Change idle sensitivity")
 	})
 	test("recalculated idle ranges", () => {
 		expect(
 			describeChange(
 				snapshot(),
-				withEntry({ idleRanges: [{ start: 1, end: 2 }] })
-			)
+				withEntry({ idleRanges: [{ start: 1, end: 2 }] }),
+			),
 		).toBe("Recalculate idle time")
 	})
 })
@@ -179,7 +179,7 @@ test("HISTORY_NODE_SIZE is shared with the view", () => {
 /** A chain of `count` nodes, each with its own snapshot, the last one current. */
 function chain(
 	count: number,
-	makeSnapshot: (index: number) => WorkspaceSnapshot
+	makeSnapshot: (index: number) => WorkspaceSnapshot,
 ): { nodes: Record<string, HistoryNode>; currentId: string } {
 	const nodes: Record<string, HistoryNode> = {}
 	let parent: string | null = null
@@ -202,7 +202,7 @@ function chain(
 /** A snapshot whose persisted size is dominated by its idle ranges. */
 function bulkySnapshot(
 	entryCount: number,
-	rangeCount: number
+	rangeCount: number,
 ): WorkspaceSnapshot {
 	const entries = Array.from({ length: entryCount }, (_, e) => {
 		const idleRanges = Array.from({ length: rangeCount }, (_, i) => ({
@@ -323,7 +323,7 @@ describe("loadHistory: persisted validation", () => {
 		nodes.h0 = { ...nodes.h0, children: [] }
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ nodes, currentId, nextId: 2 })
+			JSON.stringify({ nodes, currentId, nextId: 2 }),
 		)
 
 		expect(loadHistory()).toBeNull()
@@ -335,7 +335,7 @@ describe("loadHistory: persisted validation", () => {
 		nodes.h1 = { ...nodes.h1, parent: "h1", children: ["h1"] }
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ nodes, currentId: "h1", nextId: 2 })
+			JSON.stringify({ nodes, currentId: "h1", nextId: 2 }),
 		)
 
 		expect(loadHistory()).toBeNull()
@@ -357,7 +357,7 @@ describe("loadHistory: persisted validation", () => {
 		}
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ nodes, currentId: "h0", nextId: 1 })
+			JSON.stringify({ nodes, currentId: "h0", nextId: 1 }),
 		)
 
 		expect(loadHistory()).toBeNull()

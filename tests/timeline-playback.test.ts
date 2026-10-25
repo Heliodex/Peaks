@@ -46,7 +46,7 @@ runtime.$effect = effect => {
 const { TimelinePlayback } = await import(
 	new URL(
 		"../src/lib/components/timeline-playback.svelte.ts",
-		import.meta.url
+		import.meta.url,
 	).pathname
 )
 

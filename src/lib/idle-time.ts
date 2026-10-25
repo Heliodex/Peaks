@@ -77,16 +77,16 @@ export function idleSampleTimes(duration: number, frameRate: number): number[] {
 /** Mean absolute RGB difference between two equally-sized RGBA samples. */
 export function frameDifference(
 	a: Uint8ClampedArray,
-	b: Uint8ClampedArray
+	b: Uint8ClampedArray,
 ): number {
 	const length = Math.min(a.length, b.length)
 	let total = 0
 	let count = 0
 	for (let i = 0; i + 2 < length; i += 4) {
 		total +=
-			Math.abs(a[i] - b[i]) +
-			Math.abs(a[i + 1] - b[i + 1]) +
-			Math.abs(a[i + 2] - b[i + 2])
+			Math.abs(a[i] - b[i])
+			+ Math.abs(a[i + 1] - b[i + 1])
+			+ Math.abs(a[i + 2] - b[i + 2])
 		count += 3
 	}
 	return count > 0 ? total / count : 0
@@ -98,12 +98,12 @@ export function frameDifference(
 function spansFrameBoundary(
 	from: number,
 	to: number,
-	frameRate: number
+	frameRate: number,
 ): boolean {
 	if (frameRate > 0) {
 		return (
-			Math.floor(to * frameRate + 1e-6) >
-			Math.floor(from * frameRate + 1e-6)
+			Math.floor(to * frameRate + 1e-6)
+			> Math.floor(from * frameRate + 1e-6)
 		)
 	}
 	return to - from + 1e-6 >= FALLBACK_STEP
@@ -116,7 +116,7 @@ function spansFrameBoundary(
  */
 export function idleRangesAreFrameAligned(
 	ranges: IdleRange[],
-	frameRate: number
+	frameRate: number,
 ): boolean {
 	if (frameRate <= 0) return true
 	const tolerance = 0.5e-3 * frameRate + 1e-6
@@ -124,7 +124,7 @@ export function idleRangesAreFrameAligned(
 		[range.start, range.end].every(time => {
 			const frames = time * frameRate
 			return Math.abs(frames - Math.round(frames)) < tolerance
-		})
+		}),
 	)
 }
 
@@ -155,7 +155,7 @@ const delay = (ms: number): Promise<void> =>
 export const waitForData = (
 	el: HTMLVideoElement,
 	signal: AbortSignal,
-	timeoutMs: number
+	timeoutMs: number,
 ): Promise<void> =>
 	new Promise((resolve, reject) => {
 		const abortError = () => new Error("Video load cancelled")
@@ -210,7 +210,7 @@ type VideoSampler = {
  */
 function createVideoSampler(
 	url: string,
-	isCancelled: () => boolean
+	isCancelled: () => boolean,
 ): VideoSampler {
 	let video: HTMLVideoElement | null = null
 	let activeController: AbortController | null = null
@@ -293,7 +293,7 @@ function createVideoSampler(
 async function captureSample(
 	ctx: CanvasRenderingContext2D,
 	sampler: VideoSampler,
-	target: number
+	target: number,
 ): Promise<Uint8ClampedArray> {
 	const el = await sampler.seek(target)
 	ctx.drawImage(el, 0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT)
@@ -311,7 +311,7 @@ async function scanIdleFrames(
 	frameRate: number,
 	threshold: number,
 	isCancelled: () => boolean,
-	callbacks: IdleCallbacks
+	callbacks: IdleCallbacks,
 ): Promise<IdleRange[]> {
 	// A run of identical frames is idle from the *second* capture onward: the first capture of a scene is the normal frame, and it's the unchanged repeat that marks time away. With a known frame rate, shift each idle interval one frame later so it covers the repeated frame rather than the original. Without a frame rate there are no frame ticks to align to, so the sampled boundaries stand.
 	const frameDuration = frameRate > 0 ? 1 / frameRate : 0
@@ -348,10 +348,10 @@ async function scanIdleFrames(
 		const phantomTrailingPair =
 			isFinal && frameRate <= 0 && times.length >= 3 && !previousIdle
 		if (
-			previous !== null &&
-			!phantomTrailingPair &&
-			spansFrameBoundary(previousTarget, target, frameRate) &&
-			frameDifference(previous, sample) <= threshold
+			previous !== null
+			&& !phantomTrailingPair
+			&& spansFrameBoundary(previousTarget, target, frameRate)
+			&& frameDifference(previous, sample) <= threshold
 		) {
 			intervals.push({
 				start: times[i - 1] + frameDuration,
@@ -386,7 +386,7 @@ export function analyzeIdle(
 	duration: number,
 	frameRate: number,
 	threshold: number,
-	callbacks: IdleCallbacks = {}
+	callbacks: IdleCallbacks = {},
 ): IdleAnalysisJob {
 	const canvas = document.createElement("canvas")
 	canvas.width = SAMPLE_WIDTH
@@ -411,7 +411,7 @@ export function analyzeIdle(
 			frameRate,
 			threshold,
 			isCancelled,
-			callbacks
+			callbacks,
 		)
 	})()
 

@@ -68,7 +68,7 @@ describe("selectionDeflation", () => {
 		}
 		// "plan" removes half the non-idle length, scaled to recorded time.
 		expect(selectionDeflation(selection, [])).toBe(
-			10 * 0.5 * PLAYBACK_TO_RECORDED
+			10 * 0.5 * PLAYBACK_TO_RECORDED,
 		)
 	})
 	test("ignores unreasoned or unknown selections", () => {
@@ -76,8 +76,8 @@ describe("selectionDeflation", () => {
 		expect(
 			selectionDeflation(
 				{ id: "s1", start: 0, end: 10, reason: "nope" },
-				[]
-			)
+				[],
+			),
 		).toBe(0)
 	})
 })
@@ -87,13 +87,13 @@ describe("deflationByReason", () => {
 		expect(
 			deflationByReason(
 				[{ id: "s1", start: 0, end: 5, reason: "invalid" }],
-				[]
-			)
+				[],
+			),
 		).toEqual([{ reason: "invalid", duration: 5 * PLAYBACK_TO_RECORDED }])
 	})
 	test("returns nothing when no selection deflates", () => {
 		expect(deflationByReason([{ id: "s1", start: 0, end: 5 }], [])).toEqual(
-			[]
+			[],
 		)
 	})
 })

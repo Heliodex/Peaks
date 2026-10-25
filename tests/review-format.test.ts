@@ -35,7 +35,7 @@ describe("durations", () => {
 			annotationTotal([
 				{ reason: "a", duration: 3 },
 				{ reason: "b", duration: 4 },
-			])
+			]),
 		).toBe(7)
 	})
 	test("entryFinalDuration subtracts idle and annotations", () => {
@@ -44,7 +44,7 @@ describe("durations", () => {
 				duration: 100,
 				idleDuration: 10,
 				annotations: [{ reason: "a", duration: 5 }],
-			})
+			}),
 		).toBe(85)
 	})
 	test("entryFinalDuration never goes negative", () => {
@@ -53,7 +53,7 @@ describe("durations", () => {
 				duration: 10,
 				idleDuration: 10,
 				annotations: [{ reason: "a", duration: 5 }],
-			})
+			}),
 		).toBe(0)
 	})
 })

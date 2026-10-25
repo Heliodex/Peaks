@@ -14,7 +14,7 @@ describe("nearestIdleThreshold", () => {
 		expect(nearestIdleThreshold(0.007)).toBe(0.005)
 		expect(nearestIdleThreshold(0.06)).toBe(0.05)
 		expect(nearestIdleThreshold(Number.MAX_SAFE_INTEGER)).toBe(
-			IDLE_THRESHOLD_SCALE[IDLE_THRESHOLD_SCALE.length - 1]
+			IDLE_THRESHOLD_SCALE[IDLE_THRESHOLD_SCALE.length - 1],
 		)
 	})
 	test("falls back to the default for non-numbers", () => {
@@ -57,7 +57,7 @@ describe("mergeIdleRanges", () => {
 				{ start: 2, end: 3 },
 				{ start: 0, end: 1 },
 				{ start: 1.5, end: 2 },
-			])
+			]),
 		).toEqual([
 			{ start: 0, end: 1 },
 			{ start: 1.5, end: 3 },
@@ -68,15 +68,15 @@ describe("mergeIdleRanges", () => {
 describe("idleRangesAreFrameAligned", () => {
 	test("is always true without a frame rate", () => {
 		expect(idleRangesAreFrameAligned([{ start: 0.1, end: 0.2 }], 0)).toBe(
-			true
+			true,
 		)
 	})
 	test("checks boundaries against frame ticks", () => {
 		expect(idleRangesAreFrameAligned([{ start: 1 / 30, end: 1 }], 30)).toBe(
-			true
+			true,
 		)
 		expect(idleRangesAreFrameAligned([{ start: 0.01, end: 1 }], 30)).toBe(
-			false
+			false,
 		)
 	})
 })

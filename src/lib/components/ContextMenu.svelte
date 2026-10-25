@@ -18,7 +18,7 @@ export const CONTEXT_MENU_SIZE = { width: 176, height: 62 }
 /** Position a context menu at the pointer, or beside the row when the event came from the keyboard. */
 export function contextMenuPosition(
 	event: MouseEvent,
-	size: { width: number; height: number } = CONTEXT_MENU_SIZE
+	size: { width: number; height: number } = CONTEXT_MENU_SIZE,
 ): { x: number; y: number } {
 	const row = (event.currentTarget as HTMLElement).getBoundingClientRect()
 	// Keyboard-triggered context menus report (0, 0); anchor those to the row instead.

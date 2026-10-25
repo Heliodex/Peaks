@@ -53,7 +53,7 @@ afterEach(() => {
 describe("Lapse API response validation", () => {
 	test("accepts and projects a valid user response", () => {
 		expect(
-			parseLapseUserInfoResponse({ ok: true, data: { user } })
+			parseLapseUserInfoResponse({ ok: true, data: { user } }),
 		).toEqual({
 			id: user.id,
 			handle: user.handle,
@@ -77,7 +77,7 @@ describe("Lapse API response validation", () => {
 			{ ok: true, data: { user: { ...user, createdAt: Number.NaN } } },
 		])
 			expect(() => parseLapseUserInfoResponse(value)).toThrow(
-				LapseApiResponseError
+				LapseApiResponseError,
 			)
 	})
 
@@ -92,7 +92,7 @@ describe("Lapse API response validation", () => {
 						thumbnailUrl: null,
 					},
 				},
-			})
+			}),
 		).toEqual({
 			...timelapse,
 			description: "",
@@ -120,7 +120,7 @@ describe("Lapse API response validation", () => {
 			},
 		])
 			expect(() => parseLapseTimelapseResponse(value)).toThrow(
-				LapseApiResponseError
+				LapseApiResponseError,
 			)
 	})
 })
@@ -132,7 +132,7 @@ describe("Lapse API request bounds", () => {
 		}) as typeof fetch
 
 		await expect(
-			fetchLapseJson("https://api.example.test", {})
+			fetchLapseJson("https://api.example.test", {}),
 		).rejects.toBeInstanceOf(LapseApiRequestError)
 	})
 
@@ -142,12 +142,12 @@ describe("Lapse API request bounds", () => {
 				init?.signal?.addEventListener(
 					"abort",
 					() => reject(new DOMException("aborted", "AbortError")),
-					{ once: true }
+					{ once: true },
 				)
 			})) as typeof fetch
 
 		await expect(
-			fetchLapseJson("https://api.example.test", {}, 5)
+			fetchLapseJson("https://api.example.test", {}, 5),
 		).rejects.toBeInstanceOf(LapseApiTimeoutError)
 	})
 
@@ -162,15 +162,15 @@ describe("Lapse API request bounds", () => {
 							"abort",
 							() =>
 								reject(
-									new DOMException("aborted", "AbortError")
+									new DOMException("aborted", "AbortError"),
 								),
-							{ once: true }
+							{ once: true },
 						)
 					}),
 			} as Response as unknown as Response)) as typeof fetch
 
 		await expect(
-			fetchLapseJson("https://api.example.test", {}, 5)
+			fetchLapseJson("https://api.example.test", {}, 5),
 		).rejects.toBeInstanceOf(LapseApiTimeoutError)
 	})
 })

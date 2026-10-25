@@ -15,7 +15,7 @@ const MIN_CENTER_HEIGHT = 200
 function trackResize(
 	event: PointerEvent,
 	onMove: (dx: number, dy: number) => void,
-	cursor: string
+	cursor: string,
 ) {
 	event.preventDefault()
 	const startX = event.clientX
@@ -67,7 +67,7 @@ export class PaneLayout {
 		if (typeof window === "undefined") return DEFAULT_LEFT_WIDTH
 		return Math.max(
 			DEFAULT_LEFT_WIDTH,
-			window.innerWidth - this.rightWidth - MIN_CENTER_WIDTH
+			window.innerWidth - this.rightWidth - MIN_CENTER_WIDTH,
 		)
 	}
 
@@ -76,7 +76,7 @@ export class PaneLayout {
 		if (typeof window === "undefined") return DEFAULT_RIGHT_WIDTH
 		return Math.max(
 			DEFAULT_RIGHT_WIDTH,
-			window.innerWidth - this.leftWidth - MIN_CENTER_WIDTH
+			window.innerWidth - this.leftWidth - MIN_CENTER_WIDTH,
 		)
 	}
 
@@ -85,7 +85,7 @@ export class PaneLayout {
 		if (typeof window === "undefined") return DEFAULT_TIMELINE_HEIGHT
 		return Math.max(
 			DEFAULT_TIMELINE_HEIGHT,
-			window.innerHeight - MIN_CENTER_HEIGHT - 120
+			window.innerHeight - MIN_CENTER_HEIGHT - 120,
 		)
 	}
 
@@ -98,10 +98,10 @@ export class PaneLayout {
 				this.leftWidth = clamp(
 					start + dx,
 					DEFAULT_LEFT_WIDTH,
-					this.#leftMax
+					this.#leftMax,
 				)
 			},
-			"col-resize"
+			"col-resize",
 		)
 	}
 
@@ -114,10 +114,10 @@ export class PaneLayout {
 				this.rightWidth = clamp(
 					start - dx,
 					DEFAULT_RIGHT_WIDTH,
-					this.#rightMax
+					this.#rightMax,
 				)
 			},
-			"col-resize"
+			"col-resize",
 		)
 	}
 
@@ -130,10 +130,10 @@ export class PaneLayout {
 				this.timelineHeight = clamp(
 					start - dy,
 					DEFAULT_TIMELINE_HEIGHT,
-					this.#timelineMax
+					this.#timelineMax,
 				)
 			},
-			"row-resize"
+			"row-resize",
 		)
 	}
 
@@ -145,7 +145,7 @@ export class PaneLayout {
 		this.leftWidth = clamp(
 			this.leftWidth + dx,
 			DEFAULT_LEFT_WIDTH,
-			this.#leftMax
+			this.#leftMax,
 		)
 	}
 
@@ -153,7 +153,7 @@ export class PaneLayout {
 		this.rightWidth = clamp(
 			this.rightWidth - dx,
 			DEFAULT_RIGHT_WIDTH,
-			this.#rightMax
+			this.#rightMax,
 		)
 	}
 
@@ -161,7 +161,7 @@ export class PaneLayout {
 		this.timelineHeight = clamp(
 			this.timelineHeight - dy,
 			DEFAULT_TIMELINE_HEIGHT,
-			this.#timelineMax
+			this.#timelineMax,
 		)
 	}
 

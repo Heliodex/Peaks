@@ -56,7 +56,7 @@ let tablistEl: HTMLDivElement
 
 // With no timelapse open the data tab has nothing to show, so it is hidden and the panel stays on settings.
 const visibleTabs = $derived<Tab[]>(
-	hasTimelapse ? ["data", "settings"] : ["settings"]
+	hasTimelapse ? ["data", "settings"] : ["settings"],
 )
 const activeTab = $derived<Tab>(hasTimelapse ? tab : "settings")
 

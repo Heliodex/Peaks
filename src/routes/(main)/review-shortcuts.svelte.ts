@@ -42,7 +42,7 @@ export class ReviewShortcuts {
 		if (entries.length === 0) return null
 
 		const current = entries.findIndex(
-			entry => entry.id === this.#options.openId()
+			entry => entry.id === this.#options.openId(),
 		)
 		// Wrapping keeps the cycle self-contained; with none open, step towards the appropriate end of the list instead.
 		const next = !backwards
@@ -59,8 +59,8 @@ export class ReviewShortcuts {
 		if (event.defaultPrevented) return
 
 		if (
-			(event.ctrlKey || event.metaKey) &&
-			event.key.toLowerCase() === "k"
+			(event.ctrlKey || event.metaKey)
+			&& event.key.toLowerCase() === "k"
 		) {
 			event.preventDefault()
 			this.#options.toggleSearch()

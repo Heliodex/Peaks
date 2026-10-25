@@ -35,19 +35,19 @@ export class ProjectSummary {
 			reason,
 			duration: this.#entries().reduce(
 				(sum, entry) =>
-					sum +
-					entry.annotations
+					sum
+					+ entry.annotations
 						.filter(annotation => annotation.reason === reason.id)
 						.reduce(
 							(sum, annotation) => sum + annotation.duration,
-							0
+							0,
 						),
-				0
+				0,
 			),
 		})).filter(entry => entry.duration > 0)
 		const annotationDeflation = annotations.reduce(
 			(sum, annotation) => sum + annotation.duration,
-			0
+			0,
 		)
 		return {
 			recorded,
@@ -70,9 +70,9 @@ export class ProjectSummary {
 		parts.push(
 			totals.deducted === 0
 				? `Total time ${total}.`
-				: `Total original time ${formatClock(totals.recorded)}, ` +
-						`total time deducted ${formatClock(totals.deducted)}, ` +
-						`final total ${total}.`
+				: `Total original time ${formatClock(totals.recorded)}, `
+						+ `total time deducted ${formatClock(totals.deducted)}, `
+						+ `final total ${total}.`,
 		)
 		const link = this.#shareLink()
 		if (link) parts.push(link)

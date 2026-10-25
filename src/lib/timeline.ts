@@ -61,7 +61,7 @@ export function percentOf(value: number, total: number): number {
 export function frameStepFor(
 	span: number,
 	frameRate: number,
-	frameCount: number
+	frameCount: number,
 ): number {
 	const base = frameRate > 0 ? 1 / frameRate : 0.1
 	const ideal = span / (frameCount - 1)

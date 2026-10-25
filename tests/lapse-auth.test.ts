@@ -107,7 +107,7 @@ describe("Lapse authentication API", () => {
 			new Response("upstream details", { status: 200 })) as typeof fetch
 
 		await expect(fetchLapseUserInfo("access-token")).rejects.toBeInstanceOf(
-			LapseApiResponseError
+			LapseApiResponseError,
 		)
 	})
 
@@ -116,7 +116,7 @@ describe("Lapse authentication API", () => {
 			new Response("not-json", { status: 200 })) as typeof fetch
 
 		await expect(
-			exchangeLapseCodeForToken("code", "verifier")
+			exchangeLapseCodeForToken("code", "verifier"),
 		).rejects.toBeInstanceOf(LapseTokenResponseError)
 	})
 
@@ -158,7 +158,7 @@ describe("Lapse authentication API", () => {
 		} as Parameters<typeof fetchLapseTimelapse>[0]
 
 		await expect(
-			fetchLapseTimelapse(user, "session", "timelapse-1")
+			fetchLapseTimelapse(user, "session", "timelapse-1"),
 		).resolves.toEqual({
 			...timelapsePayload,
 			description: "",
@@ -192,7 +192,7 @@ describe("Lapse authentication API", () => {
 		} as Parameters<typeof fetchLapseTimelapse>[0]
 
 		await expect(
-			fetchLapseTimelapse(user, "session", "missing")
+			fetchLapseTimelapse(user, "session", "missing"),
 		).resolves.toBeNull()
 	})
 })

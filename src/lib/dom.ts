@@ -19,7 +19,7 @@ const INTERACTIVE_SELECTOR = [
 
 const closest = (
 	target: EventTarget | null,
-	selector: string
+	selector: string,
 ): Element | null => {
 	const element = target as Element | null
 	if (!element || typeof element.closest !== "function") return null
@@ -32,7 +32,7 @@ export const isTyping = (target: EventTarget | null): boolean => {
 		| (HTMLElement & { isContentEditable?: boolean })
 		| null
 	return Boolean(
-		element?.isContentEditable || closest(target, TYPING_SELECTOR)
+		element?.isContentEditable || closest(target, TYPING_SELECTOR),
 	)
 }
 
@@ -42,6 +42,6 @@ export const isInteractiveTarget = (event: Event): boolean => {
 		typeof event.composedPath === "function" ? event.composedPath() : []
 	const targets = path.length > 0 ? path : [event.target]
 	return targets.some(target =>
-		Boolean(closest(target, INTERACTIVE_SELECTOR))
+		Boolean(closest(target, INTERACTIVE_SELECTOR)),
 	)
 }

@@ -19,7 +19,7 @@ const selectionSignature = (selections: readonly TimelineSelection[]): string =>
 			Math.round(selection.start * 1000),
 			Math.round(selection.end * 1000),
 			normalizeReason(selection.reason),
-		])
+		]),
 	)
 
 const idleRangeSignature = (ranges: ProjectTimelapse["idleRanges"]): string => {
@@ -28,14 +28,14 @@ const idleRangeSignature = (ranges: ProjectTimelapse["idleRanges"]): string => {
 		ranges.map(range => [
 			Math.round(range.start * 1000),
 			Math.round(range.end * 1000),
-		])
+		]),
 	)
 }
 
 /** Keep a free requested name, otherwise allocate the next numbered copy. */
 export function uniqueImportedProjectName(
 	projects: Project[],
-	requested: string
+	requested: string,
 ): string {
 	const requestedName = requested.trim() || DEFAULT_PROJECT_NAME
 	const names = new Set(projects.map(project => project.name))
@@ -55,19 +55,19 @@ function sameEntry(
 	entry: ProjectTimelapse,
 	decodedEntry: ProjectTimelapse,
 	decodedSelections: TimelineSelection[] | undefined,
-	load: (id: string) => TimelineSelection[]
+	load: (id: string) => TimelineSelection[],
 ): boolean {
 	if (
-		entry.id !== decodedEntry.id ||
-		entry.name !== decodedEntry.name ||
-		entry.duration !== decodedEntry.duration ||
-		entry.ignoreIdle !== decodedEntry.ignoreIdle ||
-		entry.idleThreshold !== decodedEntry.idleThreshold ||
-		idleRangeSignature(entry.idleRanges) !==
-			idleRangeSignature(decodedEntry.idleRanges) ||
-		!decodedSelections ||
-		selectionSignature(load(entry.id)) !==
-			selectionSignature(decodedSelections)
+		entry.id !== decodedEntry.id
+		|| entry.name !== decodedEntry.name
+		|| entry.duration !== decodedEntry.duration
+		|| entry.ignoreIdle !== decodedEntry.ignoreIdle
+		|| entry.idleThreshold !== decodedEntry.idleThreshold
+		|| idleRangeSignature(entry.idleRanges)
+			!== idleRangeSignature(decodedEntry.idleRanges)
+		|| !decodedSelections
+		|| selectionSignature(load(entry.id))
+			!== selectionSignature(decodedSelections)
 	)
 		return false
 	return true
@@ -80,7 +80,7 @@ function sameEntry(
 export function matchesSharedProject(
 	project: Project,
 	decoded: DecodedShare,
-	load: (id: string) => TimelineSelection[] = loadSelections
+	load: (id: string) => TimelineSelection[] = loadSelections,
 ): boolean {
 	if (project.name !== (decoded.projectName.trim() || DEFAULT_PROJECT_NAME))
 		return false
@@ -89,12 +89,12 @@ export function matchesSharedProject(
 	return project.timelapses.every((entry, index) => {
 		const decodedEntry = decoded.project[index]
 		return (
-			Boolean(decodedEntry) &&
-			sameEntry(
+			Boolean(decodedEntry)
+			&& sameEntry(
 				entry,
 				decodedEntry,
 				decoded.selectionsByTimelapse.get(entry.id),
-				load
+				load,
 			)
 		)
 	})

@@ -26,10 +26,10 @@ export class ListReorder<T extends { id: string }> {
 	moveTo(from: number, insert: number): boolean {
 		const items = this.#items()
 		if (
-			from === -1 ||
-			insert < 0 ||
-			insert >= items.length ||
-			insert === from
+			from === -1
+			|| insert < 0
+			|| insert >= items.length
+			|| insert === from
 		)
 			return false
 
@@ -110,7 +110,7 @@ export class ListReorder<T extends { id: string }> {
 		event.dataTransfer.setDragImage(
 			row,
 			event.clientX - rect.left,
-			event.clientY - rect.top
+			event.clientY - rect.top,
 		)
 	}
 
@@ -148,8 +148,8 @@ export class ListReorder<T extends { id: string }> {
 			.elementsFromPoint(x, y)
 			.find(
 				node =>
-					node instanceof HTMLElement &&
-					node.dataset.reorderId !== undefined
+					node instanceof HTMLElement
+					&& node.dataset.reorderId !== undefined,
 			) as HTMLElement | undefined
 		const id = element?.dataset.reorderId
 		if (!id) return -1

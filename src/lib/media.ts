@@ -8,7 +8,7 @@ export const seekVideo = (
 	video: HTMLVideoElement,
 	time: number,
 	timeoutMs?: number,
-	signal?: AbortSignal
+	signal?: AbortSignal,
 ): Promise<void> =>
 	new Promise<void>((resolve, reject) => {
 		const abortError = () => new Error("Video operation aborted")
@@ -17,8 +17,8 @@ export const seekVideo = (
 			return
 		}
 		if (
-			video.readyState >= 2 &&
-			Math.abs(video.currentTime - time) < 0.001
+			video.readyState >= 2
+			&& Math.abs(video.currentTime - time) < 0.001
 		) {
 			resolve()
 			return

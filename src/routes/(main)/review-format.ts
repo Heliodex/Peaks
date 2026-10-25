@@ -65,5 +65,7 @@ export const entryFinalDuration = (entry: {
 }): number =>
 	Math.max(
 		0,
-		entry.duration - entry.idleDuration - annotationTotal(entry.annotations)
+		entry.duration
+			- entry.idleDuration
+			- annotationTotal(entry.annotations),
 	)

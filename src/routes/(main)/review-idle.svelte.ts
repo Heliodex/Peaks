@@ -110,7 +110,7 @@ export class ReviewIdle {
 		this.#updateProject(project => ({
 			...project,
 			timelapses: project.timelapses.map((entry, i) =>
-				i === index ? patch(entry) : entry
+				i === index ? patch(entry) : entry,
 			),
 		}))
 	}

@@ -40,7 +40,7 @@ export class TimelineViewport {
 			stiffness: 0.4,
 			damping: 0.85,
 			precision: 0.001,
-		}
+		},
 	)
 	view = $derived(this.#spring.current)
 	span = $derived(Math.max(0, this.view.end - this.view.start))
@@ -133,17 +133,17 @@ export class TimelineViewport {
 		const span = clamp(
 			snapToFrame(baseSpan * factor, frameRate),
 			this.#minSpan(),
-			duration
+			duration,
 		)
 		const anchor = base.start + ratio * baseSpan
 		const start = clamp(
 			snapToFrame(anchor - ratio * span, frameRate),
 			0,
-			Math.max(0, duration - span)
+			Math.max(0, duration - span),
 		)
 		this.#spring.set(
 			{ start, end: start + span },
-			{ instant: prefersReducedMotion.current }
+			{ instant: prefersReducedMotion.current },
 		)
 		return anchor
 	}

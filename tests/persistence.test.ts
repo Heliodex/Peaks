@@ -166,7 +166,7 @@ describe("coalesced local persistence", () => {
 				if (fail) return false
 				expect(store.currentId).toBe("p2")
 				return true
-			}
+			},
 		)
 		workspace.projectLoaded = true
 		workspace.projects = [project("p1")]

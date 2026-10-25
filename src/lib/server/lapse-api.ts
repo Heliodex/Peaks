@@ -14,10 +14,10 @@ const webUrlSchema = type("string").narrow(value => {
 	try {
 		const url = new URL(value)
 		return (
-			(url.protocol === "http:" || url.protocol === "https:") &&
-			url.username === "" &&
-			url.password === "" &&
-			url.href.length <= MAX_URL_LENGTH
+			(url.protocol === "http:" || url.protocol === "https:")
+			&& url.username === ""
+			&& url.password === ""
+			&& url.href.length <= MAX_URL_LENGTH
 		)
 	} catch {
 		return false
@@ -26,7 +26,7 @@ const webUrlSchema = type("string").narrow(value => {
 const nullableWebUrlSchema = type.or(webUrlSchema, "null")
 const slackIdSchema = type.or(
 	type("string").narrow(value => /^[UW][A-Z0-9]+$/.test(value)),
-	"null"
+	"null",
 )
 
 const userSchema = type({
@@ -203,7 +203,7 @@ export type LapseJsonResult = {
 export async function fetchLapseJson(
 	url: string,
 	init: RequestInit,
-	timeoutMs = REQUEST_TIMEOUT_MS
+	timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<LapseJsonResult> {
 	const controller = new AbortController()
 	const timeout = setTimeout(() => controller.abort(), timeoutMs)
@@ -230,8 +230,8 @@ export async function fetchLapseJson(
 	} catch (error) {
 		if (controller.signal.aborted) throw new LapseApiTimeoutError()
 		if (
-			error instanceof LapseApiTimeoutError ||
-			error instanceof LapseApiResponseError
+			error instanceof LapseApiTimeoutError
+			|| error instanceof LapseApiResponseError
 		)
 			throw error
 		throw new LapseApiRequestError(undefined)

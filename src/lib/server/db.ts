@@ -53,7 +53,7 @@ if (!building) {
 				delete globalState.__surreal?.instance
 				delete globalState.__surreal?.ready
 				throw err
-			}
+			},
 		)
 	}
 }
@@ -88,5 +88,5 @@ export type RecordId<
  */
 export const Record = <T extends keyof RecordIdTypes>(
 	table: T,
-	id: RecordIdTypes[T]
+	id: RecordIdTypes[T],
 ) => new SurrealRecordId(table, id)

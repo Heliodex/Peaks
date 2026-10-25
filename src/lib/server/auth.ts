@@ -75,11 +75,11 @@ type SessionValidationResult =
 	| { session: null; user: null; renewed: false }
 
 export async function validateSessionToken(
-	token: string
+	token: string,
 ): Promise<SessionValidationResult> {
 	const [, , , , res] = await db.query<SessionValidationResult[]>(
 		getSessionAndUserQuery,
-		{ sess: Record("session", token) }
+		{ sess: Record("session", token) },
 	)
 	if (!res?.session || !res.user)
 		return { session: null, user: null, renewed: false }
@@ -100,7 +100,7 @@ export async function invalidateAllSessions(user: string): Promise<void> {
 
 /** Remove the bearer credentials while retaining the public Lapse profile. */
 export async function clearLapseCredentials(
-	user: RecordId<"user">
+	user: RecordId<"user">,
 ): Promise<void> {
 	await db.update(user).merge({
 		lapseData: {
@@ -113,9 +113,9 @@ export async function clearLapseCredentials(
 
 async function refreshLapseData(user: User, force = false): Promise<LapseData> {
 	if (
-		!force &&
-		user.lapseData.accessToken &&
-		!isLapseAccessExpired(user.lapseData.accessTokenExpiresAt)
+		!force
+		&& user.lapseData.accessToken
+		&& !isLapseAccessExpired(user.lapseData.accessTokenExpiresAt)
 	)
 		return user.lapseData
 
@@ -132,8 +132,8 @@ async function refreshLapseData(user: User, force = false): Promise<LapseData> {
 			response = await refreshLapseAccessToken(refreshToken)
 		} catch (error) {
 			if (
-				error instanceof LapseTokenRequestError &&
-				(error.status === 400 || error.status === 401)
+				error instanceof LapseTokenRequestError
+				&& (error.status === 400 || error.status === 401)
 			)
 				throw new LapseAuthenticationRequiredError()
 			throw error
@@ -144,9 +144,9 @@ async function refreshLapseData(user: User, force = false): Promise<LapseData> {
 			accessToken: response.access_token,
 			accessTokenExpiresAt: lapseTokenExpiresAt(response.expires_in),
 			refreshToken:
-				response.refresh_token ??
-				user.lapseData.refreshToken ??
-				undefined,
+				response.refresh_token
+				?? user.lapseData.refreshToken
+				?? undefined,
 		}
 		await db.update(user.id).merge({ lapseData: next })
 		Object.assign(user.lapseData, next)
@@ -178,7 +178,7 @@ export const lapseCookieOptions = Object.freeze({
 
 async function expireLapseSessionAndRedirect(
 	session: string,
-	user: User
+	user: User,
 ): Promise<never> {
 	await clearLapseCredentials(user.id).catch(() => {})
 	await invalidateSession(session).catch(() => {})
@@ -190,13 +190,13 @@ async function expireLapseSessionAndRedirect(
 async function ensureLapseAccessToken(
 	user: User,
 	session: string,
-	force = false
+	force = false,
 ): Promise<string> {
 	if (!user.lapseData) return expireLapseSessionAndRedirect(session, user)
 	if (
-		!force &&
-		user.lapseData.accessToken &&
-		!isLapseAccessExpired(user.lapseData.accessTokenExpiresAt)
+		!force
+		&& user.lapseData.accessToken
+		&& !isLapseAccessExpired(user.lapseData.accessTokenExpiresAt)
 	)
 		return user.lapseData.accessToken
 	try {
@@ -240,7 +240,7 @@ export async function generatePkcePair(): Promise<{
 	const verifier = crypto.randomUUID() + crypto.randomUUID()
 	const digest = await crypto.subtle.digest(
 		"SHA-256",
-		new TextEncoder().encode(verifier)
+		new TextEncoder().encode(verifier),
 	)
 	const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
 		.replace(/\+/g, "-")
@@ -282,7 +282,7 @@ export async function startLapseAuth(): Promise<never> {
 }
 
 async function requestLapseToken(
-	params: URLSearchParams
+	params: URLSearchParams,
 ): Promise<LapseTokenResponse> {
 	let result: LapseJsonResult
 	try {
@@ -296,8 +296,8 @@ async function requestLapseToken(
 		})
 	} catch (error) {
 		if (
-			error instanceof LapseApiRequestError ||
-			error instanceof LapseApiTimeoutError
+			error instanceof LapseApiRequestError
+			|| error instanceof LapseApiTimeoutError
 		)
 			throw error
 		throw new LapseTokenResponseError()
@@ -316,7 +316,7 @@ async function requestLapseToken(
 /** Exchanges an authorization code for a Lapse access token. */
 export async function exchangeLapseCodeForToken(
 	code: string,
-	codeVerifier: string
+	codeVerifier: string,
 ): Promise<LapseTokenResponse> {
 	return requestLapseToken(
 		new URLSearchParams({
@@ -326,13 +326,13 @@ export async function exchangeLapseCodeForToken(
 			client_id: LAPSE_CLIENT_ID,
 			client_secret: LAPSE_CLIENT_SECRET,
 			code_verifier: codeVerifier,
-		})
+		}),
 	)
 }
 
 /** Refresh a Lapse access token when the provider issues a refresh token. */
 export async function refreshLapseAccessToken(
-	refreshToken: string
+	refreshToken: string,
 ): Promise<LapseTokenResponse> {
 	return requestLapseToken(
 		new URLSearchParams({
@@ -340,7 +340,7 @@ export async function refreshLapseAccessToken(
 			refresh_token: refreshToken,
 			client_id: LAPSE_CLIENT_ID,
 			client_secret: LAPSE_CLIENT_SECRET,
-		})
+		}),
 	)
 }
 
@@ -348,7 +348,7 @@ export async function refreshLapseAccessToken(
  * Fetches the calling user's Lapse profile
  */
 export async function fetchLapseUserInfo(
-	accessToken: string
+	accessToken: string,
 ): Promise<LapseUserInfo> {
 	const result = await fetchLapseJson(
 		"https://api.lapse.hackclub.com/api/user/myself",
@@ -357,7 +357,7 @@ export async function fetchLapseUserInfo(
 				Accept: "application/json",
 				Authorization: `Bearer ${accessToken}`,
 			},
-		}
+		},
 	)
 
 	if (!result.ok) throw new LapseApiRequestError(result.status)
@@ -371,7 +371,7 @@ export async function fetchLapseUserInfo(
 export async function fetchLapseTimelapse(
 	user: User,
 	session: string,
-	timelapseId: string
+	timelapseId: string,
 ): Promise<LapseTimelapse | null> {
 	const request = (accessToken: string) =>
 		fetchLapseJson(
@@ -381,7 +381,7 @@ export async function fetchLapseTimelapse(
 					Accept: "application/json",
 					Authorization: `Bearer ${accessToken}`,
 				},
-			}
+			},
 		)
 
 	let accessToken = await ensureLapseAccessToken(user, session)
@@ -406,7 +406,7 @@ export async function fetchLapseTimelapse(
  */
 export async function findOrCreateUser(
 	userInfo: LapseUserInfo,
-	tokenResponse: LapseTokenResponse
+	tokenResponse: LapseTokenResponse,
 ): Promise<RecordId<"user">> {
 	const lapseData: LapseData = {
 		id: userInfo.id,
@@ -420,7 +420,7 @@ export async function findOrCreateUser(
 
 	const [, userId] = await db.query<RecordId<"user">[]>(
 		findOrCreateUserQuery,
-		{ lapseData }
+		{ lapseData },
 	)
 
 	return userId

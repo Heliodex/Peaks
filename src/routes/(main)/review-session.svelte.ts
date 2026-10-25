@@ -66,7 +66,7 @@ export class ReviewSession {
 
 	/** Shareable link for the current review: the encoded state is the path. */
 	shareUrl = $derived(
-		this.encodedState ? `${SITE_ORIGIN}/${this.encodedState}` : ""
+		this.encodedState ? `${SITE_ORIGIN}/${this.encodedState}` : "",
 	)
 
 	constructor(options: ReviewSessionOptions) {
@@ -162,7 +162,7 @@ export class ReviewSession {
 		this.#pendingSelection = undefined
 		if (!pending) return
 		this.#options.onStorageError(
-			!this.#saveSelections(pending.id, pending.selections)
+			!this.#saveSelections(pending.id, pending.selections),
 		)
 	}
 
@@ -203,8 +203,8 @@ export class ReviewSession {
 					})
 				} catch {
 					if (
-						token === this.#shareToken &&
-						state.id === this.submittedId
+						token === this.#shareToken
+						&& state.id === this.submittedId
 					)
 						this.encodedState = ""
 					continue
@@ -232,8 +232,8 @@ export class ReviewSession {
 	async #applyShareUrl(id: string, target: string): Promise<void> {
 		if (id !== this.submittedId) return
 		if (
-			typeof window !== "undefined" &&
-			target === window.location.pathname
+			typeof window !== "undefined"
+			&& target === window.location.pathname
 		)
 			return
 		await this.#navigate(target, {

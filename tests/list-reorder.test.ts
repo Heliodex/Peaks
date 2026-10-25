@@ -14,7 +14,7 @@ function build(initial: string[]) {
 	let items = initial.map(id => ({ id }))
 	const reorder = new ListReorder(
 		() => items,
-		updated => (items = updated)
+		updated => (items = updated),
 	)
 	return { reorder, order: () => ids(items) }
 }
@@ -106,7 +106,7 @@ describe("ListReorder grid targets", () => {
 					width: stub.rect.right - stub.rect.left,
 					height: stub.rect.bottom - stub.rect.top,
 				}),
-			})
+			}),
 		)
 		const hits = new Map<string, unknown>()
 		Reflect.set(globalThis, "document", {

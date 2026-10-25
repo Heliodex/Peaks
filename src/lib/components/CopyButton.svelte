@@ -10,10 +10,7 @@ const clipboard = createCopyToClipboard()
 	type="button"
 	onclick={() => clipboard.copy(text)}
 	aria-live="polite"
-	class={[
-		"btn px-2 py-0.5 text-xs",
-		clipboard.copied ? "btn-primary" : "",
-	]}
+	class={["btn px-2 py-0.5 text-xs", clipboard.copied ? "btn-primary" : ""]}
 >
 	{#if clipboard.copied}
 		<svg

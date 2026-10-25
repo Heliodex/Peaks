@@ -81,8 +81,8 @@ let {
 				value={thresholdIndex}
 				onchange={e =>
 					onSetIdleThreshold(
-						IDLE_THRESHOLD_SCALE[e.currentTarget.valueAsNumber] ??
-							DEFAULT_IDLE_THRESHOLD
+						IDLE_THRESHOLD_SCALE[e.currentTarget.valueAsNumber]
+							?? DEFAULT_IDLE_THRESHOLD,
 					)}
 				title="Higher values treat more frames as idle"
 				aria-label="Idle detection sensitivity"

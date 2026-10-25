@@ -25,25 +25,25 @@ type ReviewSyncOptions = {
 /** Whether two annotation breakdowns carry the same reasons and durations. */
 const sameAnnotations = (
 	a: AnnotationDeflation[],
-	b: AnnotationDeflation[]
+	b: AnnotationDeflation[],
 ): boolean =>
-	a.length === b.length &&
-	a.every(
+	a.length === b.length
+	&& a.every(
 		(annotation, i) =>
-			annotation.reason === b[i].reason &&
-			annotation.duration === b[i].duration
+			annotation.reason === b[i].reason
+			&& annotation.duration === b[i].duration,
 	)
 
 /** Whether two cached idle-range lists match (including both being absent). */
 function sameIdleRanges(
 	a: IdleRange[] | undefined,
-	b: IdleRange[] | undefined
+	b: IdleRange[] | undefined,
 ): boolean {
 	if (a === undefined || b === undefined) return a === b
 	return (
-		a.length === b.length &&
-		a.every(
-			(range, i) => range.start === b[i].start && range.end === b[i].end
+		a.length === b.length
+		&& a.every(
+			(range, i) => range.start === b[i].start && range.end === b[i].end,
 		)
 	)
 }
@@ -108,7 +108,7 @@ export class ReviewSync {
 			// Read the raw selection/idle state so reason-only edits still refresh the stored description and breakdown, even when the totals don't change.
 			const ranges = $state.snapshot(this.#options.idle.activeRanges)
 			const currentSelections = $state.snapshot(
-				this.#options.selections()
+				this.#options.selections(),
 			)
 			const detected = $state.snapshot(this.#options.idle.ranges)
 			if (!id || !this.#options.loaded() || !meta || meta.id !== id)
@@ -120,7 +120,7 @@ export class ReviewSync {
 				idle,
 				ranges,
 				currentSelections,
-				detected
+				detected,
 			)
 			if (!result) return
 			const { index, entry } = result
@@ -130,7 +130,7 @@ export class ReviewSync {
 					index === -1
 						? [...project.timelapses, entry]
 						: project.timelapses.map((item, i) =>
-								i === index ? entry : item
+								i === index ? entry : item,
 							),
 			}))
 		})
@@ -143,7 +143,7 @@ export class ReviewSync {
 		idle: number,
 		ranges: IdleRange[],
 		currentSelections: TimelineSelection[],
-		detected: IdleRange[]
+		detected: IdleRange[],
 	): { index: number; entry: ProjectTimelapse } | null {
 		const entries = this.#options.entries()
 		const index = entries.findIndex(entry => entry.id === id)
@@ -164,15 +164,15 @@ export class ReviewSync {
 			selections: currentSelections,
 		})
 		if (
-			existing &&
-			existing.duration === duration &&
-			existing.name === name &&
-			existing.idleDuration === idle &&
-			sameAnnotations(existing.annotations, annotations) &&
-			existing.ignoreIdle === this.#options.idle.ignoreIdle &&
-			existing.idleThreshold === this.#options.idle.threshold &&
-			existing.description === description &&
-			sameIdleRanges(existing.idleRanges, cachedRanges)
+			existing
+			&& existing.duration === duration
+			&& existing.name === name
+			&& existing.idleDuration === idle
+			&& sameAnnotations(existing.annotations, annotations)
+			&& existing.ignoreIdle === this.#options.idle.ignoreIdle
+			&& existing.idleThreshold === this.#options.idle.threshold
+			&& existing.description === description
+			&& sameIdleRanges(existing.idleRanges, cachedRanges)
 		)
 			return null
 

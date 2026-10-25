@@ -68,7 +68,7 @@ const framesFor = (source: string): CachedFrame[] =>
 const trimFramesNear = (
 	candidates: CachedFrame[],
 	center: number,
-	limit: number
+	limit: number,
 ): CachedFrame[] =>
 	[...candidates]
 		.sort((a, b) => Math.abs(a.time - center) - Math.abs(b.time - center))
@@ -86,7 +86,7 @@ function revokeDropped(candidates: CachedFrame[], kept: CachedFrame[]) {
 const isTimeCached = (
 	source: string,
 	time: number,
-	tolerance: number
+	tolerance: number,
 ): boolean =>
 	framesFor(source).some(frame => Math.abs(frame.time - time) <= tolerance)
 
@@ -94,7 +94,7 @@ const isTimeCached = (
 function layoutFrames(
 	frames: CachedFrame[],
 	view: ViewWindow,
-	step: number
+	step: number,
 ): LayoutFrame[] {
 	const maxDistance = step / 2
 	const picks: CachedFrame[] = []
@@ -135,7 +135,7 @@ function queueCaptureTimes(
 	end: number,
 	step: number,
 	duration: number,
-	isCached: (time: number) => boolean
+	isCached: (time: number) => boolean,
 ): number[] {
 	const times: number[] = []
 	const first = Math.floor(start / step)
@@ -163,7 +163,7 @@ async function hydrate(source: string) {
 			const time = key / TIME_KEY_SCALE
 			if (
 				merged.some(
-					frame => Math.abs(frame.time - time) <= 1 / TIME_KEY_SCALE
+					frame => Math.abs(frame.time - time) <= 1 / TIME_KEY_SCALE,
 				)
 			)
 				continue
@@ -267,7 +267,7 @@ export class FrameStrip {
 			const timer = setTimeout(
 				() =>
 					this.#populate(url, current.start, current.end, generation),
-				FRAME_REFRESH_MS
+				FRAME_REFRESH_MS,
 			)
 			return () => clearTimeout(timer)
 		})
@@ -333,7 +333,7 @@ export class FrameStrip {
 			next = trimFramesNear(
 				candidates,
 				(start + end) / 2,
-				FRAME_CACHE_LIMIT
+				FRAME_CACHE_LIMIT,
 			)
 		}
 		// Revoke object URLs for any frames dropped by the trim.
@@ -347,7 +347,7 @@ export class FrameStrip {
 			THUMBNAIL_KIND,
 			source,
 			Math.round(time * TIME_KEY_SCALE),
-			captured.blob
+			captured.blob,
 		)
 
 		// Only freshly captured frames should fade in; clear the flag shortly after so frames merely re-sampled while zooming/panning don't flash.
@@ -360,8 +360,8 @@ export class FrameStrip {
 				list.map(frame =>
 					frame.time === time && frame.fresh
 						? { ...frame, fresh: false }
-						: frame
-				)
+						: frame,
+				),
 			)
 		}, FADE_MS)
 		this.#settleTimers = [...this.#settleTimers, timer]
@@ -374,8 +374,8 @@ export class FrameStrip {
 		try {
 			await Promise.all(
 				Array.from({ length: POOL_SIZE }, (_, i) =>
-					this.#captureLoop(i)
-				)
+					this.#captureLoop(i),
+				),
 			)
 		} finally {
 			this.#capturing = false
@@ -407,11 +407,11 @@ export class FrameStrip {
 		url: string,
 		start: number,
 		end: number,
-		generation: number
+		generation: number,
 	): void {
 		if (
-			!this.#isSourceCurrent(url, generation) ||
-			this.#options.src() !== url
+			!this.#isSourceCurrent(url, generation)
+			|| this.#options.src() !== url
 		)
 			return
 		const span = end - start
@@ -424,7 +424,7 @@ export class FrameStrip {
 			end,
 			step,
 			this.#options.duration(),
-			time => this.#isCached(url, time)
+			time => this.#isCached(url, time),
 		).map(time => ({ source: url, generation, time }))
 		void this.#runQueue()
 	}

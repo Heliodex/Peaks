@@ -12,11 +12,11 @@ function parseSelection(value: unknown): TimelineSelection | null {
 	if (typeof value !== "object" || value === null) return null
 	const { id, start, end, reason } = value as Record<string, unknown>
 	if (
-		typeof id !== "string" ||
-		typeof start !== "number" ||
-		typeof end !== "number" ||
-		!Number.isFinite(start) ||
-		!Number.isFinite(end)
+		typeof id !== "string"
+		|| typeof start !== "number"
+		|| typeof end !== "number"
+		|| !Number.isFinite(start)
+		|| !Number.isFinite(end)
 	)
 		return null
 
@@ -39,7 +39,7 @@ export function loadSelections(timelapseId: string): TimelineSelection[] {
 		return parsed
 			.map(parseSelection)
 			.filter((selection): selection is TimelineSelection =>
-				Boolean(selection)
+				Boolean(selection),
 			)
 	} catch {
 		return []
@@ -49,13 +49,13 @@ export function loadSelections(timelapseId: string): TimelineSelection[] {
 /** Save a timelapse's selections, returning whether the write succeeded. */
 export function saveSelections(
 	timelapseId: string,
-	selections: TimelineSelection[]
+	selections: TimelineSelection[],
 ): boolean {
 	if (!timelapseId || typeof localStorage === "undefined") return false
 	try {
 		localStorage.setItem(
 			storageKey(timelapseId),
-			JSON.stringify(selections)
+			JSON.stringify(selections),
 		)
 		return true
 	} catch {

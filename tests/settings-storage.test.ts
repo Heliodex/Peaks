@@ -47,7 +47,7 @@ describe("settings storage", () => {
 	test("repairs invalid stored values", () => {
 		localStorage.setItem(
 			"peaks:settings",
-			JSON.stringify({ justifyTimeline: "nope", seekStep: 999 })
+			JSON.stringify({ justifyTimeline: "nope", seekStep: 999 }),
 		)
 		expect(loadSettings()).toEqual({
 			justifyTimeline: DEFAULT_SETTINGS.justifyTimeline,
