@@ -17,11 +17,11 @@
 }
 
 * {
-	@apply accent-primary-500;
 	box-sizing: border-box;
 	font-family: Lexend, sans-serif;
-	scrollbar-width: thin;
 	scrollbar-color: var(--color-neutral-700) transparent;
+	scrollbar-width: thin;
+	@apply accent-primary-500;
 }
 
 html {
@@ -29,8 +29,8 @@ html {
 }
 
 body {
-	background: black;
 	color: white;
+	background: black;
 }
 
 button {
@@ -39,29 +39,29 @@ button {
 
 /* Keycaps, used by the shortcuts list and the search dialog hints. */
 kbd {
-	border: 1px solid var(--color-line);
-	background: black;
 	padding: 0.0625rem 0.25rem;
 	font-family: ui-monospace, monospace;
 	font-size: 0.75rem;
 	line-height: 1.25;
 	color: var(--color-neutral-300);
+	background: black;
+	border: 1px solid var(--color-line);
 }
 
 ::selection {
-	background: var(--color-primary-500);
 	color: black;
+	background: var(--color-primary-500);
 }
 
 /* A visible, consistent focus ring for keyboard users everywhere. Form fields get their own border cue instead. */
 :where(
-		button,
-		a,
-		[role="tab"],
-		[role="option"],
-		[role="separator"],
-		[tabindex]
-	):focus-visible {
+	button,
+	a,
+	[role="tab"],
+	[role="option"],
+	[role="separator"],
+	[tabindex]
+):focus-visible {
 	outline: 2px solid var(--color-primary-400);
 	outline-offset: 2px;
 }
