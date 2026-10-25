@@ -52,7 +52,7 @@
 	"linter": {
 		"rules": {
 			"correctness": {
-				"noUndeclaredDependencies": "off"
+				"noUndeclaredDependencies": "error"
 			},
 			"nursery": {
 				"useExplicitType": "off"
@@ -78,8 +78,7 @@
 				"useTemplate": "error"
 			},
 			"suspicious": {
-				"noConsole": "off",
-				"noEvolvingTypes": "off"
+				"noConsole": "off"
 			}
 		}
 	},
