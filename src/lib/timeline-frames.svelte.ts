@@ -74,8 +74,10 @@ const trimFramesNear = (
 	center: number,
 	limit: number,
 ): CachedFrame[] =>
-	[...candidates]
-		.sort((a, b) => Math.abs(a.time - center) - Math.abs(b.time - center))
+	candidates
+		.toSorted(
+			(a, b) => Math.abs(a.time - center) - Math.abs(b.time - center),
+		)
 		.slice(0, limit)
 
 /** Revoke the object URLs of frames that `kept` dropped. */

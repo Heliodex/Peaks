@@ -10,8 +10,6 @@ type FakeVideo = EventTarget & {
 	muted: boolean
 	preload: string
 	src: string
-	onloadeddata: (() => void) | null
-	onerror: (() => void) | null
 	pause(): void
 	load(): void
 	removeAttribute(name: string): void
@@ -25,8 +23,6 @@ const fakeVideo = (): FakeVideo => {
 	video.muted = false
 	video.preload = ""
 	video.src = ""
-	video.onloadeddata = null
-	video.onerror = null
 	video.pause = () => {}
 	video.load = () => {}
 	video.removeAttribute = name => {

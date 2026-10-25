@@ -129,7 +129,7 @@ function parseTimelapses(value: unknown): ProjectTimelapse[] {
  * It's wider than base64url, so each character carries more entropy and ids can be shorter while staying JSON-safe.
  */
 const ID_ALPHABET = Array.from({ length: 0x7f - 0x20 }, (_, i) =>
-	String.fromCharCode(0x20 + i),
+	String.fromCodePoint(0x20 + i),
 )
 	.filter(char => char !== '"' && char !== "\\")
 	.join("")

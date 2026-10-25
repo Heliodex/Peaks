@@ -137,11 +137,11 @@ async function probeFrameRate(src: string): Promise<number> {
 			resolve(fps > 0 ? Math.round(fps) : 0)
 		}
 
-		video.onerror = () => finish(0)
+		video.addEventListener("error", () => finish(0))
 
-		video.onloadeddata = () => {
+		video.addEventListener("loadeddata", () => {
 			if (measureWithFrameCallbacks(video, finish)) return
 			stopPolling = measureWithPolling(video, finish)
-		}
+		})
 	})
 }

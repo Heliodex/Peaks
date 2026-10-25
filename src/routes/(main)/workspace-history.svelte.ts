@@ -400,7 +400,7 @@ export class WorkspaceHistory {
 		if (!root) return { edges: [], height: 0, nodes: [], width: 0 }
 
 		const onPath = pathIds(nodes, this.currentId)
-		const redoable = new Set(nodes[this.currentId]?.children ?? [])
+		const redoable = new Set(nodes[this.currentId]?.children)
 
 		// Children stay in creation order, so the layout depends only on the tree and navigating between branches never moves a node.
 		const childNodes = (node: HistoryNode): HistoryNode[] =>

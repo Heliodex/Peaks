@@ -242,7 +242,7 @@ export async function generatePkcePair(): Promise<{
 		"SHA-256",
 		new TextEncoder().encode(verifier),
 	)
-	const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+	const challenge = btoa(String.fromCodePoint(...new Uint8Array(digest)))
 		.replaceAll("+", "-")
 		.replaceAll("/", "_")
 		.replace(/=+$/, "")

@@ -131,7 +131,7 @@ export function idleRangesAreFrameAligned(
 
 /** Collapse adjacent idle intervals into contiguous ranges. */
 export function mergeIdleRanges(intervals: IdleRange[]): IdleRange[] {
-	const sorted = [...intervals].sort((a, b) => a.start - b.start)
+	const sorted = intervals.toSorted((a, b) => a.start - b.start)
 	const merged: IdleRange[] = []
 	for (const interval of sorted) {
 		const last = merged.at(-1)

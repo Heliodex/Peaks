@@ -39,7 +39,7 @@ async function encodePayload(payload: unknown): Promise<string> {
 		.pipeThrough(new CompressionStream("deflate-raw"))
 	const compressed = new Uint8Array(await new Response(stream).arrayBuffer())
 	let binary = ""
-	for (const byte of compressed) binary += String.fromCharCode(byte)
+	for (const byte of compressed) binary += String.fromCodePoint(byte)
 	return btoa(binary)
 		.replaceAll("+", "-")
 		.replaceAll("/", "_")

@@ -74,9 +74,12 @@ export function createFrameCapturer(
 
 	const ready = new Promise<HTMLVideoElement>((resolve, reject) => {
 		let settled = false
+		const onLoadedData = () => settle(() => resolve(video))
+		const onError = () =>
+			settle(() => reject(new Error("Failed to load video")))
 		const cleanup = () => {
-			video.onloadeddata = null
-			video.onerror = null
+			video.removeEventListener("loadeddata", onLoadedData)
+			video.removeEventListener("error", onError)
 		}
 		const settle = (callback: () => void) => {
 			if (settled) return
@@ -88,9 +91,8 @@ export function createFrameCapturer(
 			settle(() => resolve(video))
 			return
 		}
-		video.onloadeddata = () => settle(() => resolve(video))
-		video.onerror = () =>
-			settle(() => reject(new Error("Failed to load video")))
+		video.addEventListener("loadeddata", onLoadedData)
+		video.addEventListener("error", onError)
 		rejectReady = error => settle(() => reject(error))
 	})
 	// Ensure a rejection is always handled, even if disposed before loading.

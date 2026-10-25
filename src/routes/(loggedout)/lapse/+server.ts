@@ -1,5 +1,4 @@
-import type { RequestEvent } from "@sveltejs/kit"
-import { error, redirect } from "@sveltejs/kit"
+import { error, type RequestEvent, redirect } from "@sveltejs/kit"
 import {
 	createSession,
 	exchangeLapseCodeForToken,

@@ -85,7 +85,7 @@ let thumbnails = $state<Record<string, string | null>>({})
 
 $effect(() => {
 	// Sorted and de-duplicated so merely reordering the project doesn't invalidate the query's argument-keyed cache.
-	const ids = [...new Set(entries.map(entry => entry.id))].sort()
+	const ids = [...new Set(entries.map(entry => entry.id))].toSorted()
 	if (ids.length === 0) {
 		thumbnails = {}
 		return
@@ -103,10 +103,7 @@ $effect(() => {
 				index,
 				index + MAX_TIMELAPSE_THUMBNAIL_BATCH_SIZE,
 			)
-			loaded = {
-				...loaded,
-				...(await getTimelapseThumbnails(batch)),
-			}
+			Object.assign(loaded, await getTimelapseThumbnails(batch))
 		}
 		if (!cancelled) thumbnails = loaded
 	}

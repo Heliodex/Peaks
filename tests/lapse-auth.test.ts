@@ -76,7 +76,7 @@ const timelapsePayload = {
 }
 
 const response = (body: unknown, status = 200): Response =>
-	new Response(JSON.stringify(body), {
+	Response.json(body, {
 		headers: { "Content-Type": "application/json" },
 		status,
 	})

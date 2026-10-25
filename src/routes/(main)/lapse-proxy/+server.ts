@@ -1,6 +1,5 @@
 // Proxies the Lapse CDN's video files through the server so the client can read pixels for timeline previews without the CDN sending CORS headers.
-import type { RequestEvent } from "@sveltejs/kit"
-import { error } from "@sveltejs/kit"
+import { error, type RequestEvent } from "@sveltejs/kit"
 import { authorise } from "#lib/server/auth.js"
 import {
 	parseLapseMediaRedirect,

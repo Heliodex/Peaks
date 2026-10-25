@@ -17,7 +17,7 @@ let {
 } = $props()
 
 const sortedSelections = $derived(
-	[...selections].sort((a, b) => a.start - b.start),
+	selections.toSorted((a, b) => a.start - b.start),
 )
 
 function setSelectionReason(id: string, reason: string) {

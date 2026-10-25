@@ -286,9 +286,8 @@ export class SelectionEditor {
 				state.min,
 				state.max,
 			)
-			state.moved =
-				state.moved
-				|| Math.abs(event.clientX - state.anchorX) >= DRAG_THRESHOLD_PX
+			state.moved ||=
+				Math.abs(event.clientX - state.anchorX) >= DRAG_THRESHOLD_PX
 			this.#updateSelection(state.id, {
 				end: Math.max(state.anchor, end),
 				start: Math.min(state.anchor, end),
