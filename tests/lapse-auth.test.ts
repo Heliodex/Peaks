@@ -123,7 +123,12 @@ describe("Lapse authentication API", () => {
 		const calls: { url: string; authorization: string | undefined }[] = []
 		let call = 0
 		globalThis.fetch = async (input, init) => {
-			const url = String(input)
+			const url =
+				typeof input === "string"
+					? input
+					: input instanceof URL
+						? input.toString()
+						: input.url
 			const headers = new Headers(init?.headers)
 			calls.push({
 				authorization: headers.get("Authorization") ?? undefined,

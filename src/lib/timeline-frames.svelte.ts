@@ -259,7 +259,7 @@ export class FrameStrip {
 			if (!url || !(current.end > current.start)) return
 
 			// Pull persisted thumbnails in alongside capture. This must be untracked: `hydrate` synchronously reads and mutates its `hydrating` guard, and tracking that would make this effect re-run each time hydration starts or finishes – an endless loop that keeps resetting the capture timer.
-			untrack(() => hydrate(url))
+			void untrack(() => hydrate(url))
 
 			// Start buffering the first capturer immediately so the initial frames aren't network-bound. Hydration from persistent storage merges in alongside; a source with nothing cached captures as it always did.
 			// `untrack` keeps adding frames from re-running this effect.

@@ -105,10 +105,10 @@ const history = new WorkspaceHistory({
 
 // Ask the history to record whenever any tracked slice changes, once everything has loaded.
 $effect(() => {
-	workspace.projects
-	workspace.currentProjectId
-	session.submittedId
-	session.selections
+	void workspace.projects
+	void workspace.currentProjectId
+	void session.submittedId
+	void session.selections
 	if (workspace.projectLoaded && session.loaded) history.observe()
 })
 

@@ -10,7 +10,11 @@ export function logServerError(error: unknown, logger?: ErrorLogger): void {
 		if (typeof error === "object" && error !== null && "status" in error) {
 			const status = (error as { status?: unknown }).status
 			if (typeof status === "number") {
-				log(status, red(String(error)))
+				const detail =
+					error instanceof Error
+						? String(error)
+						: (JSON.stringify(error) ?? "[unserializable error]")
+				log(status, red(detail))
 				return
 			}
 		}

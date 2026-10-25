@@ -95,7 +95,7 @@ export class ReviewSession {
 				this.loaded = true
 				return
 			}
-			decodeShare(param).then(decoded => {
+			void decodeShare(param).then(decoded => {
 				if (token !== this.#loadToken) return
 				if (decoded) {
 					this.submittedId = decoded.openId

@@ -39,7 +39,7 @@ export class TimelinePlayback {
 		this.#options = options
 
 		$effect(() => {
-			this.#playheadSpring.set(this.currentTime, {
+			void this.#playheadSpring.set(this.currentTime, {
 				instant: prefersReducedMotion.current,
 			})
 		})

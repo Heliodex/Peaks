@@ -78,7 +78,12 @@ export class NavThumbnails {
 						next[i] = captured.url
 						frames = next
 						this.frames = next
-						saveThumbnail(NAV_THUMBNAIL_KIND, src, i, captured.blob)
+						void saveThumbnail(
+							NAV_THUMBNAIL_KIND,
+							src,
+							i,
+							captured.blob,
+						)
 					} catch {
 						// Leave a gap for any frame we couldn't capture.
 					}

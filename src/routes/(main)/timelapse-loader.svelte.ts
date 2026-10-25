@@ -205,6 +205,6 @@ export class TimelapseLoader {
 		if (!this.#isCurrent(operation)) return
 		// Drop any debounced write queued while we were encoding so it can't race this explicit navigation to the new state.
 		this.#options.clearPendingWrites()
-		goto(`/${encoded}`)
+		void goto(`/${encoded}`)
 	}
 }

@@ -166,14 +166,6 @@ export const waitForData = (
 			resolve()
 			return
 		}
-		let timer: ReturnType<typeof setTimeout> | undefined
-		const cleanup = () => {
-			if (timer !== undefined) clearTimeout(timer)
-			el.removeEventListener("loadeddata", onLoaded)
-			el.removeEventListener("error", onError)
-			el.removeEventListener("abort", onError)
-			signal.removeEventListener("abort", onAbort)
-		}
 		const onLoaded = () => {
 			cleanup()
 			resolve()
@@ -186,14 +178,21 @@ export const waitForData = (
 			cleanup()
 			reject(abortError())
 		}
+		const timer = setTimeout(() => {
+			cleanup()
+			reject(new Error("Video load timed out"))
+		}, timeoutMs)
+		const cleanup = () => {
+			clearTimeout(timer)
+			el.removeEventListener("loadeddata", onLoaded)
+			el.removeEventListener("error", onError)
+			el.removeEventListener("abort", onError)
+			signal.removeEventListener("abort", onAbort)
+		}
 		el.addEventListener("loadeddata", onLoaded)
 		el.addEventListener("error", onError)
 		el.addEventListener("abort", onError)
 		signal.addEventListener("abort", onAbort, { once: true })
-		timer = setTimeout(() => {
-			cleanup()
-			reject(new Error("Video load timed out"))
-		}, timeoutMs)
 	})
 
 interface VideoSampler {

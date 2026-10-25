@@ -17,7 +17,7 @@ export async function mapWithConcurrency<T, R>(
 ): Promise<R[]> {
 	if (concurrency < 1) throw new Error("Concurrency must be positive")
 
-	const results = new Array<R>(values.length)
+	const results = Array.from({ length: values.length }) as R[]
 	let nextIndex = 0
 	const workers = Array.from(
 		{ length: Math.min(concurrency, values.length) },

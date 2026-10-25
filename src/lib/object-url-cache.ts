@@ -35,7 +35,7 @@ export function createObjectUrlCache<T>({
 				if (evicted)
 					for (const url of urls(evicted)) URL.revokeObjectURL(url)
 
-				deleteThumbnails(kind, oldest)
+				void deleteThumbnails(kind, oldest)
 			}
 		},
 	}
