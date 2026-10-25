@@ -71,6 +71,7 @@ export class ReviewIdle {
 			this.#seededFor = id
 			this.analyzed = false
 			if (entry?.idleRanges) {
+				// oxlint-disable-next-line no-map-spread -- clone to isolate state from project cache
 				this.ranges = entry.idleRanges.map(range => ({ ...range }))
 				this.revision = -1
 			} else {

@@ -886,7 +886,7 @@ function parseNodes(value: unknown): Record<string, HistoryNode> | null {
 	const entries = Object.entries(value)
 	if (entries.length === 0 || entries.length > MAX_NODES) return null
 
-	const nodes: Record<string, HistoryNode> = Object.create(null)
+	const nodes = Object.create(null) as { [_: string]: HistoryNode }
 	const sequences = new Set<number>()
 	for (const [id, rawNode] of entries) {
 		const node = parseNode(rawNode)
@@ -931,7 +931,7 @@ export function loadHistory(): PersistedHistory | null {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY)
 		if (!raw || raw.length > MAX_PERSISTED_BYTES) return null
-		const data = JSON.parse(raw)
+		const data: unknown = JSON.parse(raw)
 		if (!isRecord(data)) return null
 		const nodes = parseNodes(data.nodes)
 		if (!nodes) return null

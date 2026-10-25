@@ -323,6 +323,7 @@ function parseProjectEntry(
 	openSelections: TimelineSelection[],
 ): { entry: ProjectTimelapse; selections: TimelineSelection[] } | null {
 	if (!Array.isArray(value)) return null
+	const raw = value as unknown[]
 	const [
 		id,
 		name,
@@ -331,7 +332,7 @@ function parseProjectEntry(
 		rawIdleRanges,
 		rawSelections,
 		rawThreshold,
-	] = value
+	] = raw
 	if (
 		typeof id !== "string"
 		|| !id
@@ -381,8 +382,9 @@ function parsePayloadParts(
 	let totalIdleRanges = 0
 	for (const rawEntry of rawProject) {
 		if (!Array.isArray(rawEntry)) return null
-		const nestedSelections = rawEntry[5]
-		const nestedIdleRanges = rawEntry[4]
+		const nestedEntries: unknown[] = rawEntry
+		const nestedSelections = nestedEntries[5]
+		const nestedIdleRanges = nestedEntries[4]
 		if (Array.isArray(nestedSelections))
 			totalSelections += nestedSelections.length
 		if (Array.isArray(nestedIdleRanges))
@@ -398,7 +400,7 @@ function parsePayloadParts(
 			rawEntry => Array.isArray(rawEntry) && rawEntry[0] === openId,
 		)
 		const openEntrySelections = Array.isArray(openEntry)
-			? openEntry[5]
+			? (openEntry as unknown[])[5]
 			: null
 		if (
 			Array.isArray(openEntrySelections)

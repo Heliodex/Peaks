@@ -128,11 +128,8 @@ describe("Lapse API response validation", () => {
 
 describe("Lapse API request bounds", () => {
 	test("converts a network failure into a typed request error", async () => {
-		globalThis.fetch = () => {
-			return Promise.reject(
-				new TypeError("network details should not escape"),
-			)
-		}
+		globalThis.fetch = () =>
+			Promise.reject(new TypeError("network details should not escape"))
 
 		await expect(
 			fetchLapseJson("https://api.example.test", {}),

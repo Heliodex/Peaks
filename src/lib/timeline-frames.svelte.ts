@@ -361,6 +361,7 @@ export class FrameStrip {
 			if (!list) return
 			frameCache.set(
 				source,
+				// oxlint-disable-next-line no-map-spread -- must not mutate cached frame objects
 				list.map(frame =>
 					frame.time === time && frame.fresh
 						? { ...frame, fresh: false }

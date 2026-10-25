@@ -1,6 +1,5 @@
 // Shared test helpers. Bun has no `localStorage`, so storage-backed modules are exercised against an in-memory stand-in.
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Global = typeof globalThis & { localStorage?: Storage }
 
 /** Install an in-memory `localStorage` for the current test file. */

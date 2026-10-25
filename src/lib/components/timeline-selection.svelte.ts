@@ -95,6 +95,7 @@ export class SelectionEditor {
 		this.#options.setSelections(
 			this.#options
 				.selections()
+				// oxlint-disable-next-line no-map-spread -- immutable update required for Svelte reactivity
 				.map(other =>
 					other.id === id ? { ...other, ...patch } : other,
 				),
