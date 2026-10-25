@@ -38,7 +38,8 @@ export class ProjectSummary {
 					+ entry.annotations
 						.filter(annotation => annotation.reason === reason.id)
 						.reduce(
-							(sum, annotation) => sum + annotation.duration,
+							(innerSum, annotation) =>
+								innerSum + annotation.duration,
 							0,
 						),
 				0,

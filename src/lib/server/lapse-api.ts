@@ -1,3 +1,4 @@
+/* oxlint-disable max-classes-per-file - cohesive error subclasses for the Lapse API live here by design. */
 import { type } from "arktype"
 
 const MAX_ID_LENGTH = 128

@@ -70,6 +70,7 @@ describe("Lapse API response validation", () => {
 			{ data: {}, ok: true },
 			{
 				data: {
+					// oxlint-disable-next-line no-script-url - intentional invalid URL asserting the validator rejects javascript: URLs.
 					user: { ...user, profilePictureUrl: "javascript:alert(1)" },
 				},
 				ok: true,
@@ -127,8 +128,10 @@ describe("Lapse API response validation", () => {
 
 describe("Lapse API request bounds", () => {
 	test("converts a network failure into a typed request error", async () => {
-		globalThis.fetch = async () => {
-			throw new TypeError("network details should not escape")
+		globalThis.fetch = () => {
+			return Promise.reject(
+				new TypeError("network details should not escape"),
+			)
 		}
 
 		await expect(
@@ -154,7 +157,7 @@ describe("Lapse API request bounds", () => {
 	test("keeps the timeout active while reading the response body", async () => {
 		globalThis.fetch = (_input, init) =>
 			Promise.resolve({
-				json: async () =>
+				json: () =>
 					new Promise((_resolve, reject) => {
 						init?.signal?.addEventListener(
 							"abort",

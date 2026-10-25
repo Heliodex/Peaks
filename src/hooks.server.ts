@@ -43,7 +43,7 @@ const time = () => gray(new Date().toLocaleString())
 const userLog = (user: User | null) =>
 	user ? blue(user.lapseData.handle) : yellow("Logged-out user")
 
-const finish: Handle = async ({ event, resolve }) => {
+const finish: Handle = ({ event, resolve }) => {
 	const { pathname, search } = event.url
 	const { user } = event.locals
 
@@ -109,6 +109,6 @@ export const handle: Handle = async e => {
 	return finish(e)
 }
 
-export const handleError: HandleServerError = async ({ error }) => {
+export const handleError: HandleServerError = ({ error }) => {
 	logServerError(error)
 }

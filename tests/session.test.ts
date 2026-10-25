@@ -38,9 +38,10 @@ async function createSession(
 		},
 	)
 	await db.query("RELATE user:one->hasSession->$sess", { sess })
-	const [, , , , result] = await db.query<Record<string, unknown>[]>(query, {
+	const results = await db.query<Record<string, unknown>[]>(query, {
 		sess,
 	})
+	const result = results[4]
 	return result
 }
 

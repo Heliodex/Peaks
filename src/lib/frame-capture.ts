@@ -33,7 +33,7 @@ const toBlob = (canvas: HTMLCanvasElement, quality: number): Promise<Blob> =>
 /** A reusable canvas that scales a video frame to `width` and encodes it as a JPEG blob. */
 function createFrameEncoder(width: number, quality: number) {
 	let canvas: HTMLCanvasElement | null = null
-	return async (el: HTMLVideoElement): Promise<Blob> => {
+	return (el: HTMLVideoElement): Promise<Blob> => {
 		if (!canvas) canvas = document.createElement("canvas")
 		canvas.width = width
 		canvas.height = Math.max(

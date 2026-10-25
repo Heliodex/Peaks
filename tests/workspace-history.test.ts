@@ -116,8 +116,8 @@ describe("describeChange: timelapses", () => {
 })
 
 describe("describeChange: selections", () => {
-	const withSelection = (selection: TimelineSelection) =>
-		snapshot({ selections: [selection] })
+	const withSelection = (value: TimelineSelection) =>
+		snapshot({ selections: [value] })
 
 	test("add and remove", () => {
 		const one = withSelection(selection())
@@ -205,7 +205,7 @@ function bulkySnapshot(
 	rangeCount: number,
 ): WorkspaceSnapshot {
 	const entries = Array.from({ length: entryCount }, (_, e) => {
-		const idleRanges = Array.from({ length: rangeCount }, (_, i) => ({
+		const idleRanges = Array.from({ length: rangeCount }, (__, i) => ({
 			end: i * 3.13 + 1.5,
 			start: i * 3.13,
 		}))

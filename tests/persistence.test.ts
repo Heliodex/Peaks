@@ -66,8 +66,8 @@ describe("coalesced local persistence", () => {
 		const saves: { id: string; count: number }[] = []
 		const storageFailures: boolean[] = []
 		const session = new ReviewSession({
-			encodeShare: async () => "encoded",
-			navigate: async () => {},
+			encodeShare: () => Promise.resolve("encoded"),
+			navigate: () => Promise.resolve(),
 			onDecoded: () => {},
 			onResetIdle: () => {},
 			onStorageError: failed => storageFailures.push(failed),
@@ -108,7 +108,7 @@ describe("coalesced local persistence", () => {
 		let calls = 0
 		let projectLoaded = false
 		const session = new ReviewSession({
-			encodeShare: async state => {
+			encodeShare: async shareState => {
 				calls += 1
 				active += 1
 				maxActive = Math.max(maxActive, active)
@@ -119,11 +119,12 @@ describe("coalesced local persistence", () => {
 					return result
 				}
 				active -= 1
-				encoded.push(state.openId)
-				return state.openId
+				encoded.push(shareState.openId)
+				return shareState.openId
 			},
-			navigate: async target => {
+			navigate: target => {
 				navigations.push(target)
+				return Promise.resolve()
 			},
 			onDecoded: () => {},
 			onResetIdle: () => {},

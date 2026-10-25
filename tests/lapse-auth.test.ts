@@ -24,10 +24,11 @@ mock.module("$app/server", () => ({
 }))
 mock.module("#lib/server/db.js", () => ({
 	db: {
-		query: async () => [],
+		query: () => Promise.resolve([]),
 		update: () => ({
-			merge: async (value: unknown) => {
+			merge: (value: unknown) => {
 				updates.push(value)
+				return Promise.resolve()
 			},
 		}),
 	},
@@ -91,8 +92,8 @@ afterAll(() => {
 
 describe("Lapse authentication API", () => {
 	test("validates a profile response before returning it", async () => {
-		globalThis.fetch = async () =>
-			response({ data: { user: userPayload }, ok: true })
+		globalThis.fetch = () =>
+			Promise.resolve(response({ data: { user: userPayload }, ok: true }))
 
 		await expect(fetchLapseUserInfo("access-token")).resolves.toEqual({
 			displayName: userPayload.displayName,
@@ -103,8 +104,8 @@ describe("Lapse authentication API", () => {
 	})
 
 	test("rejects a non-JSON profile response without exposing its body", async () => {
-		globalThis.fetch = async () =>
-			new Response("upstream details", { status: 200 })
+		globalThis.fetch = () =>
+			Promise.resolve(new Response("upstream details", { status: 200 }))
 
 		await expect(fetchLapseUserInfo("access-token")).rejects.toBeInstanceOf(
 			LapseApiResponseError,
@@ -112,7 +113,8 @@ describe("Lapse authentication API", () => {
 	})
 
 	test("keeps malformed token JSON typed as a token response error", async () => {
-		globalThis.fetch = async () => new Response("not-json", { status: 200 })
+		globalThis.fetch = () =>
+			Promise.resolve(new Response("not-json", { status: 200 }))
 
 		await expect(
 			exchangeLapseCodeForToken("code", "verifier"),
@@ -122,7 +124,7 @@ describe("Lapse authentication API", () => {
 	test("retries a timed-lapse request once after refreshing its token", async () => {
 		const calls: { url: string; authorization: string | undefined }[] = []
 		let call = 0
-		globalThis.fetch = async (input, init) => {
+		globalThis.fetch = (input, init) => {
 			const url =
 				typeof input === "string"
 					? input
@@ -135,16 +137,21 @@ describe("Lapse authentication API", () => {
 				url,
 			})
 			call += 1
-			if (call === 1) return new Response(null, { status: 401 })
+			if (call === 1)
+				return Promise.resolve(new Response(null, { status: 401 }))
 			if (call === 2)
-				return response({
-					access_token: "new-access-token",
-					expires_in: 3600,
-					scope: "user:read",
-					token_type: "Bearer",
-				})
+				return Promise.resolve(
+					response({
+						access_token: "new-access-token",
+						expires_in: 3600,
+						scope: "user:read",
+						token_type: "Bearer",
+					}),
+				)
 
-			return response({ data: { timelapse: timelapsePayload }, ok: true })
+			return Promise.resolve(
+				response({ data: { timelapse: timelapsePayload }, ok: true }),
+			)
 		}
 
 		const user = {
@@ -179,8 +186,8 @@ describe("Lapse authentication API", () => {
 	})
 
 	test("returns null for a missing timelapse", async () => {
-		globalThis.fetch = async () =>
-			new Response("not found", { status: 404 })
+		globalThis.fetch = () =>
+			Promise.resolve(new Response("not found", { status: 404 }))
 
 		const user = {
 			id: Record("user", "1"),

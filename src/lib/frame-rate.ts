@@ -115,8 +115,8 @@ function measureWithPolling(
 	return () => clearInterval(interval)
 }
 
-async function probeFrameRate(src: string): Promise<number> {
-	if (typeof document === "undefined") return 0
+function probeFrameRate(src: string): Promise<number> {
+	if (typeof document === "undefined") return Promise.resolve(0)
 
 	const video = createProbeVideo(src)
 

@@ -57,6 +57,10 @@ export const seekVideo = (
 			video.currentTime = time
 		} catch (error) {
 			cleanup()
-			reject(error)
+			reject(
+				error instanceof Error
+					? error
+					: new Error("Failed to seek video"),
+			)
 		}
 	})

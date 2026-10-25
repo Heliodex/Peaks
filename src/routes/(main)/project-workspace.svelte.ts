@@ -1,5 +1,5 @@
 // The workspace of locally-stored projects: the open project, its timelapses and the CRUD around them.
-import * as svelte from "svelte"
+import { onDestroy, onMount } from "svelte"
 import {
 	matchesSharedProject,
 	uniqueImportedProjectName,
@@ -62,8 +62,8 @@ export class ProjectWorkspace {
 		this.#saveProjects = save
 
 		// Load the workspace once on the client; local storage isn't available during SSR, so this must not run in the initial render.
-		if (typeof svelte.onMount === "function")
-			svelte.onMount(() => {
+		if (typeof onMount === "function")
+			onMount(() => {
 				const store = loadProjects()
 				this.projects = store.projects
 				this.currentProjectId = store.currentId
@@ -85,8 +85,8 @@ export class ProjectWorkspace {
 			}, PROJECT_SAVE_DEBOUNCE_MS)
 		})
 
-		if (typeof svelte.onDestroy === "function")
-			svelte.onDestroy(() => this.#flushProjectSave())
+		if (typeof onDestroy === "function")
+			onDestroy(() => this.#flushProjectSave())
 	}
 
 	#flushProjectSave() {

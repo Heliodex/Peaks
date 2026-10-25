@@ -319,7 +319,7 @@ describe("share links", () => {
 				"Timelapse",
 				1000,
 				0,
-				Array.from({ length: MAX_IDLE_RANGES }, (_, range) => [
+				Array.from({ length: MAX_IDLE_RANGES }, (__, range) => [
 					range * 2,
 					range * 2,
 				]),

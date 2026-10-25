@@ -2,8 +2,8 @@ import { afterAll, describe, expect, mock, test } from "bun:test"
 
 function deferred<T>() {
 	let resolve!: (value: T) => void
-	const promise = new Promise<T>(done => {
-		resolve = done
+	const promise = new Promise<T>(_resolve => {
+		resolve = _resolve
 	})
 	return { promise, resolve }
 }

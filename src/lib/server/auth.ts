@@ -1,3 +1,4 @@
+/* oxlint-disable max-classes-per-file - cohesive error subclasses for auth live here by design. */
 import { redirect } from "@sveltejs/kit"
 import { db, Record, type RecordId } from "#lib/server/db.js"
 import deleteExpiredSessionsQuery from "#lib/server/deleteExpiredSessions.surql?raw"
@@ -77,10 +78,11 @@ type SessionValidationResult =
 export async function validateSessionToken(
 	token: string,
 ): Promise<SessionValidationResult> {
-	const [, , , , res] = await db.query<SessionValidationResult[]>(
+	const results = await db.query<SessionValidationResult[]>(
 		getSessionAndUserQuery,
 		{ sess: Record("session", token) },
 	)
+	const res = results[4]
 	if (!res?.session || !res.user)
 		return { renewed: false, session: null, user: null }
 	return res
@@ -223,7 +225,7 @@ export async function authorise() {
 	} = getRequestEvent()
 
 	if (!session || !user)
-		// TODO: get session and user from getRequestEvent() locals
+		// NOTE: session and user come from getRequestEvent() locals; redirect when missing.
 		redirect(302, "/")
 
 	await ensureLapseAccessToken(user, session)
@@ -314,7 +316,7 @@ async function requestLapseToken(
 }
 
 /** Exchanges an authorization code for a Lapse access token. */
-export async function exchangeLapseCodeForToken(
+export function exchangeLapseCodeForToken(
 	code: string,
 	codeVerifier: string,
 ): Promise<LapseTokenResponse> {
@@ -331,7 +333,7 @@ export async function exchangeLapseCodeForToken(
 }
 
 /** Refresh a Lapse access token when the provider issues a refresh token. */
-export async function refreshLapseAccessToken(
+export function refreshLapseAccessToken(
 	refreshToken: string,
 ): Promise<LapseTokenResponse> {
 	return requestLapseToken(

@@ -1,7 +1,7 @@
 // Tree-based undo/redo for the whole workspace: the projects, the open project/timelapse and the open timelapse's selections.
 // Global settings (timeline layout, seek step) are deliberately excluded – they live outside the tracked slices.
 // Unlike a linear stack, branching (undo, then a new change) keeps the abandoned branch, so the history forms a tree.
-import * as svelte from "svelte"
+import { onMount } from "svelte"
 import type { IdleRange } from "#lib/idle-time.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import type { TimelineSelection } from "#lib/timeline.js"
@@ -366,8 +366,8 @@ export class WorkspaceHistory {
 		this.#read = options.read
 		this.#apply = options.apply
 		// Restore the previous session's tree on the client so SSR and hydration start identically.
-		if (typeof svelte.onMount === "function")
-			svelte.onMount(() => {
+		if (typeof onMount === "function")
+			onMount(() => {
 				const persisted = loadHistory()
 				if (!persisted) return
 				this.nodes = persisted.nodes
