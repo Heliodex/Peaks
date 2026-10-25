@@ -10,11 +10,8 @@ export function logServerError(error: unknown, logger?: ErrorLogger): void {
 		if (typeof error === "object" && error !== null && "status" in error) {
 			const status = (error as { status?: unknown }).status
 			if (typeof status === "number") {
-				const detail =
-					error instanceof Error
-						? String(error)
-						: (JSON.stringify(error) ?? "[unserializable error]")
-				log(status, red(detail))
+				// oxlint-disable-next-line no-base-to-string -- status errors provide custom toString; String() preserves it
+				log(status, red(String(error)))
 				return
 			}
 		}
