@@ -40,32 +40,32 @@ async function pasteAndLoad() {
 			Timelapse IDs
 		</span>
 		<input
-			type="text"
+			autocomplete="off"
+			class="field"
 			name="timelapseId"
 			placeholder="IDs separated by spaces or commas"
-			autocomplete="off"
 			spellcheck="false"
+			type="text"
 			bind:value={timelapseId}
-			class="field"
 		>
 	</label>
 	<div class="flex items-center gap-2">
 		<button
-			type="submit"
-			disabled={!timelapseId.trim()}
 			class="btn btn-primary flex-1"
+			disabled={!timelapseId.trim()}
+			type="submit"
 		>
 			Load
 		</button>
-		<button type="button" onclick={pasteAndLoad} class="btn flex-1">
+		<button class="btn flex-1" onclick={pasteAndLoad} type="button">
 			Paste
 		</button>
 	</div>
 
 	{#if loadError}
 		<p
-			role="alert"
 			class="border border-red-500/40 bg-red-500/10 px-2 py-1 text-xs text-red-300"
+			role="alert"
 		>
 			{loadError}
 		</p>

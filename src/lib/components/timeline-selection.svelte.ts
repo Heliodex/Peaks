@@ -127,9 +127,9 @@ export class SelectionEditor {
 		// Middle-clicks pan, so prevent the browser's autoscroll. Right-clicks never reach here, leaving their contextmenu event intact for the selection menu.
 		event.preventDefault()
 		this.pan = {
-			startX: event.clientX,
-			startView: this.#options.view().start,
 			span: this.#options.viewSpan(),
+			startView: this.#options.view().start,
+			startX: event.clientX,
 		}
 		this.panMoved = false
 		track.setPointerCapture(event.pointerId)
@@ -153,17 +153,17 @@ export class SelectionEditor {
 		const minLength = this.#minSelectionLength(track)
 		if (resizeEl.dataset.resize === "start") {
 			this.drag = {
-				kind: "resize-start",
 				id,
-				min: left,
+				kind: "resize-start",
 				max: Math.max(left, selection.end - minLength),
+				min: left,
 			}
 		} else {
 			this.drag = {
-				kind: "resize-end",
 				id,
-				min: Math.min(right, selection.start + minLength),
+				kind: "resize-end",
 				max: right,
+				min: Math.min(right, selection.start + minLength),
 			}
 		}
 		track.setPointerCapture(event.pointerId)
@@ -188,14 +188,14 @@ export class SelectionEditor {
 			selection.end,
 		)
 		this.drag = {
-			kind: "move",
 			id,
+			kind: "move",
+			length,
+			max: Math.max(left, right - length),
+			min: left,
 			offset:
 				this.#options.pointerToTime(event.clientX, track)
 				- selection.start,
-			length,
-			min: left,
-			max: Math.max(left, right - length),
 		}
 		track.setPointerCapture(event.pointerId)
 		event.preventDefault()
@@ -218,15 +218,15 @@ export class SelectionEditor {
 		const id = this.#makeId()
 		this.#options.setSelections([
 			...this.#options.selections(),
-			{ id, start: anchor, end: anchor },
+			{ end: anchor, id, start: anchor },
 		])
 		this.drag = {
-			kind: "create",
-			id,
 			anchor,
 			anchorX: event.clientX,
-			min: left,
+			id,
+			kind: "create",
 			max: right,
+			min: left,
 			moved: false,
 		}
 		track.setPointerCapture(event.pointerId)
@@ -270,7 +270,7 @@ export class SelectionEditor {
 			0,
 			Math.max(0, this.#options.duration() - this.pan.span),
 		)
-		this.#options.setView({ start, end: start + this.pan.span })
+		this.#options.setView({ end: start + this.pan.span, start })
 	}
 
 	/** Apply an in-progress selection drag at `time`. */
@@ -290,8 +290,8 @@ export class SelectionEditor {
 				state.moved
 				|| Math.abs(event.clientX - state.anchorX) >= DRAG_THRESHOLD_PX
 			this.#updateSelection(state.id, {
-				start: Math.min(state.anchor, end),
 				end: Math.max(state.anchor, end),
+				start: Math.min(state.anchor, end),
 			})
 			// Seek to the moving edge so the frame being selected is visible.
 			this.#options.seekTo(end)
@@ -304,8 +304,8 @@ export class SelectionEditor {
 				state.max,
 			)
 			this.#updateSelection(state.id, {
-				start,
 				end: start + state.length,
+				start,
 			})
 			return
 		}

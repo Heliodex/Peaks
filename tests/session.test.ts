@@ -8,7 +8,7 @@ const query = await Bun.file(
 
 async function createDatabase(): Promise<Surreal> {
 	const db = new Surreal({ engines: { ...createNodeEngines() } })
-	await db.connect("mem://", { namespace: "test", database: "test" })
+	await db.connect("mem://", { database: "test", namespace: "test" })
 	await db.query(`
 		DEFINE TABLE session SCHEMAFULL;
 		DEFINE FIELD id ON session TYPE string;
@@ -32,9 +32,9 @@ async function createSession(
 	await db.query(
 		"CREATE $sess SET id = $id, created = time::now(), expires = $expires",
 		{
-			sess,
-			id,
 			expires,
+			id,
+			sess,
 		},
 	)
 	await db.query("RELATE user:one->hasSession->$sess", { sess })

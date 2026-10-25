@@ -28,7 +28,7 @@ let {
 	idleProgress = 0,
 	idleAnalyzing = false,
 	ignoreIdle = false,
-	view = { start: 0, end: 0 },
+	view = { end: 0, start: 0 },
 	onviewchange = () => {},
 	captureFrame,
 }: {
@@ -51,9 +51,9 @@ let {
 const MIN_WINDOW_PX = 10
 
 const nav = new NavThumbnails({
-	src: () => playbackUrl,
-	duration: () => duration,
 	captureFrame: (time, epsilon) => captureFrame(time, epsilon),
+	duration: () => duration,
+	src: () => playbackUrl,
 })
 
 // Idle regions to draw: hidden while the reviewer overrides idle detection.
@@ -98,7 +98,7 @@ function onPointerDown(event: PointerEvent) {
 	}
 
 	if (target.closest("[data-nav-window]")) {
-		drag = { kind: "move", offset: time - view.start, length }
+		drag = { kind: "move", length, offset: time - view.start }
 		track.setPointerCapture(event.pointerId)
 		event.preventDefault()
 		return
@@ -110,7 +110,7 @@ function onPointerDown(event: PointerEvent) {
 		0,
 		Math.max(0, duration - length),
 	)
-	onviewchange({ start, end: start + length })
+	onviewchange({ end: start + length, start })
 }
 
 function onPointerMove(event: PointerEvent) {
@@ -125,21 +125,21 @@ function onPointerMove(event: PointerEvent) {
 			0,
 			Math.max(0, duration - state.length),
 		)
-		onviewchange({ start, end: start + state.length })
+		onviewchange({ end: start + state.length, start })
 	} else if (state.kind === "resize-start") {
 		const start = clamp(
 			snapToFrame(time, frameRate),
 			0,
 			Math.max(0, view.end - state.minLength),
 		)
-		onviewchange({ start, end: view.end })
+		onviewchange({ end: view.end, start })
 	} else {
 		const end = clamp(
 			snapToFrame(time, frameRate),
 			view.start + state.minLength,
 			duration,
 		)
-		onviewchange({ start: view.start, end })
+		onviewchange({ end, start: view.start })
 	}
 }
 
@@ -154,13 +154,13 @@ function onPointerUp(event: PointerEvent) {
 
 <!-- biome-ignore lint/a11y/useSemanticElements: `group` describes the pan/zoom controls; there is no matching semantic element. -->
 <div
+	aria-label="Timeline overview and zoom. Drag the window to pan and its edges to zoom."
 	class="relative mt-2 h-10 w-full shrink-0 touch-none overflow-hidden border border-line bg-surface-raised select-none"
+	onpointercancel={onPointerUp}
 	onpointerdown={onPointerDown}
 	onpointermove={onPointerMove}
 	onpointerup={onPointerUp}
-	onpointercancel={onPointerUp}
 	role="group"
-	aria-label="Timeline overview and zoom. Drag the window to pan and its edges to zoom."
 >
 	<!-- Static overview thumbnails spanning the whole video -->
 	<div class="pointer-events-none absolute inset-0 flex overflow-hidden">
@@ -168,10 +168,10 @@ function onPointerUp(event: PointerEvent) {
 			<div class="relative h-full min-w-0 flex-1">
 				{#if nav.frames[i]}
 					<img
-						src={nav.frames[i]}
 						alt=""
 						class="h-full w-full object-cover"
 						draggable="false"
+						src={nav.frames[i]}
 					>
 				{/if}
 			</div>
@@ -190,8 +190,8 @@ function onPointerUp(event: PointerEvent) {
 	</div>
 
 	<div
-		data-nav-window
 		class="absolute inset-y-0 cursor-grab active:cursor-grabbing"
+		data-nav-window
 		style:left="{percentOf(view.start, duration)}%"
 		style:width="{percentOf(view.end - view.start, duration)}%"
 	>
@@ -200,16 +200,16 @@ function onPointerUp(event: PointerEvent) {
 		></div>
 
 		<div
-			data-nav-resize="start"
 			class="absolute inset-y-0 left-0 flex w-2 cursor-ew-resize items-center justify-center"
+			data-nav-resize="start"
 			role="presentation"
 		>
 			<span class="h-5 w-1 bg-primary-400 shadow"></span>
 		</div>
 
 		<div
-			data-nav-resize="end"
 			class="absolute inset-y-0 right-0 flex w-2 cursor-ew-resize items-center justify-center"
+			data-nav-resize="end"
 			role="presentation"
 		>
 			<span class="h-5 w-1 bg-primary-400 shadow"></span>

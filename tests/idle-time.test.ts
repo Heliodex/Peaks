@@ -54,28 +54,28 @@ describe("mergeIdleRanges", () => {
 	test("merges touching intervals and keeps gaps", () => {
 		expect(
 			mergeIdleRanges([
-				{ start: 2, end: 3 },
-				{ start: 0, end: 1 },
-				{ start: 1.5, end: 2 },
+				{ end: 3, start: 2 },
+				{ end: 1, start: 0 },
+				{ end: 2, start: 1.5 },
 			]),
 		).toEqual([
-			{ start: 0, end: 1 },
-			{ start: 1.5, end: 3 },
+			{ end: 1, start: 0 },
+			{ end: 3, start: 1.5 },
 		])
 	})
 })
 
 describe("idleRangesAreFrameAligned", () => {
 	test("is always true without a frame rate", () => {
-		expect(idleRangesAreFrameAligned([{ start: 0.1, end: 0.2 }], 0)).toBe(
+		expect(idleRangesAreFrameAligned([{ end: 0.2, start: 0.1 }], 0)).toBe(
 			true,
 		)
 	})
 	test("checks boundaries against frame ticks", () => {
-		expect(idleRangesAreFrameAligned([{ start: 1 / 30, end: 1 }], 30)).toBe(
+		expect(idleRangesAreFrameAligned([{ end: 1, start: 1 / 30 }], 30)).toBe(
 			true,
 		)
-		expect(idleRangesAreFrameAligned([{ start: 0.01, end: 1 }], 30)).toBe(
+		expect(idleRangesAreFrameAligned([{ end: 1, start: 0.01 }], 30)).toBe(
 			false,
 		)
 	})

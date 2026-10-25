@@ -35,15 +35,15 @@ let {
 	class="area-timeline flex min-h-0 flex-col overflow-hidden border-t border-line bg-surface px-4 pb-3"
 >
 	<Timeline
-		bind:selections
-		bind:idleRanges
-		bind:idleAnalyzing
-		bind:idleAnalyzed
 		{idleRevision}
-		{ignoreIdle}
 		{idleThreshold}
+		{ignoreIdle}
 		{seekStep}
 		timelapse={{ playbackUrl, thumbnailUrl }}
 		video={videoEl}
+		bind:idleAnalyzed
+		bind:idleAnalyzing
+		bind:idleRanges
+		bind:selections
 	/>
 </footer>

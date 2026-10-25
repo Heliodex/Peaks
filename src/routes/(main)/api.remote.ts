@@ -53,9 +53,9 @@ export const getLapseData = query(async () => {
 	if (!lapseData) return null
 
 	return {
-		id: lapseData.id,
-		handle: lapseData.handle,
 		displayName: lapseData.displayName,
+		handle: lapseData.handle,
+		id: lapseData.id,
 		profilePictureUrl: lapseData.profilePictureUrl,
 	}
 })
@@ -70,19 +70,19 @@ export const getTimelapse = query(type("string"), async timelapseId => {
 	if (!timelapse) return null
 
 	return {
+		createdAt: timelapse.createdAt,
+		description: timelapse.description,
+		duration: timelapse.duration,
 		id: timelapse.id,
 		name: timelapse.name,
-		description: timelapse.description,
-		playbackUrl: timelapse.playbackUrl,
-		thumbnailUrl: timelapse.thumbnailUrl,
-		duration: timelapse.duration,
-		createdAt: timelapse.createdAt,
-		visibility: timelapse.visibility,
 		owner: {
-			handle: timelapse.owner.handle,
 			displayName: timelapse.owner.displayName,
+			handle: timelapse.owner.handle,
 			profilePictureUrl: timelapse.owner.profilePictureUrl,
 		},
+		playbackUrl: timelapse.playbackUrl,
+		thumbnailUrl: timelapse.thumbnailUrl,
+		visibility: timelapse.visibility,
 	}
 })
 

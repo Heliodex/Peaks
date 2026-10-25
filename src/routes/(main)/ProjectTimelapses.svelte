@@ -65,7 +65,7 @@ function openMenu(event: MouseEvent, entry: ProjectTimelapse) {
 	menu = {
 		id: entry.id,
 		name: entry.name || entry.id,
-		...contextMenuPosition(event, { width: 176, height: 96 }),
+		...contextMenuPosition(event, { height: 96, width: 176 }),
 	}
 }
 
@@ -127,25 +127,21 @@ $effect(() => {
 	>
 		{#each entries as entry (entry.id)}
 			<li
-				data-reorder-id={entry.id}
-				out:scale|local={cardTransition}
-				animate:flip={cardShift}
-				oncontextmenu={event => openMenu(event, entry)}
-				draggable={reorderable}
-				ondragstart={event => reorder.startDrag(event, entry.id)}
-				ondragend={reorder.endDrag}
 				class={[
 					"group relative",
 					reorder.draggingId === entry.id
 						? "opacity-40 outline-2 outline-dashed outline-primary-500/60"
 						: "",
 				]}
+				data-reorder-id={entry.id}
+				draggable={reorderable}
+				oncontextmenu={event => openMenu(event, entry)}
+				ondragend={reorder.endDrag}
+				ondragstart={event => reorder.startDrag(event, entry.id)}
+				out:scale|local={cardTransition}
+				animate:flip={cardShift}
 			>
 				<button
-					type="button"
-					onclick={() => onLoad(entry.id)}
-					onkeydown={reorder.itemKeydown(entry.id)}
-					title="{entry.name || entry.id} (drag to reorder)"
 					class={[
 						"flex h-full w-full flex-col overflow-hidden border border-line-soft bg-surface-raised text-left transition-colors select-none",
 						reorderable
@@ -153,17 +149,21 @@ $effect(() => {
 							: "cursor-pointer",
 						"hover:border-primary-500 hover:bg-surface",
 					]}
+					onclick={() => onLoad(entry.id)}
+					onkeydown={reorder.itemKeydown(entry.id)}
+					title="{entry.name || entry.id} (drag to reorder)"
+					type="button"
 				>
 					<div
 						class="relative aspect-video w-full overflow-hidden bg-neutral-900"
 					>
 						{#if thumbnails[entry.id]}
 							<img
-								src={thumbnails[entry.id]}
 								alt=""
-								loading="lazy"
-								draggable={false}
 								class="h-full w-full object-cover"
+								draggable={false}
+								loading="lazy"
+								src={thumbnails[entry.id]}
 							>
 						{/if}
 						<span
@@ -185,8 +185,8 @@ $effect(() => {
 								class="flex items-center gap-1.5 text-xs text-neutral-400 tabular-nums"
 							>
 								<span
-									class="h-1.5 w-1.5 shrink-0 bg-amber-400"
 									aria-hidden="true"
+									class="h-1.5 w-1.5 shrink-0 bg-amber-400"
 								></span>
 								-{formatDuration(idle)}
 								idle
@@ -197,8 +197,8 @@ $effect(() => {
 								class="flex items-center gap-1.5 text-xs text-neutral-400 tabular-nums"
 							>
 								<span
-									class="h-1.5 w-1.5 shrink-0 bg-red-400"
 									aria-hidden="true"
+									class="h-1.5 w-1.5 shrink-0 bg-red-400"
 								></span>
 								-{formatDuration(annotations)}
 								annotations
@@ -214,45 +214,45 @@ $effect(() => {
 {#if menu}
 	{const current = menu}
 	<ContextMenu
-		x={current.x}
-		y={current.y}
-		label="{current.name} actions"
-		onClose={closeMenu}
 		items={[
 			{
-				label: "Open in Lapse",
 				href: `https://lapse.hackclub.com/timelapse/${encodeURIComponent(current.id)}`,
+				label: "Open in Lapse",
 			},
 			{
 				label: "Copy ID",
 				onSelect: () => copyId(current.id, current.x, current.y),
 			},
 			{
-				label: "Delete from project",
 				danger: true,
+				label: "Delete from project",
 				onSelect: () => onRemoveTimelapse(current.id),
 			},
 		]}
+		label="{current.name} actions"
+		onClose={closeMenu}
+		x={current.x}
+		y={current.y}
 	/>
 {/if}
 
 {#if clipboard.copied && copiedAt}
 	<div
-		role="status"
 		class="pointer-events-none fixed z-50 flex items-center gap-1.5 border border-primary-500/40 bg-surface-raised px-3 py-1.5 text-sm text-primary-300 shadow-2xl shadow-black/60"
+		role="status"
 		style:left="{copiedAt.x}px"
 		style:top="{copiedAt.y}px"
 		transition:fade={{ duration: prefersReducedMotion.current ? 0 : 150 }}
 	>
 		<svg
+			aria-hidden="true"
 			class="h-3 w-3"
-			viewBox="0 0 16 16"
 			fill="none"
 			stroke="currentColor"
-			stroke-width="2"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			aria-hidden="true"
+			stroke-width="2"
+			viewBox="0 0 16 16"
 		>
 			<path d="M3 8.5 6.5 12 13 4.5" />
 		</svg>

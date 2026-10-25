@@ -67,55 +67,55 @@ const viewport = new TimelineViewport({
 
 // Playback state: current time, the eased playhead, frame rate and seek queueing.
 const playback = new TimelinePlayback({
-	video: () => video,
-	src: () => timelapse.playbackUrl,
 	onDuration: (value: number) => (videoDuration = value),
 	onFrameRate: (rate: number) => (frameRate = rate),
+	src: () => timelapse.playbackUrl,
+	video: () => video,
 })
 
 // Reset the visible window to the whole video whenever its duration first becomes known.
 $effect(() => {
 	const total = duration
 	if (total <= 0) return
-	viewport.setView({ start: 0, end: total })
+	viewport.setView({ end: total, start: 0 })
 })
 
 // Thumbnails captured at absolute times, reused across zooming and panning so the strip can slide/scale smoothly instead of blanking on every view change.
 const frameStrip = new FrameStrip({
-	src: () => timelapse.playbackUrl,
 	duration: () => duration,
 	frameRate: () => frameRate,
+	src: () => timelapse.playbackUrl,
 	view: () => viewport.view,
 })
 
 const editor = new SelectionEditor({
-	selections: () => selections,
-	setSelections: value => (selections = value),
 	duration: () => duration,
 	frameRate: () => frameRate,
-	view: () => viewport.view,
-	viewSpan: () => viewport.span,
 	pointerToTime,
 	seekTo: time => playback.seekTo(time),
+	selections: () => selections,
+	setSelections: value => (selections = value),
 	setView: viewport.setView,
+	view: () => viewport.view,
+	viewSpan: () => viewport.span,
 })
 
 // Scan the video for stretches where the picture never changes (time spent AFK) and publish them to the parent so it can report an "actual" duration. Cached ranges are reused until the parent bumps `idleRevision`.
 const idle = new IdleAnalysis({
-	src: () => timelapse.playbackUrl,
+	cached: () => idleRanges,
 	duration: () => duration,
 	frameRate: () => frameRate,
 	ready: () => playback.frameRateReady,
-	threshold: () => idleThreshold,
-	cached: () => idleRanges,
 	revision: () => idleRevision,
+	src: () => timelapse.playbackUrl,
+	threshold: () => idleThreshold,
 })
 
 // Fraction (0-1) of the idle scan completed, smoothed by a spring so the scanning progress line glides rather than jumping between samples.
 const idleProgressSpring = new Spring(0, {
-	stiffness: 0.15,
 	damping: 0.8,
 	precision: 0.0005,
+	stiffness: 0.15,
 })
 const idleProgress = $derived(idleProgressSpring.current)
 
@@ -196,7 +196,7 @@ function onSelectionContextMenu(
 	selectionMenu = {
 		id: sel.id,
 		index,
-		...contextMenuPosition(event, { width: 224, height: 300 }),
+		...contextMenuPosition(event, { height: 300, width: 224 }),
 	}
 }
 
@@ -251,8 +251,6 @@ function onPointerLeave() {
 function onKeyDown(event: KeyboardEvent) {
 	const actions: Record<string, () => void> = {
 		" ": () => playback.togglePlay(),
-		Space: () => playback.togglePlay(),
-		ArrowUp: () => playback.stepFrame(1),
 		ArrowDown: () => playback.stepFrame(-1),
 		ArrowLeft: () =>
 			playback.seekTo(
@@ -262,6 +260,8 @@ function onKeyDown(event: KeyboardEvent) {
 			playback.seekTo(
 				clamp(playback.currentTime + seekStep, 0, duration),
 			),
+		ArrowUp: () => playback.stepFrame(1),
+		Space: () => playback.togglePlay(),
 	}
 	const action = actions[event.key]
 	if (!action || event.defaultPrevented || isInteractiveTarget(event)) return
@@ -282,14 +282,14 @@ function onKeyDown(event: KeyboardEvent) {
 	handleClass: string,
 )}
 	<div
-		data-resize={side}
-		data-selection-id={sel.id}
 		class={[
 			"absolute inset-y-0",
 			side === "start" ? "-left-1" : "-right-1",
 			"flex w-2 cursor-ew-resize items-center justify-center transition-opacity",
 			editor.controlsClass(sel.id),
 		]}
+		data-resize={side}
+		data-selection-id={sel.id}
 		role="presentation"
 	>
 		<span
@@ -302,6 +302,11 @@ function onKeyDown(event: KeyboardEvent) {
 	{const layoutFrames = $derived(frameStrip.layout)}
 	<div class="flex min-h-0 w-full flex-1 flex-col pt-3">
 		<div
+			aria-label="Timeline. Drag to annotate, or use the arrow keys to seek and space to play."
+			aria-valuemax={Math.round(duration)}
+			aria-valuemin="0"
+			aria-valuenow={Math.round(playback.playheadTime)}
+			aria-valuetext={formatClock(playback.playheadTime)}
 			class={[
 				"relative min-h-0 w-full flex-1 touch-none border border-line select-none",
 				editor.drag?.kind === "create"
@@ -310,24 +315,19 @@ function onKeyDown(event: KeyboardEvent) {
 						? "cursor-grabbing"
 						: "",
 			]}
+			onpointercancel={onTrackPointerUp}
 			onpointerdown={onTrackPointerDown}
+			onpointerleave={onPointerLeave}
 			onpointermove={onPointerMove}
 			onpointerup={onTrackPointerUp}
-			onpointercancel={onTrackPointerUp}
-			onpointerleave={onPointerLeave}
-			{@attach timelineGestures}
-			tabindex="0"
 			role="slider"
-			aria-label="Timeline. Drag to annotate, or use the arrow keys to seek and space to play."
-			aria-valuemin="0"
-			aria-valuemax={Math.round(duration)}
-			aria-valuenow={Math.round(playback.playheadTime)}
-			aria-valuetext={formatClock(playback.playheadTime)}
+			tabindex="0"
+			{@attach timelineGestures}
 		>
 			<!-- Frame previews: cached thumbnails positioned by absolute time so they slide and scale with the view -->
 			<TimelineFrames
-				frames={layoutFrames}
 				frameCount={FRAME_COUNT}
+				frames={layoutFrames}
 				frameTime={index => viewport.frameTime(index, FRAME_COUNT)}
 			/>
 
@@ -400,15 +400,15 @@ function onKeyDown(event: KeyboardEvent) {
 						{/if}
 
 						<button
-							type="button"
-							data-delete={sel.id}
 							aria-label="Delete selection"
-							title="Delete selection"
-							onclick={e => editor.deleteSelection(sel.id, e)}
 							class={[
 								"btn btn-danger absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-surface text-xs shadow transition-[color,background-color,border-color,opacity]",
 								editor.controlsClass(sel.id),
 							]}
+							data-delete={sel.id}
+							onclick={e => editor.deleteSelection(sel.id, e)}
+							title="Delete selection"
+							type="button"
 						>
 							×
 						</button>
@@ -443,13 +443,13 @@ function onKeyDown(event: KeyboardEvent) {
 				&& editor.hoveredSelectionId === null}
 				<div
 					class="pointer-events-none absolute top-1 border border-line bg-black/85 px-1.5 py-0.5 text-xs text-white tabular-nums"
-					class:mr-1={viewport.hoverTooltipFlip}
 					style:left={viewport.hoverTooltipFlip
 						? undefined
 						: `${viewport.hoverPercent}%`}
 					style:right={viewport.hoverTooltipFlip
 						? `${100 - viewport.hoverPercent}%`
 						: undefined}
+					class:mr-1={viewport.hoverTooltipFlip}
 				>
 					{formatClock(viewport.hoverTime)}
 				</div>
@@ -457,24 +457,24 @@ function onKeyDown(event: KeyboardEvent) {
 		</div>
 
 		<TimelineTicks
-			view={viewport.view}
-			ticks={viewport.ticks}
 			ontrackwidth={width => (viewport.tickTrackWidth = width)}
+			ticks={viewport.ticks}
+			view={viewport.view}
 		/>
 
 		<TimelineNavigator
+			captureFrame={frameStrip.captureAt}
 			{duration}
 			frameRate={playback.frameRate}
-			playheadTime={playback.playheadTime}
-			{selections}
-			{idleRanges}
-			{idleProgress}
 			{idleAnalyzing}
+			{idleProgress}
+			{idleRanges}
 			{ignoreIdle}
-			view={viewport.view}
 			onviewchange={viewport.setView}
 			playbackUrl={timelapse.playbackUrl}
-			captureFrame={frameStrip.captureAt}
+			playheadTime={playback.playheadTime}
+			{selections}
+			view={viewport.view}
 		/>
 
 		{#if selectionMenu}
@@ -484,30 +484,30 @@ function onKeyDown(event: KeyboardEvent) {
 			)}
 			{#if target}
 				<ContextMenu
-					x={current.x}
-					y={current.y}
-					label="Reason for selection {current.index + 1}"
-					onClose={closeSelectionMenu}
 					items={[
 						{
-							label: "No reason",
 							active: !target.reason,
+							label: "No reason",
 							markerClass: selectionColors(undefined).marker,
 							onSelect: () => setSelectionReason(target.id, ""),
 						},
 						...ANNOTATION_REASONS.map(reason => ({
-							label: reason.label,
 							active: target.reason === reason.id,
+							label: reason.label,
 							markerClass: selectionColors(reason.id).marker,
 							onSelect: () =>
 								setSelectionReason(target.id, reason.id),
 						})),
 						{
-							label: "Delete selection",
 							danger: true,
+							label: "Delete selection",
 							onSelect: () => removeTimelineSelection(target.id),
 						},
 					]}
+					label="Reason for selection {current.index + 1}"
+					onClose={closeSelectionMenu}
+					x={current.x}
+					y={current.y}
 				/>
 			{/if}
 		{/if}

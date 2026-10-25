@@ -33,26 +33,26 @@ describe("durations", () => {
 	test("annotationTotal sums the deductions", () => {
 		expect(
 			annotationTotal([
-				{ reason: "a", duration: 3 },
-				{ reason: "b", duration: 4 },
+				{ duration: 3, reason: "a" },
+				{ duration: 4, reason: "b" },
 			]),
 		).toBe(7)
 	})
 	test("entryFinalDuration subtracts idle and annotations", () => {
 		expect(
 			entryFinalDuration({
+				annotations: [{ duration: 5, reason: "a" }],
 				duration: 100,
 				idleDuration: 10,
-				annotations: [{ reason: "a", duration: 5 }],
 			}),
 		).toBe(85)
 	})
 	test("entryFinalDuration never goes negative", () => {
 		expect(
 			entryFinalDuration({
+				annotations: [{ duration: 5, reason: "a" }],
 				duration: 10,
 				idleDuration: 10,
-				annotations: [{ reason: "a", duration: 5 }],
 			}),
 		).toBe(0)
 	})

@@ -9,39 +9,39 @@ import {
 } from "#lib/server/lapse-api.js"
 
 const user = {
-	id: "user-1",
 	createdAt: 1_700_000_000_000,
-	handle: "tester",
 	displayName: "Tester",
-	profilePictureUrl: "https://cdn.example/avatar.png",
-	urls: [],
 	hackatimeId: null,
-	slackId: null,
+	handle: "tester",
+	id: "user-1",
 	private: {
-		permissionLevel: "USER",
 		devices: [],
 		needsReauth: false,
+		permissionLevel: "USER",
 	},
+	profilePictureUrl: "https://cdn.example/avatar.png",
+	slackId: null,
+	urls: [],
 }
 
 const timelapse = {
+	createdAt: 1_700_000_000_000,
+	duration: 12.5,
 	id: "timelapse-1",
 	name: "A timelapse",
-	visibility: "PUBLIC",
-	createdAt: 1_700_000_000_000,
+	owner: {
+		createdAt: 1_700_000_000_000,
+		displayName: "Tester",
+		hackatimeId: null,
+		handle: "tester",
+		id: "user-1",
+		profilePictureUrl: "https://cdn.example/avatar.png",
+		slackId: null,
+		urls: [],
+	},
 	playbackUrl: "https://cdn.example/video.mp4",
 	thumbnailUrl: null,
-	duration: 12.5,
-	owner: {
-		id: "user-1",
-		createdAt: 1_700_000_000_000,
-		handle: "tester",
-		displayName: "Tester",
-		profilePictureUrl: "https://cdn.example/avatar.png",
-		urls: [],
-		hackatimeId: null,
-		slackId: null,
-	},
+	visibility: "PUBLIC",
 }
 
 const originalFetch = globalThis.fetch
@@ -53,11 +53,11 @@ afterEach(() => {
 describe("Lapse API response validation", () => {
 	test("accepts and projects a valid user response", () => {
 		expect(
-			parseLapseUserInfoResponse({ ok: true, data: { user } }),
+			parseLapseUserInfoResponse({ data: { user }, ok: true }),
 		).toEqual({
-			id: user.id,
-			handle: user.handle,
 			displayName: user.displayName,
+			handle: user.handle,
+			id: user.id,
 			profilePictureUrl: user.profilePictureUrl,
 		})
 	})
@@ -66,15 +66,15 @@ describe("Lapse API response validation", () => {
 		for (const value of [
 			null,
 			{},
-			{ ok: false, error: "ERROR", message: "bad" },
-			{ ok: true, data: {} },
+			{ error: "ERROR", message: "bad", ok: false },
+			{ data: {}, ok: true },
 			{
-				ok: true,
 				data: {
 					user: { ...user, profilePictureUrl: "javascript:alert(1)" },
 				},
+				ok: true,
 			},
-			{ ok: true, data: { user: { ...user, createdAt: Number.NaN } } },
+			{ data: { user: { ...user, createdAt: Number.NaN } }, ok: true },
 		])
 			expect(() => parseLapseUserInfoResponse(value)).toThrow(
 				LapseApiResponseError,
@@ -84,7 +84,6 @@ describe("Lapse API response validation", () => {
 	test("accepts nullable media and defaults an omitted description", () => {
 		expect(
 			parseLapseTimelapseResponse({
-				ok: true,
 				data: {
 					timelapse: {
 						...timelapse,
@@ -92,31 +91,32 @@ describe("Lapse API response validation", () => {
 						thumbnailUrl: null,
 					},
 				},
+				ok: true,
 			}),
 		).toEqual({
 			...timelapse,
 			description: "",
-			playbackUrl: null,
-			thumbnailUrl: null,
 			owner: {
-				handle: timelapse.owner.handle,
 				displayName: timelapse.owner.displayName,
+				handle: timelapse.owner.handle,
 				profilePictureUrl: timelapse.owner.profilePictureUrl,
 			},
+			playbackUrl: null,
+			thumbnailUrl: null,
 		})
 	})
 
 	test("rejects malformed timelapse responses", () => {
 		for (const value of [
 			null,
-			{ ok: true, data: { timelapse: { ...timelapse, duration: -1 } } },
+			{ data: { timelapse: { ...timelapse, duration: -1 } }, ok: true },
 			{
-				ok: true,
 				data: { timelapse: { ...timelapse, playbackUrl: "not a url" } },
+				ok: true,
 			},
 			{
-				ok: true,
 				data: { timelapse: { ...timelapse, visibility: "PRIVATE" } },
+				ok: true,
 			},
 		])
 			expect(() => parseLapseTimelapseResponse(value)).toThrow(
@@ -154,8 +154,6 @@ describe("Lapse API request bounds", () => {
 	test("keeps the timeout active while reading the response body", async () => {
 		globalThis.fetch = ((_input, init) =>
 			Promise.resolve({
-				ok: true,
-				status: 200,
 				json: async () =>
 					new Promise((_resolve, reject) => {
 						init?.signal?.addEventListener(
@@ -167,6 +165,8 @@ describe("Lapse API request bounds", () => {
 							{ once: true },
 						)
 					}),
+				ok: true,
+				status: 200,
 			} as Response as unknown as Response)) as typeof fetch
 
 		await expect(

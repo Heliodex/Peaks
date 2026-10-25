@@ -17,14 +17,14 @@ const entry = (
 	id: string,
 	overrides: Partial<ProjectTimelapse> = {},
 ): ProjectTimelapse => ({
-	id,
-	name: "Timelapse",
-	duration: 120,
-	idleDuration: 0,
 	annotations: [],
-	ignoreIdle: false,
-	idleThreshold: 0.005,
 	description: "",
+	duration: 120,
+	id,
+	idleDuration: 0,
+	idleThreshold: 0.005,
+	ignoreIdle: false,
+	name: "Timelapse",
 	...overrides,
 })
 
@@ -57,11 +57,11 @@ const validPayload = () => [
 describe("share links", () => {
 	test("round-trips a project and its selections", async () => {
 		const encoded = await encodeShare({
-			projectId: "p1",
-			selections: [{ id: "s1", start: 1.5, end: 2.25, reason: "idle" }],
-			projectName: "My Project",
-			project: [entry("t1")],
 			openId: "t1",
+			project: [entry("t1")],
+			projectId: "p1",
+			projectName: "My Project",
+			selections: [{ end: 2.25, id: "s1", reason: "idle", start: 1.5 }],
 		})
 		expect(typeof encoded).toBe("string")
 		// base64url strips padding, keeping the string URL-safe.
@@ -72,29 +72,29 @@ describe("share links", () => {
 		expect(decoded?.projectName).toBe("My Project")
 		expect(decoded?.selections).toHaveLength(1)
 		expect(decoded?.selections[0]).toMatchObject({
-			start: 1.5,
 			end: 2.25,
 			reason: "idle",
+			start: 1.5,
 		})
 		expect(decoded?.selectionsByTimelapse.get("t1")).toHaveLength(1)
 	})
 
 	test("carries cached idle ranges and the threshold", async () => {
 		const encoded = await encodeShare({
-			projectId: "p1",
-			selections: [],
-			projectName: "P",
+			openId: "",
 			project: [
 				entry("t1", {
-					idleRanges: [{ start: 1, end: 2 }],
+					idleRanges: [{ end: 2, start: 1 }],
 					idleThreshold: 0.05,
 				}),
 			],
-			openId: "",
+			projectId: "p1",
+			projectName: "P",
+			selections: [],
 		})
 		const decoded = await decodeShare(encoded)
 		expect(decoded?.project[0].idleThreshold).toBe(0.05)
-		expect(decoded?.project[0].idleRanges).toEqual([{ start: 1, end: 2 }])
+		expect(decoded?.project[0].idleRanges).toEqual([{ end: 2, start: 1 }])
 	})
 
 	test("rejects invalid payload shapes", async () => {
@@ -355,11 +355,11 @@ describe("share links", () => {
 		})
 		try {
 			const encoded = await encodeShare({
-				projectId: "p1",
-				selections: [{ id: "s1", start: 0, end: 1, reason: "idle" }],
-				projectName: "Project",
-				project: [entry("t1")],
 				openId: "t1",
+				project: [entry("t1")],
+				projectId: "p1",
+				projectName: "Project",
+				selections: [{ end: 1, id: "s1", reason: "idle", start: 0 }],
 			})
 			await decodeShare(encoded)
 		} finally {
@@ -373,11 +373,11 @@ describe("share links", () => {
 	test("rejects invalid local state before encoding", async () => {
 		await expect(
 			encodeShare({
-				projectId: "p1",
-				selections: [],
-				projectName: "x".repeat(MAX_NAME_LENGTH + 1),
-				project: [entry("t1")],
 				openId: "t1",
+				project: [entry("t1")],
+				projectId: "p1",
+				projectName: "x".repeat(MAX_NAME_LENGTH + 1),
+				selections: [],
 			}),
 		).rejects.toThrow()
 	})

@@ -52,8 +52,8 @@ let {
 </script>
 
 <aside
-	class="area-project flex min-h-0 flex-col bg-surface lg:border-l lg:border-line"
 	aria-label="Project"
+	class="area-project flex min-h-0 flex-col bg-surface lg:border-l lg:border-line"
 >
 	<header
 		class="flex shrink-0 items-center justify-between gap-2 border-b border-line-soft px-3 py-2"
@@ -62,11 +62,11 @@ let {
 			Projects
 		</h2>
 		<button
-			type="button"
-			onclick={onCreateProject}
-			title="New project"
 			aria-label="New project"
 			class="btn px-1.5 py-0.5 text-xs"
+			onclick={onCreateProject}
+			title="New project"
+			type="button"
 		>
 			<span class="pr-1">+</span>
 			New
@@ -75,14 +75,14 @@ let {
 
 	<div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
 		<ProjectList
-			{projects}
 			{currentProjectId}
 			{focusNameId}
+			{onNameFocused}
+			{onRemoveProject}
 			{onRenameProject}
 			{onReorderProjects}
 			{onSelectProject}
-			{onRemoveProject}
-			{onNameFocused}
+			{projects}
 		/>
 
 		<span class="text-xs uppercase tracking-wide text-neutral-400">
@@ -96,10 +96,10 @@ let {
 		{#key currentProjectId}
 			<ProjectEntries
 				entries={projectEntries}
-				{submittedId}
 				{onLoad}
 				{onRemoveTimelapse}
 				{onReorderProject}
+				{submittedId}
 			/>
 		{/key}
 
@@ -109,12 +109,12 @@ let {
 			</p>
 		{/if}
 
-		<TimelapseAddForm {submittedId} {loadError} {onLoad} />
+		<TimelapseAddForm {loadError} {onLoad} {submittedId} />
 
 		{#if storageError}
 			<p
-				role="alert"
 				class="border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-xs text-amber-300"
+				role="alert"
 			>
 				{storageError}
 			</p>
@@ -149,16 +149,16 @@ let {
 	:global(.project-row .row-action),
 	:global(.selection-row .row-action) {
 		width: 0;
+		padding-right: 0;
+		padding-left: 0;
 		/* Pull the collapsed button over the row's gap. */
 		margin-left: -0.5rem;
-		padding-left: 0;
-		padding-right: 0;
+		overflow: hidden;
+		pointer-events: none;
+		border-right-width: 0;
 		/* Keep the top/bottom border so the row height stays constant. */
 		border-left-width: 0;
-		border-right-width: 0;
-		overflow: hidden;
 		opacity: 0;
-		pointer-events: none;
 	}
 
 	:global(.project-row:hover .row-action),
@@ -166,13 +166,13 @@ let {
 	:global(.selection-row:hover .row-action),
 	:global(.selection-row:focus-within .row-action) {
 		width: 1.5rem;
-		margin-left: 0;
-		padding-left: 0.375rem;
 		padding-right: 0.375rem;
-		border-left-width: 1px;
-		border-right-width: 1px;
-		opacity: 1;
+		padding-left: 0.375rem;
+		margin-left: 0;
 		pointer-events: auto;
+		border-right-width: 1px;
+		border-left-width: 1px;
+		opacity: 1;
 	}
 }
 

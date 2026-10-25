@@ -99,13 +99,6 @@ function closeMenu(restoreFocus = false) {
 >
 	{#each projects as project (project.id)}
 		<li
-			animate:flip={{ duration: 180 }}
-			in:fly={rowTransition}
-			out:fly={rowTransition}
-			oncontextmenu={event => openMenu(event, project)}
-			draggable={projects.length > 1 && renamingId !== project.id}
-			ondragstart={event => reorder.startDrag(event, project.id)}
-			ondragend={reorder.endDrag}
 			class={[
 				"project-row -mx-1.5 flex items-center gap-1 border-b border-l-2 border-line-soft px-1.5 py-0.5 transition-colors hover:bg-neutral-800/40",
 				project.id === currentProjectId
@@ -116,14 +109,21 @@ function closeMenu(restoreFocus = false) {
 					? "cursor-grab active:cursor-grabbing"
 					: "",
 			]}
+			draggable={projects.length > 1 && renamingId !== project.id}
+			oncontextmenu={event => openMenu(event, project)}
+			ondragend={reorder.endDrag}
+			ondragstart={event => reorder.startDrag(event, project.id)}
+			in:fly={rowTransition}
+			out:fly={rowTransition}
+			animate:flip={{ duration: 180 }}
 		>
 			{#if renamingId === project.id}
 				<input
-					type="text"
-					value={project.name}
+					aria-label="Project name"
+					class="field flex-1 px-1.5 py-0.5 font-medium text-primary-300"
+					onblur={() => stopRename(project.id)}
 					onchange={e =>
 						commitRename(project.id, e.currentTarget.value)}
-					onblur={() => stopRename(project.id)}
 					onkeydown={e => {
 						if (e.key === "Escape") {
 							e.preventDefault()
@@ -133,18 +133,14 @@ function closeMenu(restoreFocus = false) {
 							commitRename(project.id, e.currentTarget.value)
 						}
 					}}
-					{@attach focusNameField}
 					placeholder={DEFAULT_PROJECT_NAME}
 					title={project.name}
-					aria-label="Project name"
-					class="field flex-1 px-1.5 py-0.5 font-medium text-primary-300"
+					type="text"
+					value={project.name}
+					{@attach focusNameField}
 				>
 			{:else}
 				<button
-					type="button"
-					onclick={() => onSelectProject(project.id)}
-					onkeydown={reorder.itemKeydown(project.id)}
-					title="{project.name} (drag to reorder)"
 					class={[
 						"min-w-0 flex-1 truncate px-1.5 py-0.5 text-left transition-colors",
 						projects.length > 1
@@ -154,6 +150,10 @@ function closeMenu(restoreFocus = false) {
 							? "font-medium text-primary-300"
 							: "text-neutral-300 hover:text-white",
 					]}
+					onclick={() => onSelectProject(project.id)}
+					onkeydown={reorder.itemKeydown(project.id)}
+					title="{project.name} (drag to reorder)"
+					type="button"
 				>
 					{project.name}
 				</button>
@@ -165,17 +165,17 @@ function closeMenu(restoreFocus = false) {
 {#if menu}
 	{const current = menu}
 	<ContextMenu
-		x={current.x}
-		y={current.y}
-		label="{current.name} actions"
-		onClose={closeMenu}
 		items={[
 			{ label: "Rename", onSelect: () => startRename(current.id) },
 			{
-				label: "Delete project",
 				danger: true,
+				label: "Delete project",
 				onSelect: () => onRemoveProject(current.id),
 			},
 		]}
+		label="{current.name} actions"
+		onClose={closeMenu}
+		x={current.x}
+		y={current.y}
 	/>
 {/if}

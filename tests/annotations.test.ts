@@ -39,20 +39,20 @@ test("selectionColors maps a reason to its palette and falls back to neutral", (
 
 describe("idle maths", () => {
 	test("nonIdleDuration excludes overlapping idle ranges", () => {
-		const selection: TimelineSelection = { id: "s1", start: 0, end: 10 }
-		expect(nonIdleDuration(selection, [{ start: 2, end: 4 }])).toBe(8)
+		const selection: TimelineSelection = { end: 10, id: "s1", start: 0 }
+		expect(nonIdleDuration(selection, [{ end: 4, start: 2 }])).toBe(8)
 		expect(nonIdleDuration(selection, [])).toBe(10)
 	})
 	test("idle seconds convert to recorded time", () => {
 		const ranges: IdleRange[] = [
-			{ start: 0, end: 2 },
-			{ start: 4, end: 5 },
+			{ end: 2, start: 0 },
+			{ end: 5, start: 4 },
 		]
 		expect(idlePlaybackSeconds(ranges)).toBe(3)
 		expect(idleRecordedSeconds(ranges)).toBe(3 * PLAYBACK_TO_RECORDED)
 	})
 	test("effectiveIdleRanges hides ranges when idle is ignored", () => {
-		const ranges = [{ start: 0, end: 1 }]
+		const ranges = [{ end: 1, start: 0 }]
 		expect(effectiveIdleRanges(true, ranges)).toEqual([])
 		expect(effectiveIdleRanges(false, ranges)).toEqual(ranges)
 	})
@@ -61,10 +61,10 @@ describe("idle maths", () => {
 describe("selectionDeflation", () => {
 	test("deflates by the reason's fraction, in recorded seconds", () => {
 		const selection: TimelineSelection = {
-			id: "s1",
-			start: 0,
 			end: 10,
+			id: "s1",
 			reason: "plan",
+			start: 0,
 		}
 		// "plan" removes half the non-idle length, scaled to recorded time.
 		expect(selectionDeflation(selection, [])).toBe(
@@ -72,10 +72,10 @@ describe("selectionDeflation", () => {
 		)
 	})
 	test("ignores unreasoned or unknown selections", () => {
-		expect(selectionDeflation({ id: "s1", start: 0, end: 10 }, [])).toBe(0)
+		expect(selectionDeflation({ end: 10, id: "s1", start: 0 }, [])).toBe(0)
 		expect(
 			selectionDeflation(
-				{ id: "s1", start: 0, end: 10, reason: "nope" },
+				{ end: 10, id: "s1", reason: "nope", start: 0 },
 				[],
 			),
 		).toBe(0)
@@ -86,13 +86,13 @@ describe("deflationByReason", () => {
 	test("groups removed time by reason, skipping empty ones", () => {
 		expect(
 			deflationByReason(
-				[{ id: "s1", start: 0, end: 5, reason: "invalid" }],
+				[{ end: 5, id: "s1", reason: "invalid", start: 0 }],
 				[],
 			),
-		).toEqual([{ reason: "invalid", duration: 5 * PLAYBACK_TO_RECORDED }])
+		).toEqual([{ duration: 5 * PLAYBACK_TO_RECORDED, reason: "invalid" }])
 	})
 	test("returns nothing when no selection deflates", () => {
-		expect(deflationByReason([{ id: "s1", start: 0, end: 5 }], [])).toEqual(
+		expect(deflationByReason([{ end: 5, id: "s1", start: 0 }], [])).toEqual(
 			[],
 		)
 	})
@@ -101,8 +101,8 @@ describe("deflationByReason", () => {
 describe("describeTimelapse", () => {
 	test("reports the original time and no deflation", () => {
 		const text = describeTimelapse({
-			id: "abc",
 			duration: 120,
+			id: "abc",
 			idleRanges: [],
 			selections: [],
 		})
@@ -111,10 +111,10 @@ describe("describeTimelapse", () => {
 	})
 	test("mentions idle and annotated stretches", () => {
 		const text = describeTimelapse({
-			id: "abc",
 			duration: 120,
-			idleRanges: [{ start: 10, end: 12 }],
-			selections: [{ id: "s1", start: 20, end: 22, reason: "plan" }],
+			id: "abc",
+			idleRanges: [{ end: 12, start: 10 }],
+			selections: [{ end: 22, id: "s1", reason: "plan", start: 20 }],
 		})
 		expect(text).toContain("spent idle")
 		expect(text).toContain("spent planning")

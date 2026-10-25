@@ -35,11 +35,11 @@ export class TimelineViewport {
 	 * Wheel-zoom animates through a spring so scroll-zoom glides instead of stepping; drags set it instantly so they stay locked to the pointer.
 	 */
 	#spring = new Spring<ViewWindow>(
-		{ start: 0, end: 0 },
+		{ end: 0, start: 0 },
 		{
-			stiffness: 0.4,
 			damping: 0.85,
 			precision: 0.001,
+			stiffness: 0.4,
 		},
 	)
 	view = $derived(this.#spring.current)
@@ -51,7 +51,7 @@ export class TimelineViewport {
 		// Reset the visible window to the whole video whenever the source changes.
 		$effect(() => {
 			this.#options.src()
-			this.#spring.set({ start: 0, end: 0 }, { instant: true })
+			this.#spring.set({ end: 0, start: 0 }, { instant: true })
 		})
 	}
 
@@ -142,7 +142,7 @@ export class TimelineViewport {
 			Math.max(0, duration - span),
 		)
 		this.#spring.set(
-			{ start, end: start + span },
+			{ end: start + span, start },
 			{ instant: prefersReducedMotion.current },
 		)
 		return anchor

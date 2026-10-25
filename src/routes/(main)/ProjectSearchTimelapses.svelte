@@ -23,14 +23,14 @@ const scrollBehavior = $derived(
 	prefersReducedMotion.current ? "auto" : "smooth",
 )
 const paneTransition = $derived(
-	prefersReducedMotion.current ? { duration: 0 } : { x: 16, duration: 200 },
+	prefersReducedMotion.current ? { duration: 0 } : { duration: 200, x: 16 },
 )
 
 function scrollTimelapseIntoView(node: HTMLDivElement) {
 	if (entries.length === 0) return
 	node.children[active]?.scrollIntoView({
-		block: "nearest",
 		behavior: scrollBehavior,
+		block: "nearest",
 	})
 }
 </script>
@@ -40,29 +40,29 @@ function scrollTimelapseIntoView(node: HTMLDivElement) {
 	transition:fly={paneTransition}
 >
 	<div
-		class="min-h-0 overflow-y-auto py-1"
-		role="listbox"
-		id="search-timelapses-list"
 		aria-label="Timelapses"
+		class="min-h-0 overflow-y-auto py-1"
+		id="search-timelapses-list"
+		role="listbox"
 		{@attach scrollTimelapseIntoView}
 	>
 		{#each entries as entry, index (entry.id)}
 			<button
-				type="button"
-				role="option"
-				id="search-timelapse-{index}"
-				tabindex="-1"
 				aria-selected={index === active}
-				onclick={() => onOpen(entry.id)}
-				onpointermove={() => {
-					if (active !== index) onHover(index)
-				}}
 				class={[
 					"flex w-full cursor-pointer items-center justify-between gap-3 border-l-2 border-l-transparent px-3 py-2 text-left text-sm transition-colors",
 					index === active
 						? "border-l-primary-500 bg-primary-600/20"
 						: "hover:bg-neutral-800/40",
 				]}
+				id="search-timelapse-{index}"
+				onclick={() => onOpen(entry.id)}
+				onpointermove={() => {
+					if (active !== index) onHover(index)
+				}}
+				role="option"
+				tabindex="-1"
+				type="button"
 			>
 				<span
 					class={[

@@ -132,11 +132,11 @@ export class ReviewSession {
 			const entries = $state.snapshot(this.#options.project())
 			if (!this.#options.projectLoaded() || !this.loaded) return
 			this.#queueShare({
-				projectId,
 				id,
-				selections: value,
-				projectName: name,
 				project: entries,
+				projectId,
+				projectName: name,
+				selections: value,
 			})
 		})
 
@@ -195,11 +195,11 @@ export class ReviewSession {
 				let encoded: string
 				try {
 					encoded = await this.#encodeShare({
-						projectId: state.projectId,
-						selections: state.selections,
-						projectName: state.projectName,
-						project: state.project,
 						openId: state.id,
+						project: state.project,
+						projectId: state.projectId,
+						projectName: state.projectName,
+						selections: state.selections,
 					})
 				} catch {
 					if (
@@ -238,8 +238,8 @@ export class ReviewSession {
 			return
 		await this.#navigate(target, {
 			replace: true,
-			shallow: true,
 			reset: false,
+			shallow: true,
 		})
 	}
 

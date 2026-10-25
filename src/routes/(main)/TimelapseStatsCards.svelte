@@ -48,8 +48,8 @@ let {
 		</p>
 		{#if idleAnalyzing && !ignoreIdle}
 			<p
-				role="status"
 				class="flex items-center gap-1.5 pt-0.5 text-xs text-amber-400"
+				role="status"
 			>
 				<span
 					class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-400 motion-reduce:animate-none"
@@ -62,8 +62,8 @@ let {
 					class="flex items-center gap-1.5 pt-0.5 text-xs text-neutral-400"
 				>
 					<span
-						class="h-1.5 w-1.5 bg-amber-400"
 						aria-hidden="true"
+						class="h-1.5 w-1.5 bg-amber-400"
 					></span>
 					-{formatDuration(idleDuration)}
 					idle
@@ -74,8 +74,8 @@ let {
 					class="flex items-center gap-1.5 pt-0.5 text-xs text-neutral-400"
 				>
 					<span
-						class="h-1.5 w-1.5 bg-red-400"
 						aria-hidden="true"
+						class="h-1.5 w-1.5 bg-red-400"
 					></span>
 					-{formatDuration(annotationDeflation)}
 					annotations

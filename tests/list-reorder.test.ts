@@ -16,7 +16,7 @@ function build(initial: string[]) {
 		() => items,
 		updated => (items = updated),
 	)
-	return { reorder, order: () => ids(items) }
+	return { order: () => ids(items), reorder }
 }
 
 describe("ListReorder.moveTo", () => {
@@ -79,7 +79,7 @@ describe("ListReorder grid targets", () => {
 		const top = row * 90
 		return {
 			id: String(index),
-			rect: { left, top, right: left + 100, bottom: top + 80 },
+			rect: { bottom: top + 80, left, right: left + 100, top },
 		}
 	})
 
@@ -103,8 +103,8 @@ describe("ListReorder grid targets", () => {
 				dataset: { reorderId: stub.id },
 				getBoundingClientRect: () => ({
 					...stub.rect,
-					width: stub.rect.right - stub.rect.left,
 					height: stub.rect.bottom - stub.rect.top,
+					width: stub.rect.right - stub.rect.left,
 				}),
 			}),
 		)
@@ -117,9 +117,9 @@ describe("ListReorder grid targets", () => {
 		})
 
 		return {
-			nodes,
 			hit: (x: number, y: number, node: unknown) =>
 				hits.set(`${x},${y}`, node),
+			nodes,
 		}
 	}
 
@@ -127,8 +127,8 @@ describe("ListReorder grid targets", () => {
 		({
 			clientX: x,
 			clientY: y,
-			preventDefault: () => {},
 			dataTransfer: {},
+			preventDefault: () => {},
 		}) as DragEvent
 
 	test("moves onto the card under the pointer", async () => {

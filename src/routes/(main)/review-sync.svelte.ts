@@ -75,9 +75,9 @@ export class ReviewSync {
 						this.timelapse = timelapse ?? null
 						this.#meta = timelapse
 							? {
+									duration: timelapse.duration,
 									id,
 									name: timelapse.name,
-									duration: timelapse.duration,
 								}
 							: null
 					}
@@ -158,8 +158,8 @@ export class ReviewSync {
 		const name = meta.name?.trim() ?? ""
 		const { duration } = meta
 		const description = describeTimelapse({
-			id,
 			duration,
+			id,
 			idleRanges: ranges,
 			selections: currentSelections,
 		})
@@ -177,20 +177,20 @@ export class ReviewSync {
 			return null
 
 		return {
-			index,
 			entry: {
-				id,
-				name,
-				duration,
-				idleDuration: idle,
 				annotations,
-				ignoreIdle: this.#options.idle.ignoreIdle,
-				idleThreshold: this.#options.idle.threshold,
 				description,
+				duration,
+				id,
+				idleDuration: idle,
+				idleThreshold: this.#options.idle.threshold,
+				ignoreIdle: this.#options.idle.ignoreIdle,
+				name,
 				...(cachedRanges !== undefined
 					? { idleRanges: cachedRanges }
 					: {}),
 			},
+			index,
 		}
 	}
 }

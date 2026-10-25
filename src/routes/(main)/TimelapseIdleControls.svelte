@@ -37,10 +37,10 @@ let {
 				class="flex cursor-pointer items-center gap-1.5 transition-colors hover:text-neutral-200"
 			>
 				<input
-					type="checkbox"
 					checked={ignoreIdle}
-					onchange={e => onToggleIgnoreIdle(e.currentTarget.checked)}
 					class="h-3.5 w-3.5 accent-primary-500"
+					onchange={e => onToggleIgnoreIdle(e.currentTarget.checked)}
+					type="checkbox"
 				>
 				Ignore idle time
 			</label>
@@ -56,15 +56,15 @@ let {
 	{/if}
 	<div class="flex flex-wrap items-center gap-2">
 		<button
-			type="button"
-			onclick={onRecalculateIdle}
-			disabled={idleAnalyzing}
 			class="btn px-1.5 py-0.5 text-xs"
+			disabled={idleAnalyzing}
+			onclick={onRecalculateIdle}
+			type="button"
 		>
 			{#if idleAnalyzing}
 				<span
-					class="h-2.5 w-2.5 animate-spin rounded-full border border-neutral-600 border-t-primary-400 motion-reduce:animate-none"
 					aria-hidden="true"
+					class="h-2.5 w-2.5 animate-spin rounded-full border border-neutral-600 border-t-primary-400 motion-reduce:animate-none"
 				></span>
 				Recalculating…
 			{:else}
@@ -74,30 +74,30 @@ let {
 		<label class="flex items-center gap-1.5">
 			<span>Idle sensitivity</span>
 			<input
-				type="range"
-				min="0"
+				aria-label="Idle detection sensitivity"
+				class="w-24 accent-primary-500"
 				max={IDLE_THRESHOLD_SCALE.length - 1}
-				step="1"
-				value={thresholdIndex}
+				min="0"
 				onchange={e =>
 					onSetIdleThreshold(
 						IDLE_THRESHOLD_SCALE[e.currentTarget.valueAsNumber]
 							?? DEFAULT_IDLE_THRESHOLD,
 					)}
+				step="1"
 				title="Higher values treat more frames as idle"
-				aria-label="Idle detection sensitivity"
-				class="w-24 accent-primary-500"
+				type="range"
+				value={thresholdIndex}
 			>
 			<span class="w-12 text-neutral-300 tabular-nums">
 				{idleThreshold}
 			</span>
 		</label>
 		<button
-			type="button"
-			onclick={onResetIdleThreshold}
-			disabled={idleThreshold === DEFAULT_IDLE_THRESHOLD}
-			title="Reset to the standard sensitivity"
 			class="btn px-1.5 py-0.5 text-xs"
+			disabled={idleThreshold === DEFAULT_IDLE_THRESHOLD}
+			onclick={onResetIdleThreshold}
+			title="Reset to the standard sensitivity"
+			type="button"
 		>
 			Reset
 		</button>

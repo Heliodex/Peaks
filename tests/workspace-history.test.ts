@@ -22,14 +22,14 @@ const MAX_PERSISTED_BYTES = 1_500_000
 const timelapse = (
 	overrides: Partial<ProjectTimelapse> = {},
 ): ProjectTimelapse => ({
-	id: "t1",
-	name: "Timelapse",
-	duration: 120,
-	idleDuration: 0,
 	annotations: [],
-	ignoreIdle: false,
-	idleThreshold: 0.005,
 	description: "",
+	duration: 120,
+	id: "t1",
+	idleDuration: 0,
+	idleThreshold: 0.005,
+	ignoreIdle: false,
+	name: "Timelapse",
 	...overrides,
 })
 
@@ -42,9 +42,9 @@ const project = (
 const snapshot = (
 	overrides: Partial<WorkspaceSnapshot> = {},
 ): WorkspaceSnapshot => ({
-	projects: [project("p1", "Project")],
 	currentProjectId: "p1",
 	openId: "t1",
+	projects: [project("p1", "Project")],
 	selections: [],
 	...overrides,
 })
@@ -52,10 +52,10 @@ const snapshot = (
 const selection = (
 	overrides: Partial<TimelineSelection> = {},
 ): TimelineSelection => ({
-	id: "s1",
-	start: 0,
 	end: 2,
+	id: "s1",
 	reason: "idle",
+	start: 0,
 	...overrides,
 })
 
@@ -87,8 +87,8 @@ describe("describeChange: projects", () => {
 	})
 	test("switch project", () => {
 		const before = snapshot({
-			projects: [project("p1", "A"), project("p2", "B")],
 			currentProjectId: "p1",
+			projects: [project("p1", "A"), project("p2", "B")],
 		})
 		const after = { ...before, currentProjectId: "p2" }
 		expect(describeChange(before, after)).toBe("Switch project")
@@ -125,7 +125,7 @@ describe("describeChange: selections", () => {
 		expect(describeChange(one, snapshot())).toBe("Remove selection")
 	})
 	test("move keeps the length", () => {
-		const moved = withSelection(selection({ start: 1, end: 3 }))
+		const moved = withSelection(selection({ end: 3, start: 1 }))
 		expect(describeChange(withSelection(selection()), moved)).toBe(
 			"Move selection",
 		)
@@ -138,7 +138,7 @@ describe("describeChange: selections", () => {
 	})
 	test("changing the reason wins over the position", () => {
 		const reannoted = withSelection(
-			selection({ start: 1, end: 3, reason: "plan" }),
+			selection({ end: 3, reason: "plan", start: 1 }),
 		)
 		expect(describeChange(withSelection(selection()), reannoted)).toBe(
 			"Change annotation",
@@ -166,7 +166,7 @@ describe("describeChange: idle overrides", () => {
 		expect(
 			describeChange(
 				snapshot(),
-				withEntry({ idleRanges: [{ start: 1, end: 2 }] }),
+				withEntry({ idleRanges: [{ end: 2, start: 1 }] }),
 			),
 		).toBe("Recalculate idle time")
 	})
@@ -186,17 +186,17 @@ function chain(
 	for (let i = 0; i < count; i++) {
 		const id = `h${i}`
 		nodes[id] = {
-			id,
-			seq: i,
-			label: "Resize selection",
-			snapshot: makeSnapshot(i),
-			parent,
 			children: [],
+			id,
+			label: "Resize selection",
+			parent,
+			seq: i,
+			snapshot: makeSnapshot(i),
 		}
 		if (parent) nodes[parent] = { ...nodes[parent], children: [id] }
 		parent = id
 	}
-	return { nodes, currentId: parent ?? "" }
+	return { currentId: parent ?? "", nodes }
 }
 
 /** A snapshot whose persisted size is dominated by its idle ranges. */
@@ -206,8 +206,8 @@ function bulkySnapshot(
 ): WorkspaceSnapshot {
 	const entries = Array.from({ length: entryCount }, (_, e) => {
 		const idleRanges = Array.from({ length: rangeCount }, (_, i) => ({
-			start: i * 3.13,
 			end: i * 3.13 + 1.5,
+			start: i * 3.13,
 		}))
 		return timelapse({ id: `t${e}`, idleRanges })
 	})
@@ -286,8 +286,8 @@ test("WorkspaceHistory defers persisted restoration until mount", () => {
 		const { nodes, currentId } = chain(2, () => snapshot())
 		saveHistory(nodes, currentId, 2)
 		const history = new WorkspaceHistory({
-			read: () => snapshot(),
 			apply: () => {},
+			read: () => snapshot(),
 		})
 
 		expect(history.nodes).toEqual({})
@@ -323,7 +323,7 @@ describe("loadHistory: persisted validation", () => {
 		nodes.h0 = { ...nodes.h0, children: [] }
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ nodes, currentId, nextId: 2 }),
+			JSON.stringify({ currentId, nextId: 2, nodes }),
 		)
 
 		expect(loadHistory()).toBeNull()
@@ -332,10 +332,10 @@ describe("loadHistory: persisted validation", () => {
 	test("rejects cycles and disconnected nodes", () => {
 		const { nodes } = chain(2, () => snapshot())
 		nodes.h0 = { ...nodes.h0, children: [] }
-		nodes.h1 = { ...nodes.h1, parent: "h1", children: ["h1"] }
+		nodes.h1 = { ...nodes.h1, children: ["h1"], parent: "h1" }
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ nodes, currentId: "h1", nextId: 2 }),
+			JSON.stringify({ currentId: "h1", nextId: 2, nodes }),
 		)
 
 		expect(loadHistory()).toBeNull()
@@ -344,11 +344,11 @@ describe("loadHistory: persisted validation", () => {
 	test("rejects malformed nested snapshots", () => {
 		const nodes = {
 			h0: {
+				children: [],
 				id: "h0",
-				seq: 0,
 				label: "Session start",
 				parent: null,
-				children: [],
+				seq: 0,
 				snapshot: {
 					...snapshot(),
 					projects: [{ id: "p1", name: "Project", timelapses: [{}] }],
@@ -357,7 +357,7 @@ describe("loadHistory: persisted validation", () => {
 		}
 		localStorage.setItem(
 			STORAGE_KEY,
-			JSON.stringify({ nodes, currentId: "h0", nextId: 1 }),
+			JSON.stringify({ currentId: "h0", nextId: 1, nodes }),
 		)
 
 		expect(loadHistory()).toBeNull()

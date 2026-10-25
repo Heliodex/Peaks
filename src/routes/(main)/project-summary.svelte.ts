@@ -32,7 +32,6 @@ export class ProjectSummary {
 		}
 		// Keep catalog order so the breakdown stays stable as entries change.
 		const annotations = ANNOTATION_REASONS.map(reason => ({
-			reason,
 			duration: this.#entries().reduce(
 				(sum, entry) =>
 					sum
@@ -44,17 +43,18 @@ export class ProjectSummary {
 						),
 				0,
 			),
+			reason,
 		})).filter(entry => entry.duration > 0)
 		const annotationDeflation = annotations.reduce(
 			(sum, annotation) => sum + annotation.duration,
 			0,
 		)
 		return {
-			recorded,
-			idle,
 			annotations,
 			deducted: idle + annotationDeflation,
 			final,
+			idle,
+			recorded,
 		}
 	}
 

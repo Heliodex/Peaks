@@ -286,7 +286,7 @@ function createVideoSampler(
 		return el.duration
 	}
 
-	return { duration, ensure, seek, discard }
+	return { discard, duration, ensure, seek }
 }
 
 /** Read a frame at `target` into a fresh pixel buffer. */
@@ -354,8 +354,8 @@ async function scanIdleFrames(
 			&& frameDifference(previous, sample) <= threshold
 		) {
 			intervals.push({
-				start: times[i - 1] + frameDuration,
 				end: times[i] + frameDuration,
+				start: times[i - 1] + frameDuration,
 			})
 			previousIdle = true
 		} else previousIdle = false
@@ -420,10 +420,10 @@ export function analyzeIdle(
 		.finally(() => sampler.discard())
 
 	return {
-		promise: settled,
 		cancel: () => {
 			cancelled = true
 			sampler.discard()
 		},
+		promise: settled,
 	}
 }

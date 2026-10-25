@@ -9,8 +9,8 @@ import {
 const validToken = {
 	access_token: "access-token",
 	expires_in: 3600,
-	token_type: "Bearer",
 	scope: "user:read",
+	token_type: "Bearer",
 }
 
 describe("Lapse token handling", () => {

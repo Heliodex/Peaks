@@ -55,21 +55,21 @@ const workspace = new ProjectWorkspace(closeTimelapse)
 
 // The review session owns the open timelapse's selections and the URL sync.
 const session = new ReviewSession({
-	routeParam: () => routeParam,
-	projectId: () => workspace.activeProjectId,
-	projectName: () => workspace.projectName,
-	project: () => workspace.projectEntries,
-	projectLoaded: () => workspace.projectLoaded,
 	onDecoded: decoded => workspace.importSharedProject(decoded),
 	onResetIdle: () => idleState.reset(),
 	onStorageError: failed =>
 		workspace.reportStorageError("selections", failed),
+	project: () => workspace.projectEntries,
+	projectId: () => workspace.activeProjectId,
+	projectLoaded: () => workspace.projectLoaded,
+	projectName: () => workspace.projectName,
+	routeParam: () => routeParam,
 })
 
 // The open timelapse's idle analysis and per-entry overrides.
 const idleState = new ReviewIdle({
-	openId: () => session.submittedId,
 	entries: () => workspace.projectEntries,
+	openId: () => session.submittedId,
 	updateProject: update => workspace.updateCurrentProject(update),
 })
 
@@ -94,13 +94,13 @@ function applySnapshot(snapshot: WorkspaceSnapshot) {
 
 // Whole-workspace undo/redo. Global settings are intentionally left out of the tracked state.
 const history = new WorkspaceHistory({
+	apply: applySnapshot,
 	read: () => ({
-		projects: $state.snapshot(workspace.projects) as Project[],
 		currentProjectId: workspace.currentProjectId,
 		openId: session.submittedId,
+		projects: $state.snapshot(workspace.projects) as Project[],
 		selections: $state.snapshot(session.selections) as TimelineSelection[],
 	}),
-	apply: applySnapshot,
 })
 
 // Ask the history to record whenever any tracked slice changes, once everything has loaded.
@@ -285,43 +285,43 @@ function toggleFullscreen() {
 }
 
 const shortcuts = new ReviewShortcuts({
-	toggleSearch: () => (searchOpen = !searchOpen),
-	hasVideo: () => Boolean(videoEl),
-	toggleFullscreen,
 	createProject: () => workspace.createNewProject(),
 	entries: () => workspace.projectEntries,
-	openId: () => session.submittedId,
+	hasVideo: () => Boolean(videoEl),
 	open: loadId,
-	undo: () => history.undo(),
+	openId: () => session.submittedId,
 	redo: () => history.redo(),
+	toggleFullscreen,
+	toggleSearch: () => (searchOpen = !searchOpen),
+	undo: () => history.undo(),
 })
 
 // Ids added optimistically by the loader that still need confirming by Lapse.
 const pendingAdds = new SvelteSet<string>()
 
 const loader = new TimelapseLoader({
-	openId: () => session.submittedId,
+	clearPendingWrites: () => session.clearPendingWrite(),
 	entries: () => workspace.projectEntries,
+	markPending: id => pendingAdds.add(id),
+	openId: () => session.submittedId,
 	projectId: () => workspace.activeProjectId,
 	projectName: () => workspace.projectName,
 	setError: error => (workspace.loadError = error),
 	updateProject: update => workspace.updateCurrentProject(update),
-	markPending: id => pendingAdds.add(id),
-	clearPendingWrites: () => session.clearPendingWrite(),
 })
 
 onDestroy(() => loader.cancel())
 
 // The project is the single home for every timelapse: opening one adds it (or refreshes its review data), and edits keep its entry in sync.
 const sync = new ReviewSync({
-	openId: () => session.submittedId,
-	loaded: () => session.loaded,
 	entries: () => workspace.projectEntries,
-	selections: () => session.selections,
 	idle: idleState,
+	loaded: () => session.loaded,
+	openId: () => session.submittedId,
 	pendingAdds,
-	updateProject: update => workspace.updateCurrentProject(update),
 	removeEntry: id => removeEntry(id),
+	selections: () => session.selections,
+	updateProject: update => workspace.updateCurrentProject(update),
 })
 
 /**
@@ -389,25 +389,25 @@ const summary = new ProjectSummary({
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<!-- biome-ignore lint/a11y/useSemanticElements: A window splitter is not an <hr>. -->
 	<div
+		aria-label={options.label}
+		aria-orientation={options.orientation}
+		aria-valuemax={Math.round(options.max)}
+		aria-valuemin={Math.round(options.min)}
+		aria-valuenow={Math.round(options.value)}
 		class={[
 			"resize-handle",
 			options.modifier,
 			"hidden hover:bg-primary-500/10 lg:block",
 		]}
-		role="separator"
-		tabindex="0"
-		aria-orientation={options.orientation}
-		aria-label={options.label}
-		aria-valuenow={Math.round(options.value)}
-		aria-valuemin={Math.round(options.min)}
-		aria-valuemax={Math.round(options.max)}
+		onkeydown={options.onkeydown}
 		onpointerdown={event =>
 			beginResize(event, options.orientation, options.onpointerdown)}
-		onpointermove={event => moveGrip(event, options.orientation)}
 		onpointerleave={resetGrip}
-		onkeydown={options.onkeydown}
+		onpointermove={event => moveGrip(event, options.orientation)}
+		role="separator"
+		tabindex="0"
 	>
-		<span class="resize-grip" aria-hidden="true"></span>
+		<span aria-hidden="true" class="resize-grip"></span>
 	</div>
 {/snippet}
 
@@ -416,7 +416,7 @@ const summary = new ProjectSummary({
 		class="area-video flex flex-col items-center justify-center gap-3 p-4 text-center"
 	>
 		{#if loading}
-			<span class="spinner" aria-hidden="true"></span>
+			<span aria-hidden="true" class="spinner"></span>
 		{/if}
 		<p class="text-sm text-neutral-400">{message}</p>
 	</section>
@@ -430,66 +430,66 @@ const summary = new ProjectSummary({
 	style="--left-width: {panes.leftWidth}px; --right-width: {panes.rightWidth}px; --timeline-height: {panes.timelineRowHeight};"
 >
 	<ProjectPane
-		projects={workspace.projects}
 		currentProjectId={workspace.currentProjectId}
 		focusNameId={workspace.focusNameId}
-		projectEntries={workspace.projectEntries}
-		submittedId={session.submittedId}
-		projectTotals={summary.totals}
-		projectDescription={summary.description}
 		loadError={workspace.loadError}
-		storageError={workspace.storageError}
+		onCreateProject={() => workspace.createNewProject()}
 		onLoad={loadId}
+		onNameFocused={() => (workspace.focusNameId = null)}
+		onRemoveProject={id => workspace.removeProject(id)}
 		onRemoveTimelapse={removeEntry}
 		onRenameProject={(id, name) => workspace.renameProject(id, name)}
 		onReorderProject={timelapses =>
 			workspace.reorderCurrentProject(timelapses)}
 		onReorderProjects={projects => workspace.reorderProjects(projects)}
 		onSelectProject={id => workspace.selectProject(id)}
-		onCreateProject={() => workspace.createNewProject()}
-		onRemoveProject={id => workspace.removeProject(id)}
-		onNameFocused={() => (workspace.focusNameId = null)}
+		projectDescription={summary.description}
+		projectEntries={workspace.projectEntries}
+		projects={workspace.projects}
+		projectTotals={summary.totals}
+		storageError={workspace.storageError}
+		submittedId={session.submittedId}
 	/>
 
 	{@render resizeHandle({
-		modifier: "resize-handle-right",
-		orientation: "vertical",
 		label: "Resize project panel",
-		value: panes.rightWidth,
-		min: panes.bounds.right.min,
 		max: panes.bounds.right.max,
-		onpointerdown: panes.startRightResize,
+		min: panes.bounds.right.min,
+		modifier: "resize-handle-right",
 		onkeydown: onRightHandleKeydown,
+		onpointerdown: panes.startRightResize,
+		orientation: "vertical",
+		value: panes.rightWidth,
 	})}
 
 	<ReviewDetails
-		timelapse={sync.timelapse}
 		hasTimelapse={Boolean(session.submittedId)}
-		bind:selections={session.selections}
-		idleRanges={idleState.ranges}
-		idleAnalyzing={idleState.analyzing}
-		ignoreIdle={idleState.ignoreIdle}
-		idleThreshold={idleState.threshold}
-		{justifyTimeline}
-		{seekStep}
 		{history}
-		onToggleIgnoreIdle={value => idleState.setIgnoreIdle(value)}
-		onSetIdleThreshold={value => idleState.setThreshold(value)}
-		onResetIdleThreshold={() => idleState.resetThreshold()}
+		idleAnalyzing={idleState.analyzing}
+		idleRanges={idleState.ranges}
+		idleThreshold={idleState.threshold}
+		ignoreIdle={idleState.ignoreIdle}
+		{justifyTimeline}
 		onRecalculateIdle={() => idleState.recalculate()}
-		onToggleJustifyTimeline={value => (justifyTimeline = value)}
+		onResetIdleThreshold={() => idleState.resetThreshold()}
+		onSetIdleThreshold={value => idleState.setThreshold(value)}
 		onSetSeekStep={setSeekStep}
+		onToggleIgnoreIdle={value => idleState.setIgnoreIdle(value)}
+		onToggleJustifyTimeline={value => (justifyTimeline = value)}
+		{seekStep}
+		timelapse={sync.timelapse}
+		bind:selections={session.selections}
 	/>
 
 	{@render resizeHandle({
-		modifier: "resize-handle-left",
-		orientation: "vertical",
 		label: "Resize timelapse data panel",
-		value: panes.leftWidth,
-		min: panes.bounds.left.min,
 		max: panes.bounds.left.max,
-		onpointerdown: panes.startLeftResize,
+		min: panes.bounds.left.min,
+		modifier: "resize-handle-left",
 		onkeydown: onLeftHandleKeydown,
+		onpointerdown: panes.startLeftResize,
+		orientation: "vertical",
+		value: panes.leftWidth,
 	})}
 
 	{#if session.submittedId}
@@ -508,9 +508,9 @@ const summary = new ProjectSummary({
 							{(error as Error)?.message ?? error}
 						</p>
 						<button
-							type="button"
-							onclick={reset}
 							class="btn btn-primary"
+							onclick={reset}
+							type="button"
 						>
 							Retry
 						</button>
@@ -523,28 +523,28 @@ const summary = new ProjectSummary({
 
 					{#if videoEl && timelapse.playbackUrl}
 						<TimelinePane
+							idleRevision={idleState.revision}
+							idleThreshold={idleState.threshold}
+							ignoreIdle={idleState.ignoreIdle}
 							playbackUrl={timelapse.playbackUrl}
+							{seekStep}
 							thumbnailUrl={timelapse.thumbnailUrl}
 							{videoEl}
-							{seekStep}
-							bind:selections={session.selections}
-							bind:idleRanges={idleState.ranges}
-							bind:idleAnalyzing={idleState.analyzing}
 							bind:idleAnalyzed={idleState.analyzed}
-							idleRevision={idleState.revision}
-							ignoreIdle={idleState.ignoreIdle}
-							idleThreshold={idleState.threshold}
+							bind:idleAnalyzing={idleState.analyzing}
+							bind:idleRanges={idleState.ranges}
+							bind:selections={session.selections}
 						/>
 
 						{@render resizeHandle({
-							modifier: "resize-handle-timeline",
-							orientation: "horizontal",
 							label: "Resize timeline",
-							value: panes.timelineHeight,
-							min: panes.bounds.timeline.min,
 							max: panes.bounds.timeline.max,
-							onpointerdown: panes.startTimelineResize,
+							min: panes.bounds.timeline.min,
+							modifier: "resize-handle-timeline",
 							onkeydown: onTimelineHandleKeydown,
+							onpointerdown: panes.startTimelineResize,
+							orientation: "horizontal",
+							value: panes.timelineHeight,
 						})}
 					{/if}
 				{:else}
@@ -560,9 +560,9 @@ const summary = new ProjectSummary({
 		<ProjectTimelapses
 			entries={workspace.projectEntries}
 			onLoad={loadId}
+			onRemoveTimelapse={removeEntry}
 			onReorder={timelapses =>
 				workspace.reorderCurrentProject(timelapses)}
-			onRemoveTimelapse={removeEntry}
 		/>
 	{:else}
 		{@render centeredState(
@@ -573,12 +573,12 @@ const summary = new ProjectSummary({
 
 {#if searchOpen}
 	<ProjectSearch
-		projects={workspace.projects}
 		currentProjectId={workspace.currentProjectId}
 		currentTimelapseId={session.submittedId}
-		onSelect={id => workspace.selectProject(id)}
-		onLoadTimelapse={openTimelapseFromSearch}
 		onClose={() => (searchOpen = false)}
+		onLoadTimelapse={openTimelapseFromSearch}
+		onSelect={id => workspace.selectProject(id)}
+		projects={workspace.projects}
 	/>
 {/if}
 
@@ -586,10 +586,10 @@ const summary = new ProjectSummary({
 .dashboard {
 	position: relative;
 	display: grid;
+	grid-template-rows: minmax(0, 1fr) var(--timeline-height);
+	grid-template-columns: var(--left-width) minmax(0, 1fr) var(--right-width);
 	height: 100dvh;
 	overflow: hidden;
-	grid-template-columns: var(--left-width) minmax(0, 1fr) var(--right-width);
-	grid-template-rows: minmax(0, 1fr) var(--timeline-height);
 }
 
 .timeline-justified {
@@ -615,9 +615,9 @@ const summary = new ProjectSummary({
 	position: absolute;
 	top: 50%;
 	left: 50%;
-	translate: -50% -50%;
 	background: var(--color-neutral-600);
 	opacity: 0.35;
+	translate: -50% -50%;
 	transition:
 		opacity 120ms ease,
 		background-color 120ms ease;
@@ -626,23 +626,23 @@ const summary = new ProjectSummary({
 /* On the vertical separators the grip tracks the pointer's height (falling back to the centre). */
 .resize-handle-left .resize-grip,
 .resize-handle-right .resize-grip {
+	top: var(--grip-position, 50%);
 	width: 2px;
 	height: 2.5rem;
-	top: var(--grip-position, 50%);
 }
 
 /* On the timeline separator it tracks the pointer's horizontal position instead. */
 .resize-handle-timeline .resize-grip {
+	left: var(--grip-position, 50%);
 	width: 2.5rem;
 	height: 2px;
-	left: var(--grip-position, 50%);
 }
 
 .resize-handle:hover .resize-grip,
 .resize-handle:focus-visible .resize-grip,
 .resize-handle:active .resize-grip {
-	opacity: 1;
 	background: var(--color-primary-500);
+	opacity: 1;
 }
 
 .spinner {
@@ -668,11 +668,11 @@ const summary = new ProjectSummary({
 
 .resize-handle-right {
 	top: 0;
-	bottom: var(--timeline-height);
 	right: var(--right-width);
+	bottom: var(--timeline-height);
 	width: 0.75rem;
-	transform: translateX(50%);
 	cursor: col-resize;
+	transform: translateX(50%);
 }
 
 .resize-handle-left {
@@ -680,22 +680,22 @@ const summary = new ProjectSummary({
 	bottom: var(--timeline-height);
 	left: var(--left-width);
 	width: 0.75rem;
-	transform: translateX(-50%);
 	cursor: col-resize;
+	transform: translateX(-50%);
 }
 
 .resize-handle-timeline {
-	left: 0;
 	right: 0;
 	bottom: var(--timeline-height);
+	left: 0;
 	height: 0.75rem;
-	transform: translateY(50%);
 	cursor: row-resize;
+	transform: translateY(50%);
 }
 
 .timeline-centred .resize-handle-timeline {
-	left: var(--left-width);
 	right: var(--right-width);
+	left: var(--left-width);
 }
 
 :global(.area-project) {
@@ -717,12 +717,12 @@ const summary = new ProjectSummary({
 
 @media (width < 1024px) {
 	.dashboard {
+		grid-template-areas: none;
+		grid-template-rows: none;
+		grid-template-columns: minmax(0, 1fr);
 		height: auto;
 		min-height: 100dvh;
 		overflow: visible;
-		grid-template-columns: minmax(0, 1fr);
-		grid-template-rows: none;
-		grid-template-areas: none;
 	}
 
 	:global(.area-project),

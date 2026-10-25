@@ -6,14 +6,14 @@ const element = (
 	isContentEditable = false,
 ): EventTarget =>
 	({
-		isContentEditable,
 		closest: (selector: string) => (matches(selector) ? {} : null),
+		isContentEditable,
 	}) as unknown as EventTarget
 
 const event = (path: EventTarget[], withComposedPath = true): Event =>
 	({
-		target: path[0] ?? null,
 		composedPath: withComposedPath ? () => path : undefined,
+		target: path[0] ?? null,
 	}) as unknown as Event
 
 describe("DOM event target helpers", () => {
@@ -60,8 +60,8 @@ describe("DOM event target helpers", () => {
 		expect(isInteractiveTarget(event([button], false))).toBe(true)
 		expect(
 			isInteractiveTarget({
-				target: button,
 				composedPath: () => [],
+				target: button,
 			} as unknown as Event),
 		).toBe(true)
 	})

@@ -4,8 +4,8 @@ import type { IdleAnalysisJob, IdleRange } from "#lib/idle-time.js"
 const jobs: Array<{ cancel: () => void }> = []
 const analyzeIdle = mock((): IdleAnalysisJob => {
 	const job = {
-		promise: new Promise<IdleRange[]>(() => {}),
 		cancel: mock(() => {}),
+		promise: new Promise<IdleRange[]>(() => {}),
 	}
 	jobs.push(job)
 	return job
@@ -49,21 +49,21 @@ afterAll(() => {
 describe("idle analysis invalidation", () => {
 	test("cancels an active scan when the review revision changes", () => {
 		const state = {
-			revision: 0,
-			ready: true,
-			src: "video-a",
 			duration: 10,
 			frameRate: 30,
+			ready: true,
+			revision: 0,
+			src: "video-a",
 		}
 		const analysis = new IdleAnalysis({
-			src: () => state.src,
+			analyze: analyzeIdle,
+			cached: () => [],
 			duration: () => state.duration,
 			frameRate: () => state.frameRate,
 			ready: () => state.ready,
-			threshold: () => 0.005,
-			cached: () => [],
 			revision: () => state.revision,
-			analyze: analyzeIdle,
+			src: () => state.src,
+			threshold: () => 0.005,
 		})
 
 		expect(jobs).toHaveLength(1)
@@ -79,8 +79,8 @@ describe("idle analysis invalidation", () => {
 
 	test("ReviewIdle.reset advances the invalidation revision", () => {
 		const idle = new ReviewIdle({
-			openId: () => "",
 			entries: () => [],
+			openId: () => "",
 			updateProject: () => {},
 		})
 		const revision = idle.revision

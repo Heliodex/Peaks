@@ -241,19 +241,19 @@ function buildProjectEntry(
 	// Idle only counts towards the maths when it isn't being ignored.
 	const effectiveRanges = ignore ? [] : (idleRanges ?? [])
 	return {
-		id,
-		name,
-		duration,
-		idleDuration: idleRecordedSeconds(effectiveRanges),
 		annotations: deflationByReason(selections, effectiveRanges),
-		ignoreIdle: ignore,
-		idleThreshold,
 		description: describeTimelapse({
-			id,
 			duration,
+			id,
 			idleRanges: effectiveRanges,
 			selections,
 		}),
+		duration,
+		id,
+		idleDuration: idleRecordedSeconds(effectiveRanges),
+		idleThreshold,
+		ignoreIdle: ignore,
+		name,
 		...(idleRanges !== undefined ? { idleRanges } : {}),
 	}
 }
@@ -270,9 +270,9 @@ function parseSelection(
 	let reasonId: string | undefined
 	if (REASON_ID_SET.has(reason)) reasonId = reason
 	return {
+		end: end / 1000,
 		id: `selection-${index + 1}`,
 		start: start / 1000,
-		end: end / 1000,
 		...(reasonId ? { reason: reasonId } : {}),
 	}
 }
@@ -295,7 +295,7 @@ function parseIdleTuple(value: unknown, duration: number): IdleRange | null {
 	if (!idleTupleSchema.allows(value)) return null
 	const [start, end] = value as ShareIdleTuple
 	return isValidRange(start, end, Math.round(duration * 1000))
-		? { start: start / 1000, end: end / 1000 }
+		? { end: end / 1000, start: start / 1000 }
 		: null
 }
 
@@ -434,14 +434,14 @@ function parsePayloadParts(
 		return null
 
 	return {
-		state: {
-			projectId,
-			selections,
-			projectName,
-			project: entries,
-			openId,
-		},
 		selections: selectionsById,
+		state: {
+			openId,
+			project: entries,
+			projectId,
+			projectName,
+			selections,
+		},
 	}
 }
 

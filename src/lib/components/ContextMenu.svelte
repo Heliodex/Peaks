@@ -1,4 +1,4 @@
-<script module lang="ts">
+<script lang="ts" module>
 export type ContextMenuItem = {
 	label: string
 	/** Style the item as destructive. */
@@ -13,7 +13,7 @@ export type ContextMenuItem = {
 }
 
 /** Fallback size of a two-item menu, used to keep it inside the viewport. */
-export const CONTEXT_MENU_SIZE = { width: 176, height: 62 }
+export const CONTEXT_MENU_SIZE = { height: 62, width: 176 }
 
 /** Position a context menu at the pointer, or beside the row when the event came from the keyboard. */
 export function contextMenuPosition(
@@ -105,15 +105,15 @@ $effect(() => {
 </script>
 
 <div
-	bind:this={menuEl}
+	aria-label={label}
 	class="fixed z-50 flex min-w-44 flex-col border border-line bg-surface-raised py-0.5 shadow-2xl shadow-black/60"
-	style:left="{x}px"
-	style:top="{y}px"
+	oncontextmenu={event => event.preventDefault()}
+	onkeydown={onKeydown}
 	role="menu"
 	tabindex="-1"
-	aria-label={label}
-	onkeydown={onKeydown}
-	oncontextmenu={event => event.preventDefault()}
+	bind:this={menuEl}
+	style:left="{x}px"
+	style:top="{y}px"
 >
 	{#each items as item (item.label)}
 		{const itemClass = [
@@ -124,28 +124,28 @@ $effect(() => {
 		]}
 		{#if item.href}
 			<a
+				class={itemClass}
 				href={item.href}
-				target="_blank"
-				rel="noopener noreferrer"
-				role="menuitem"
 				onclick={() => {
 					item.onSelect?.()
 					onClose()
 				}}
-				class={itemClass}
+				rel="noopener noreferrer"
+				role="menuitem"
+				target="_blank"
 			>
 				{item.label}
 			</a>
 		{:else}
 			<button
-				type="button"
-				role="menuitem"
 				aria-current={item.active ? "true" : undefined}
+				class={itemClass}
 				onclick={() => {
 					item.onSelect?.()
 					onClose()
 				}}
-				class={itemClass}
+				role="menuitem"
+				type="button"
 			>
 				{#if item.markerClass}
 					<span

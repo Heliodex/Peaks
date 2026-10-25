@@ -53,7 +53,7 @@ function openMenu(event: MouseEvent, entry: ProjectTimelapse) {
 	menu = {
 		id: entry.id,
 		name: entry.name || entry.id,
-		...contextMenuPosition(event, { width: 176, height: 96 }),
+		...contextMenuPosition(event, { height: 96, width: 176 }),
 	}
 }
 
@@ -78,13 +78,6 @@ function copyId(id: string, x: number, y: number) {
 		{const finalDuration = entryFinalDuration(entry)}
 		{const reduced = finalDuration < entry.duration}
 		<li
-			animate:flip={{ duration: 180 }}
-			in:fly={rowTransition}
-			out:fly={rowTransition}
-			oncontextmenu={event => openMenu(event, entry)}
-			draggable={entries.length > 1}
-			ondragstart={event => reorder.startDrag(event, entry.id)}
-			ondragend={reorder.endDrag}
 			class={[
 				"entry-row group -mx-1.5 flex items-stretch gap-1 border-b border-l-2 border-line-soft px-1.5 transition-colors hover:bg-neutral-800/40",
 				entry.id === submittedId
@@ -93,12 +86,15 @@ function copyId(id: string, x: number, y: number) {
 				reorder.draggingId === entry.id ? "opacity-50" : "",
 				entries.length > 1 ? "cursor-grab active:cursor-grabbing" : "",
 			]}
+			draggable={entries.length > 1}
+			oncontextmenu={event => openMenu(event, entry)}
+			ondragend={reorder.endDrag}
+			ondragstart={event => reorder.startDrag(event, entry.id)}
+			in:fly={rowTransition}
+			out:fly={rowTransition}
+			animate:flip={{ duration: 180 }}
 		>
 			<button
-				type="button"
-				onclick={() => onLoad(entry.id)}
-				onkeydown={reorder.itemKeydown(entry.id)}
-				title="{entry.name || entry.id} (drag to reorder)"
 				aria-current={entry.id === submittedId ? "true" : undefined}
 				class={[
 					"flex min-w-0 flex-1 flex-col justify-center py-1 pr-1 pl-1.5 text-left",
@@ -106,6 +102,10 @@ function copyId(id: string, x: number, y: number) {
 						? "cursor-grab active:cursor-grabbing"
 						: "cursor-pointer",
 				]}
+				onclick={() => onLoad(entry.id)}
+				onkeydown={reorder.itemKeydown(entry.id)}
+				title="{entry.name || entry.id} (drag to reorder)"
+				type="button"
 			>
 				<span
 					class={[
@@ -141,45 +141,45 @@ function copyId(id: string, x: number, y: number) {
 {#if menu}
 	{const current = menu}
 	<ContextMenu
-		x={current.x}
-		y={current.y}
-		label="{current.name} actions"
-		onClose={closeMenu}
 		items={[
 			{
-				label: "Open in Lapse",
 				href: `https://lapse.hackclub.com/timelapse/${encodeURIComponent(current.id)}`,
+				label: "Open in Lapse",
 			},
 			{
 				label: "Copy ID",
 				onSelect: () => copyId(current.id, current.x, current.y),
 			},
 			{
-				label: "Delete from project",
 				danger: true,
+				label: "Delete from project",
 				onSelect: () => onRemoveTimelapse(current.id),
 			},
 		]}
+		label="{current.name} actions"
+		onClose={closeMenu}
+		x={current.x}
+		y={current.y}
 	/>
 {/if}
 
 {#if clipboard.copied && copiedAt}
 	<div
-		role="status"
 		class="pointer-events-none fixed z-50 flex items-center gap-1.5 border border-primary-500/40 bg-surface-raised px-3 py-1.5 text-sm text-primary-300 shadow-2xl shadow-black/60"
+		role="status"
 		style:left="{copiedAt.x}px"
 		style:top="{copiedAt.y}px"
 		transition:fade={{ duration: prefersReducedMotion.current ? 0 : 150 }}
 	>
 		<svg
+			aria-hidden="true"
 			class="h-3 w-3"
-			viewBox="0 0 16 16"
 			fill="none"
 			stroke="currentColor"
-			stroke-width="2"
 			stroke-linecap="round"
 			stroke-linejoin="round"
-			aria-hidden="true"
+			stroke-width="2"
+			viewBox="0 0 16 16"
 		>
 			<path d="M3 8.5 6.5 12 13 4.5" />
 		</svg>

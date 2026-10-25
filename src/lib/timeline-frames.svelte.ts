@@ -56,8 +56,8 @@ const hydrated = new SvelteSet<string>()
 
 // Shared, reactive store of thumbnails per video source. Re-inserting on write keeps the cache in least-recently-used order; eviction also forgets the source's persisted thumbnails so storage stays in step with memory.
 const frameCache = createObjectUrlCache<CachedFrame[]>({
-	max: MAX_CACHED_SOURCES,
 	kind: THUMBNAIL_KIND,
+	max: MAX_CACHED_SOURCES,
 	urls: frames => frames.map(frame => frame.url),
 })
 
@@ -120,10 +120,10 @@ function layoutFrames(
 		const left = percentWithin(frame.time, view)
 		const right = next ? percentWithin(next.time, view) : 100
 		return {
-			time: frame.time,
-			url: frame.url,
 			fresh: frame.fresh,
 			left,
+			time: frame.time,
+			url: frame.url,
 			width: Math.max(0, right - left),
 		}
 	})
@@ -168,7 +168,7 @@ async function hydrate(source: string) {
 			)
 				continue
 
-			merged.push({ time, url: URL.createObjectURL(blob), fresh: false })
+			merged.push({ fresh: false, time, url: URL.createObjectURL(blob) })
 		}
 		merged.sort((a, b) => a.time - b.time)
 		if (merged.length <= FRAME_CACHE_LIMIT) {
@@ -324,7 +324,7 @@ export class FrameStrip {
 		const { source, time } = job
 		const candidates = [
 			...framesFor(source),
-			{ time, url: captured.url, fresh: true },
+			{ fresh: true, time, url: captured.url },
 		]
 		let next = candidates
 		if (candidates.length > FRAME_CACHE_LIMIT) {
@@ -425,7 +425,7 @@ export class FrameStrip {
 			step,
 			this.#options.duration(),
 			time => this.#isCached(url, time),
-		).map(time => ({ source: url, generation, time }))
+		).map(time => ({ generation, source: url, time }))
 		void this.#runQueue()
 	}
 

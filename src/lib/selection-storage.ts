@@ -21,9 +21,9 @@ function parseSelection(value: unknown): TimelineSelection | null {
 		return null
 
 	return {
+		end,
 		id,
 		start,
-		end,
 		...(typeof reason === "string" ? { reason } : {}),
 	}
 }

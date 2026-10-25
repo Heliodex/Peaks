@@ -5,7 +5,7 @@ type Meta = { name: string; duration: number }
 
 const getTimelapse = mock(
 	(_id: string): Promise<Meta> =>
-		Promise.resolve({ name: "Timelapse", duration: 1 }),
+		Promise.resolve({ duration: 1, name: "Timelapse" }),
 )
 const goto = mock((_url: string): Promise<void> => Promise.resolve())
 const apiRemotePath = new URL(
@@ -37,20 +37,22 @@ function deferred<T>() {
 
 function createHarness() {
 	const state = {
+		cleared: 0,
+		errors: [] as (string | null)[],
+		openId: "",
+		pending: [] as string[],
 		project: {
 			id: "project-a",
 			name: "Project A",
 			timelapses: [],
 		} satisfies Project,
-		openId: "",
-		pending: [] as string[],
-		errors: [] as (string | null)[],
 		updates: 0,
-		cleared: 0,
 	}
 	const loader = new TimelapseLoader({
-		openId: () => state.openId,
+		clearPendingWrites: () => state.cleared++,
 		entries: () => state.project.timelapses,
+		markPending: id => state.pending.push(id),
+		openId: () => state.openId,
 		projectId: () => state.project.id,
 		projectName: () => state.project.name,
 		setError: error => state.errors.push(error),
@@ -58,8 +60,6 @@ function createHarness() {
 			state.updates++
 			state.project = update(state.project)
 		},
-		markPending: id => state.pending.push(id),
-		clearPendingWrites: () => state.cleared++,
 	})
 	return { loader, state }
 }
@@ -83,7 +83,7 @@ describe("TimelapseLoader", () => {
 
 		const loading = loader.load("new-id")
 		state.project = { ...state.project, id: "project-b" }
-		request.resolve({ name: "New", duration: 1 })
+		request.resolve({ duration: 1, name: "New" })
 		await loading
 
 		expect(state.updates).toBe(0)
@@ -97,7 +97,7 @@ describe("TimelapseLoader", () => {
 
 		const loading = loader.load("new-id")
 		await loader.load("")
-		request.resolve({ name: "New", duration: 1 })
+		request.resolve({ duration: 1, name: "New" })
 		await loading
 
 		expect(state.updates).toBe(0)
@@ -111,7 +111,7 @@ describe("TimelapseLoader", () => {
 
 		const loading = loader.load("new-id")
 		state.openId = "another-timelapse"
-		request.resolve({ name: "New", duration: 1 })
+		request.resolve({ duration: 1, name: "New" })
 		await loading
 
 		expect(state.updates).toBe(0)
@@ -128,9 +128,9 @@ describe("TimelapseLoader", () => {
 
 		const firstLoad = loader.load("first")
 		const secondLoad = loader.load("second")
-		second.resolve({ name: "Second", duration: 2 })
+		second.resolve({ duration: 2, name: "Second" })
 		await secondLoad
-		first.resolve({ name: "First", duration: 1 })
+		first.resolve({ duration: 1, name: "First" })
 		await firstLoad
 
 		expect(state.project.timelapses.map(entry => entry.id)).toEqual([

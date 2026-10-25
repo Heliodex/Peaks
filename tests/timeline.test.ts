@@ -53,9 +53,9 @@ describe("formatHours", () => {
 
 describe("percentages", () => {
 	test("percentWithin positions a time in the window", () => {
-		expect(percentWithin(5, { start: 0, end: 10 })).toBe(50)
-		expect(percentWithin(3, { start: 3, end: 8 })).toBe(0)
-		expect(percentWithin(0, { start: 5, end: 5 })).toBe(0)
+		expect(percentWithin(5, { end: 10, start: 0 })).toBe(50)
+		expect(percentWithin(3, { end: 8, start: 3 })).toBe(0)
+		expect(percentWithin(0, { end: 5, start: 5 })).toBe(0)
 	})
 	test("percentOf guards a zero total", () => {
 		expect(percentOf(25, 100)).toBe(25)

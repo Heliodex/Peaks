@@ -30,8 +30,8 @@ const scrollBehavior = $derived(
 function scrollProjectIntoView(node: HTMLDivElement) {
 	if (mode !== "projects" || projects.length === 0) return
 	node.children[active]?.scrollIntoView({
-		block: "nearest",
 		behavior: scrollBehavior,
+		block: "nearest",
 	})
 }
 </script>
@@ -45,10 +45,10 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 	]}
 >
 	<div
-		class="min-h-0 overflow-y-auto py-1"
-		role="listbox"
-		id="search-projects-list"
 		aria-label="Projects"
+		class="min-h-0 overflow-y-auto py-1"
+		id="search-projects-list"
+		role="listbox"
 		{@attach scrollProjectIntoView}
 	>
 		{#each projects as project, index (project.id)}
@@ -58,26 +58,26 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 					: project.id === expandedProjectId,
 			)}
 			<div
-				role="presentation"
 				class={[
 					"flex h-9 items-center border-l-2 border-l-transparent transition-colors",
 					selected
 						? "border-l-primary-500 bg-primary-600/20"
 						: "hover:bg-neutral-800/40",
 				]}
+				role="presentation"
 			>
 				<button
-					type="button"
-					role="option"
-					id="search-project-{index}"
-					tabindex="-1"
 					aria-selected={selected}
+					class="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-2 text-left text-sm"
+					id="search-project-{index}"
 					onclick={() => onOpen(project)}
 					onpointermove={() => {
 						if (mode === "projects" && active !== index)
 							onHover(index)
 					}}
-					class="flex min-w-0 flex-1 items-center justify-between gap-3 px-3 py-2 text-left text-sm"
+					role="option"
+					tabindex="-1"
+					type="button"
 				>
 					<span
 						class={[
@@ -97,12 +97,12 @@ function scrollProjectIntoView(node: HTMLDivElement) {
 				</button>
 				{#if mode === "projects" && project.timelapses.length > 0}
 					<button
-						type="button"
-						tabindex="-1"
-						onclick={() => onExpand(project)}
-						title="Show timelapses"
 						aria-label="Show timelapses for {project.name}"
 						class="shrink-0 cursor-pointer p-2 pr-4 text-sm text-neutral-400 transition-colors hover:text-white"
+						onclick={() => onExpand(project)}
+						tabindex="-1"
+						title="Show timelapses"
+						type="button"
 					>
 						›
 					</button>

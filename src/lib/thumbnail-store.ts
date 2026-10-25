@@ -11,9 +11,9 @@ export type StoredThumbnail = { key: number; blob: Blob }
 
 function keyFor(kind: string, source: string, key: number): string {
 	const params = new URLSearchParams({
+		key: String(key),
 		kind,
 		src: source,
-		key: String(key),
 	})
 	return `${KEY_PATH}?${params}`
 }
@@ -62,7 +62,7 @@ export async function loadThumbnails(
 			if (!Number.isFinite(key)) continue
 			const response = await cache.match(request)
 			if (!response) continue
-			results.push({ key, blob: await response.blob() })
+			results.push({ blob: await response.blob(), key })
 		}
 		return results
 	} catch {

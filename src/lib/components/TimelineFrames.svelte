@@ -18,13 +18,13 @@ let {
 >
 	{#each frames as frame (frame.time)}
 		<img
-			src={frame.url}
 			alt=""
 			class="absolute inset-y-0 h-full object-cover"
-			class:frame-in={frame.fresh}
+			draggable="false"
+			src={frame.url}
 			style:left="{frame.left}%"
 			style:width="{frame.width}%"
-			draggable="false"
+			class:frame-in={frame.fresh}
 		>
 	{/each}
 

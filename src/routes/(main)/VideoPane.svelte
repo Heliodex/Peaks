@@ -18,12 +18,12 @@ let {
 			Play straight from the CDN: this element only displays video, so it needs no CORS and shouldn't be streamed through our server. Only the frame capturers and idle scanner (which read pixels) use /lapse-proxy.
 		-->
 		<video
-			src={timelapse.playbackUrl}
-			poster={timelapse.thumbnailUrl ?? undefined}
-			controls
-			preload="auto"
-			bind:this={videoEl}
 			class="h-auto max-h-full w-full object-contain lg:h-full"
+			controls
+			poster={timelapse.thumbnailUrl ?? undefined}
+			preload="auto"
+			src={timelapse.playbackUrl}
+			bind:this={videoEl}
 		>
 			<track kind="captions">
 		</video>

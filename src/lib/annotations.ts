@@ -11,61 +11,61 @@ import {
  * Tailwind classes for a selection overlay. Written out in full (rather than assembled from a colour name) so Tailwind's scanner can see every class.
  */
 const SELECTION_COLORS = {
-	neutral: {
-		border: "border-neutral-400",
-		fill: "bg-neutral-400/40",
-		handle: "bg-neutral-400",
-		button: "border-neutral-400 text-neutral-500",
-		marker: "bg-neutral-400",
-	},
-	red: {
-		border: "border-red-500",
-		fill: "bg-red-500/40",
-		handle: "bg-red-600",
-		button: "border-red-500 text-red-600",
-		marker: "bg-red-500",
-	},
 	amber: {
 		border: "border-amber-500",
+		button: "border-amber-500 text-amber-600",
 		fill: "bg-amber-500/40",
 		handle: "bg-amber-600",
-		button: "border-amber-500 text-amber-600",
 		marker: "bg-amber-500",
 	},
 	blue: {
 		border: "border-blue-500",
+		button: "border-blue-500 text-blue-600",
 		fill: "bg-blue-500/40",
 		handle: "bg-blue-600",
-		button: "border-blue-500 text-blue-600",
 		marker: "bg-blue-500",
-	},
-	teal: {
-		border: "border-teal-500",
-		fill: "bg-teal-500/40",
-		handle: "bg-teal-600",
-		button: "border-teal-500 text-teal-600",
-		marker: "bg-teal-500",
-	},
-	violet: {
-		border: "border-violet-500",
-		fill: "bg-violet-500/40",
-		handle: "bg-violet-600",
-		button: "border-violet-500 text-violet-600",
-		marker: "bg-violet-500",
 	},
 	fuchsia: {
 		border: "border-fuchsia-500",
+		button: "border-fuchsia-500 text-fuchsia-600",
 		fill: "bg-fuchsia-500/40",
 		handle: "bg-fuchsia-600",
-		button: "border-fuchsia-500 text-fuchsia-600",
 		marker: "bg-fuchsia-500",
 	},
 	lime: {
 		border: "border-lime-500",
+		button: "border-lime-500 text-lime-600",
 		fill: "bg-lime-500/40",
 		handle: "bg-lime-600",
-		button: "border-lime-500 text-lime-600",
 		marker: "bg-lime-500",
+	},
+	neutral: {
+		border: "border-neutral-400",
+		button: "border-neutral-400 text-neutral-500",
+		fill: "bg-neutral-400/40",
+		handle: "bg-neutral-400",
+		marker: "bg-neutral-400",
+	},
+	red: {
+		border: "border-red-500",
+		button: "border-red-500 text-red-600",
+		fill: "bg-red-500/40",
+		handle: "bg-red-600",
+		marker: "bg-red-500",
+	},
+	teal: {
+		border: "border-teal-500",
+		button: "border-teal-500 text-teal-600",
+		fill: "bg-teal-500/40",
+		handle: "bg-teal-600",
+		marker: "bg-teal-500",
+	},
+	violet: {
+		border: "border-violet-500",
+		button: "border-violet-500 text-violet-600",
+		fill: "bg-violet-500/40",
+		handle: "bg-violet-600",
+		marker: "bg-violet-500",
 	},
 } as const
 
@@ -90,60 +90,60 @@ export type AnnotationReason = {
 // positions can change, IDs must remain constant
 export const ANNOTATION_REASONS: AnnotationReason[] = [
 	{
+		color: "red",
+		deflation: 1,
+		deflationLabel: "removed",
 		id: "invalid",
 		label: "Invalid",
 		summaryLabel: "invalid",
-		deflation: 1,
-		deflationLabel: "removed",
-		color: "red",
 	},
 	{
+		color: "amber",
+		deflation: 1,
+		deflationLabel: "removed",
 		id: "idle",
 		label: "Idle",
 		summaryLabel: "spent idle",
-		deflation: 1,
-		deflationLabel: "removed",
-		color: "amber",
 	},
 	{
+		color: "lime",
+		deflation: 1,
+		deflationLabel: "removed",
 		id: "copy-tutorial",
 		label: "Copying from tutorial",
 		summaryLabel: "spent copying from tutorial",
-		deflation: 1,
-		deflationLabel: "removed",
-		color: "lime",
 	},
 	{
+		color: "teal",
+		deflation: 1 / 2,
+		deflationLabel: "1/2 deflated",
 		id: "plan",
 		label: "Planning",
 		summaryLabel: "spent planning",
-		deflation: 1 / 2,
-		deflationLabel: "1/2 deflated",
-		color: "teal",
 	},
 	{
+		color: "blue",
+		deflation: 1 / 2,
+		deflationLabel: "1/2 deflated",
 		id: "research",
 		label: "Researching",
 		summaryLabel: "spent researching",
-		deflation: 1 / 2,
-		deflationLabel: "1/2 deflated",
-		color: "blue",
 	},
 	{
+		color: "violet",
+		deflation: 2 / 3,
+		deflationLabel: "2/3 deflated",
 		id: "instruct-ai",
 		label: "Instructing AI",
 		summaryLabel: "spent instructing AI",
-		deflation: 2 / 3,
-		deflationLabel: "2/3 deflated",
-		color: "violet",
 	},
 	{
+		color: "fuchsia",
+		deflation: 0,
+		deflationLabel: "no deflation",
 		id: "ai-help",
 		label: "Requesting AI help",
 		summaryLabel: "spent requesting AI help",
-		deflation: 0,
-		deflationLabel: "no deflation",
-		color: "fuchsia",
 	},
 ]
 
@@ -227,7 +227,6 @@ export const deflationByReason = (
 	idleRanges: IdleRange[],
 ): AnnotationDeflation[] =>
 	ANNOTATION_REASONS.map(reason => ({
-		reason: reason.id,
 		duration: selections
 			.filter(selection => selection.reason === reason.id)
 			.reduce(
@@ -235,6 +234,7 @@ export const deflationByReason = (
 					sum + selectionDeflation(selection, idleRanges),
 				0,
 			),
+		reason: reason.id,
 	})).filter(entry => entry.duration > 0)
 
 /**
@@ -267,7 +267,7 @@ function mergeSpans(spans: { start: number; end: number }[]): {
 		const last = merged[merged.length - 1]
 		if (last && span.start <= last.end)
 			last.end = Math.max(last.end, span.end)
-		else merged.push({ start: span.start, end: span.end })
+		else merged.push({ end: span.end, start: span.start })
 	}
 	return merged
 }

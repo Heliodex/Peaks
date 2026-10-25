@@ -78,12 +78,12 @@ const activeOptionId = $derived(
 const breadcrumbTransition = $derived<SlideParams>(
 	prefersReducedMotion.current
 		? { duration: 0 }
-		: { duration: 150, axis: "x" },
+		: { axis: "x", duration: 150 },
 )
 const dialogTransition = $derived(
 	prefersReducedMotion.current
 		? { duration: 0 }
-		: { duration: 150, start: 0.97, opacity: 0 },
+		: { duration: 150, opacity: 0, start: 0.97 },
 )
 const backdropTransition = $derived(
 	prefersReducedMotion.current ? { duration: 0 } : { duration: 150 },
@@ -186,26 +186,26 @@ function handleKeydown(event: KeyboardEvent) {
 
 <!-- Invisible backdrop: clicking anywhere outside the panel dismisses. -->
 <button
-	type="button"
-	tabindex="-1"
 	aria-label="Close search"
+	class="fixed inset-0 z-40 cursor-default bg-black/70 backdrop-blur-sm"
 	onclick={onClose}
+	tabindex="-1"
+	type="button"
 	in:fade={backdropTransition}
 	out:fade={backdropTransition}
-	class="fixed inset-0 z-40 cursor-default bg-black/70 backdrop-blur-sm"
 ></button>
 <div
+	class="fixed inset-x-0 top-[12vh] z-50 mx-auto flex max-h-[70vh] w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden border border-line bg-surface shadow-2xl shadow-black/60"
 	in:scale={dialogTransition}
 	out:scale={dialogTransition}
-	class="fixed inset-x-0 top-[12vh] z-50 mx-auto flex max-h-[70vh] w-[min(40rem,calc(100vw-2rem))] flex-col overflow-hidden border border-line bg-surface shadow-2xl shadow-black/60"
 >
 	<div
+		aria-label="Search projects and timelapses"
+		aria-modal="true"
+		class="flex min-h-0 flex-col"
+		onkeydown={handleKeydown}
 		role="dialog"
 		tabindex="-1"
-		aria-modal="true"
-		aria-label="Search projects and timelapses"
-		onkeydown={handleKeydown}
-		class="flex min-h-0 flex-col"
 	>
 		<div class="flex h-10 items-center gap-1 border-b border-line-soft">
 			{#if mode === "timelapses"}
@@ -214,12 +214,12 @@ function handleKeydown(event: KeyboardEvent) {
 					transition:slide={breadcrumbTransition}
 				>
 					<button
-						type="button"
-						tabindex="-1"
-						onclick={collapse}
-						title="Back to projects"
 						aria-label="Back to projects"
 						class="shrink-0 cursor-pointer px-2 py-2.5 text-sm text-neutral-400 transition-colors hover:text-white"
+						onclick={collapse}
+						tabindex="-1"
+						title="Back to projects"
+						type="button"
 					>
 						‹
 					</button>
@@ -232,12 +232,14 @@ function handleKeydown(event: KeyboardEvent) {
 				</div>
 			{/if}
 			<input
-				type="text"
-				role="combobox"
-				aria-expanded="true"
-				aria-controls={activeListId}
 				aria-activedescendant={activeOptionId}
-				value={mode === "projects" ? projectQuery : timelapseQuery}
+				aria-controls={activeListId}
+				aria-expanded="true"
+				aria-label={mode === "projects"
+					? "Search projects"
+					: "Search timelapses"}
+				autocomplete="off"
+				class="w-full flex-1 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-neutral-500"
 				oninput={event => {
 					if (mode === "projects") {
 						projectQuery = event.currentTarget.value
@@ -247,38 +249,36 @@ function handleKeydown(event: KeyboardEvent) {
 						timelapseIndex = 0
 					}
 				}}
-				{@attach autofocus}
 				placeholder={mode === "projects"
 					? "Search projects…"
 					: "Search timelapses…"}
-				autocomplete="off"
+				role="combobox"
 				spellcheck="false"
-				aria-label={mode === "projects"
-					? "Search projects"
-					: "Search timelapses"}
-				class="w-full flex-1 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-neutral-500"
+				type="text"
+				value={mode === "projects" ? projectQuery : timelapseQuery}
+				{@attach autofocus}
 			>
 		</div>
 
 		<div class="flex min-h-0">
 			<ProjectSearchProjects
-				projects={filteredProjects}
-				{mode}
 				active={activeProject}
-				{expandedProjectId}
 				{currentProjectId}
-				onOpen={openProject}
+				{expandedProjectId}
+				{mode}
 				onExpand={expand}
 				onHover={index => (projectIndex = index)}
+				onOpen={openProject}
+				projects={filteredProjects}
 			/>
 
 			{#if mode === "timelapses"}
 				<ProjectSearchTimelapses
-					entries={filteredTimelapses}
 					active={activeTimelapse}
 					{currentTimelapseId}
-					onOpen={openTimelapse}
+					entries={filteredTimelapses}
 					onHover={index => (timelapseIndex = index)}
+					onOpen={openTimelapse}
 				/>
 			{/if}
 		</div>

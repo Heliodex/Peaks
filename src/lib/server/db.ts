@@ -18,8 +18,8 @@ async function initialiseDatabase(instance: Surreal): Promise<void> {
 	if (!instance.isConnected) {
 		console.log("Starting SurrealDB")
 		await instance.connect("surrealkv://./data/surreal", {
-			namespace: "main",
 			database: "main",
+			namespace: "main",
 		})
 	}
 	console.log("Running init query")

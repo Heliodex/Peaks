@@ -397,7 +397,7 @@ export class WorkspaceHistory {
 	get graph(): HistoryGraph {
 		const nodes = this.nodes
 		const root = Object.values(nodes).find(node => node.parent === null)
-		if (!root) return { nodes: [], edges: [], width: 0, height: 0 }
+		if (!root) return { edges: [], height: 0, nodes: [], width: 0 }
 
 		const onPath = pathIds(nodes, this.currentId)
 		const redoable = new Set(nodes[this.currentId]?.children ?? [])
@@ -431,14 +431,14 @@ export class WorkspaceHistory {
 			const position = positions.get(node.id)
 			if (position)
 				graphNodes.push({
+					current: node.id === this.currentId,
 					id: node.id,
 					label: node.label,
-					x: (position.x + 0.5) * COLUMN_GAP,
-					y: (position.y + 0.5) * ROW_GAP,
-					showLabel: false,
-					current: node.id === this.currentId,
 					onPath: onPath.has(node.id),
 					redoable: redoable.has(node.id),
+					showLabel: false,
+					x: (position.x + 0.5) * COLUMN_GAP,
+					y: (position.y + 0.5) * ROW_GAP,
 				})
 
 			for (const child of childNodes(node)) {
@@ -450,10 +450,10 @@ export class WorkspaceHistory {
 					const x2 = (to.x + 0.5) * COLUMN_GAP
 					const y2 = (to.y + 0.5) * ROW_GAP
 					edges.push({
-						from: node.id,
-						to: child.id,
 						d: edgePath(x1, y1, x2, y2),
+						from: node.id,
 						onPath: onPath.has(node.id) && onPath.has(child.id),
+						to: child.id,
 					})
 				}
 
@@ -493,10 +493,10 @@ export class WorkspaceHistory {
 			}
 
 		return {
-			nodes: graphNodes,
 			edges,
-			width: (maxColumn + 1) * COLUMN_GAP,
 			height: (maxDepth + 1) * ROW_GAP,
+			nodes: graphNodes,
+			width: (maxColumn + 1) * COLUMN_GAP,
 		}
 	}
 
@@ -580,14 +580,14 @@ export class WorkspaceHistory {
 		const seq = this.#nextSeq++
 		const id = `h${seq}`
 		const node: HistoryNode = {
+			children: [],
 			id,
-			seq,
 			label: current
 				? describeChange(current.snapshot, next)
 				: "Session start",
-			snapshot: next,
 			parent: current?.id ?? null,
-			children: [],
+			seq,
+			snapshot: next,
 		}
 		const nodes = { ...this.nodes, [id]: node }
 		if (current)
@@ -638,7 +638,7 @@ export function saveHistory(
 	// The generous per-node overhead means the estimate never undershoots, so the first stringify already fits the budget; the second pass only guards against a storage quota smaller than the budget.
 	for (const budget of [MAX_PERSISTED_BYTES, MAX_PERSISTED_BYTES / 4]) {
 		const pruned = pruneToBudget(nodes, currentId, budget)
-		const json = JSON.stringify({ nodes: pruned, currentId, nextId })
+		const json = JSON.stringify({ currentId, nextId, nodes: pruned })
 		if (json.length > MAX_PERSISTED_BYTES) continue
 		try {
 			localStorage.setItem(STORAGE_KEY, json)
@@ -689,7 +689,7 @@ function parseIdleRange(value: unknown, duration: number): IdleRange | null {
 		|| end > duration + 1e-6
 	)
 		return null
-	return { start, end }
+	return { end, start }
 }
 
 function parseAnnotation(
@@ -698,7 +698,7 @@ function parseAnnotation(
 	if (!isRecord(value)) return null
 	const { reason, duration } = value
 	if (!isHistoryString(reason) || !isFiniteNonNegative(duration)) return null
-	return { reason, duration }
+	return { duration, reason }
 }
 
 function parseTimelapse(value: unknown): ProjectTimelapse | null {
@@ -747,19 +747,19 @@ function parseTimelapse(value: unknown): ProjectTimelapse | null {
 	}
 
 	return {
-		id,
-		name,
-		duration,
-		idleDuration,
 		annotations: parsedAnnotations.filter(
 			(
 				annotation,
 			): annotation is ProjectTimelapse["annotations"][number] =>
 				annotation !== null,
 		),
-		ignoreIdle,
-		idleThreshold,
 		description,
+		duration,
+		id,
+		idleDuration,
+		idleThreshold,
+		ignoreIdle,
+		name,
 		...(idleRanges ? { idleRanges } : {}),
 	}
 }
@@ -796,7 +796,7 @@ function parseSelection(value: unknown): TimelineSelection | null {
 		|| (reason !== undefined && !isHistoryString(reason))
 	)
 		return null
-	return { id, start, end, ...(reason !== undefined ? { reason } : {}) }
+	return { end, id, start, ...(reason !== undefined ? { reason } : {}) }
 }
 
 function parseSnapshot(value: unknown): WorkspaceSnapshot | null {
@@ -850,9 +850,9 @@ function parseSnapshot(value: unknown): WorkspaceSnapshot | null {
 		return null
 
 	return {
-		projects: parsed,
 		currentProjectId,
 		openId,
+		projects: parsed,
 		selections: parsedSelectionValues,
 	}
 }
@@ -873,12 +873,12 @@ function parseNode(value: unknown): HistoryNode | null {
 	const parsedSnapshot = parseSnapshot(snapshot)
 	if (!parsedSnapshot) return null
 	return {
-		id,
-		seq,
-		label,
-		snapshot: parsedSnapshot,
-		parent,
 		children: children as string[],
+		id,
+		label,
+		parent,
+		seq,
+		snapshot: parsedSnapshot,
 	}
 }
 
@@ -948,7 +948,7 @@ export function loadHistory(): PersistedHistory | null {
 			isSafeNonNegativeInteger(data.nextId) && data.nextId > maxSeq
 				? data.nextId
 				: maxSeq + 1
-		return { nodes, currentId, nextId }
+		return { currentId, nextId, nodes }
 	} catch {
 		return null
 	}

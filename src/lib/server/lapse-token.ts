@@ -39,8 +39,8 @@ export function parseLapseTokenResponse(value: unknown): LapseTokenResponse {
 	return {
 		access_token,
 		expires_in,
-		token_type,
 		scope,
+		token_type,
 		...(refresh_token ? { refresh_token } : {}),
 	}
 }

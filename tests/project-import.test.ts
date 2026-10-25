@@ -30,42 +30,42 @@ describe("shared project imports", () => {
 
 	test("recognises an identical project state", () => {
 		const selection = {
-			id: "selection-1",
-			start: 1,
 			end: 2,
+			id: "selection-1",
 			reason: "idle",
+			start: 1,
 		}
 		const decoded: DecodedShare = {
-			projectId: "project-a",
-			projectName: "Project",
-			selections: [selection],
 			openId: "timelapse-a",
 			project: [
 				{
-					id: "timelapse-a",
-					name: "Timelapse",
-					duration: 10,
-					idleDuration: 0,
 					annotations: [],
-					ignoreIdle: false,
-					idleThreshold: 0.005,
 					description: "",
+					duration: 10,
+					id: "timelapse-a",
+					idleDuration: 0,
+					idleThreshold: 0.005,
+					ignoreIdle: false,
+					name: "Timelapse",
 				},
 			],
+			projectId: "project-a",
+			projectName: "Project",
+			selections: [selection],
 			selectionsByTimelapse: new Map([["timelapse-a", [selection]]]),
 		}
 		const local = project("Project", "project-b")
 		local.timelapses = decoded.project
 		const storedSelection = {
 			...selection,
-			start: 1.0004,
 			end: 1.9996,
+			start: 1.0004,
 		}
 
 		expect(
 			matchesSharedProject(local, decoded, () => [storedSelection]),
 		).toBe(true)
-		const unannotated = { id: selection.id, start: 1, end: 2 }
+		const unannotated = { end: 2, id: selection.id, start: 1 }
 		const decodedWithoutReason = {
 			...decoded,
 			selections: [unannotated],

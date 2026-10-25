@@ -138,7 +138,7 @@ export async function GET({ url, request }: RequestEvent) {
 
 	const status = upstream.status
 	return new Response(status === 304 ? null : upstream.body, {
-		status,
 		headers: forwardHeaders(upstream),
+		status,
 	})
 }

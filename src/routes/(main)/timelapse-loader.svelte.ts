@@ -17,14 +17,14 @@ type LoadOperation = {
 
 /** A project entry for a timelapse whose metadata hasn't resolved yet. */
 const emptyTimelapse = (id: string): ProjectTimelapse => ({
-	id,
-	name: "",
-	duration: 0,
-	idleDuration: 0,
 	annotations: [],
-	ignoreIdle: false,
-	idleThreshold: DEFAULT_IDLE_THRESHOLD,
 	description: "",
+	duration: 0,
+	id,
+	idleDuration: 0,
+	idleThreshold: DEFAULT_IDLE_THRESHOLD,
+	ignoreIdle: false,
+	name: "",
 })
 
 /** Comparator that restores the order ids appeared in the pasted input. */
@@ -81,7 +81,7 @@ async function resolveIds(
 			}
 		}),
 	)
-	return { valid, missing, unchecked }
+	return { missing, unchecked, valid }
 }
 
 type TimelapseLoaderOptions = {
@@ -124,8 +124,8 @@ export class TimelapseLoader {
 			if (!meta || entries.some(entry => entry.id === id)) continue
 			entries.push({
 				...emptyTimelapse(id),
-				name: meta.name?.trim() ?? "",
 				duration: meta.duration,
+				name: meta.name?.trim() ?? "",
 			})
 			this.#options.markPending(id)
 			added = true
@@ -149,8 +149,8 @@ export class TimelapseLoader {
 	async load(value: string) {
 		const operation: LoadOperation = {
 			id: ++this.#loadToken,
-			projectId: this.#options.projectId(),
 			openId: this.#options.openId(),
+			projectId: this.#options.projectId(),
 		}
 		const ids = [...new Set(value.split(/[\s,]+/).filter(Boolean))]
 		if (ids.length === 0) return
@@ -186,11 +186,11 @@ export class TimelapseLoader {
 		let encoded: string
 		try {
 			encoded = await encodeShare({
-				projectId: operation.projectId,
-				selections: loadSelections(open.id),
-				projectName: this.#options.projectName(),
-				project: entries,
 				openId: open.id,
+				project: entries,
+				projectId: operation.projectId,
+				projectName: this.#options.projectName(),
+				selections: loadSelections(open.id),
 			})
 		} catch (error) {
 			if (error instanceof SharePayloadError)

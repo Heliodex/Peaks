@@ -55,11 +55,11 @@ function removeSelection(id: string) {
 							class="flex min-w-0 flex-1 items-center gap-1.5 whitespace-nowrap"
 						>
 							<span
+								aria-hidden="true"
 								class={[
 									"h-2 w-2 shrink-0 transition-colors",
 									color.marker,
 								]}
-								aria-hidden="true"
 							></span>
 							Selection {i + 1}:
 							<span class="font-medium tabular-nums"
@@ -78,21 +78,21 @@ function removeSelection(id: string) {
 							</span>
 						{/if}
 						<button
-							type="button"
-							onclick={() => removeSelection(sel.id)}
-							title="Delete selection {i + 1}"
 							aria-label="Delete selection {i + 1}"
 							class="row-action btn btn-danger px-1.5 py-0.5 text-xs"
+							onclick={() => removeSelection(sel.id)}
+							title="Delete selection {i + 1}"
+							type="button"
 						>
 							×
 						</button>
 					</div>
 					<select
 						aria-label="Annotation reason for selection {i + 1}"
-						value={sel.reason ?? ""}
+						class="field w-full px-1.5 py-0.5 text-xs"
 						onchange={e =>
 							setSelectionReason(sel.id, e.currentTarget.value)}
-						class="field w-full px-1.5 py-0.5 text-xs"
+						value={sel.reason ?? ""}
 					>
 						<option value="">Select a reason…</option>
 						{#each ANNOTATION_REASONS as annotation (annotation.id)}

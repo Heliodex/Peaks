@@ -82,56 +82,56 @@ function onTabKeydown(event: KeyboardEvent) {
 	class="area-right flex min-h-0 flex-col bg-surface lg:border-r lg:border-line"
 >
 	<div
+		aria-label="Timelapse review"
 		class="flex shrink-0 border-b border-line-soft"
 		role="tablist"
-		aria-label="Timelapse review"
 		bind:this={tablistEl}
 	>
 		{#if hasTimelapse}
 			<button
-				type="button"
-				role="tab"
-				id="review-tab-data"
-				aria-selected={activeTab === "data"}
 				aria-controls="review-panel-data"
-				tabindex={activeTab === "data" ? 0 : -1}
-				onclick={() => (tab = "data")}
-				onkeydown={onTabKeydown}
+				aria-selected={activeTab === "data"}
 				class={[
 					"-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors",
 					activeTab === "data"
 						? "border-primary-500 bg-primary-500/5 font-medium text-primary-300"
 						: "border-transparent text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200",
 				]}
+				id="review-tab-data"
+				onclick={() => (tab = "data")}
+				onkeydown={onTabKeydown}
+				role="tab"
+				tabindex={activeTab === "data" ? 0 : -1}
+				type="button"
 			>
 				Timelapse data
 			</button>
 		{/if}
 		<button
-			type="button"
-			role="tab"
-			id="review-tab-settings"
-			aria-selected={activeTab === "settings"}
 			aria-controls="review-panel-settings"
-			tabindex={activeTab === "settings" ? 0 : -1}
-			onclick={() => (tab = "settings")}
-			onkeydown={onTabKeydown}
+			aria-selected={activeTab === "settings"}
 			class={[
 				"-mb-px flex-1 cursor-pointer border-b-2 px-3 py-2 text-sm transition-colors",
 				activeTab === "settings"
 					? "border-primary-500 bg-primary-500/5 font-medium text-primary-300"
 					: "border-transparent text-neutral-400 hover:bg-neutral-800/40 hover:text-neutral-200",
 			]}
+			id="review-tab-settings"
+			onclick={() => (tab = "settings")}
+			onkeydown={onTabKeydown}
+			role="tab"
+			tabindex={activeTab === "settings" ? 0 : -1}
+			type="button"
 		>
 			Settings
 		</button>
 	</div>
 
 	<div
-		class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"
-		role="tabpanel"
-		id="review-panel-{activeTab}"
 		aria-labelledby="review-tab-{activeTab}"
+		class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"
+		id="review-panel-{activeTab}"
+		role="tabpanel"
 	>
 		{#if activeTab === "data"}
 			<!--
@@ -140,25 +140,25 @@ function onTabKeydown(event: KeyboardEvent) {
 			-->
 			{#key timelapse?.id}
 				<TimelapseStats
+					{idleAnalyzing}
+					{idleRanges}
+					{idleThreshold}
+					{ignoreIdle}
+					{onRecalculateIdle}
+					{onResetIdleThreshold}
+					{onSetIdleThreshold}
+					{onToggleIgnoreIdle}
 					{timelapse}
 					bind:selections
-					{idleRanges}
-					{idleAnalyzing}
-					{ignoreIdle}
-					{idleThreshold}
-					{onToggleIgnoreIdle}
-					{onSetIdleThreshold}
-					{onResetIdleThreshold}
-					{onRecalculateIdle}
 				/>
 			{/key}
 		{:else}
 			<TimelapseSettings
+				{history}
 				{justifyTimeline}
+				{onSetSeekStep}
 				{onToggleJustifyTimeline}
 				{seekStep}
-				{onSetSeekStep}
-				{history}
 			/>
 		{/if}
 	</div>
@@ -175,9 +175,9 @@ function onTabKeydown(event: KeyboardEvent) {
 			{#if profile}
 				<div class="flex items-center gap-2">
 					<img
-						src={profile.profilePictureUrl}
 						alt=""
 						class="h-8 w-8 rounded-full object-cover ring-1 ring-neutral-700"
+						src={profile.profilePictureUrl}
 					>
 					<div class="flex flex-col">
 						<span class="text-sm font-medium">
@@ -192,7 +192,7 @@ function onTabKeydown(event: KeyboardEvent) {
 		</svelte:boundary>
 
 		<form {...logout}>
-			<button type="submit" class="btn text-sm">Log out</button>
+			<button class="btn text-sm" type="submit">Log out</button>
 		</form>
 	</section>
 </aside>

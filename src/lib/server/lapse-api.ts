@@ -30,59 +30,59 @@ const slackIdSchema = type.or(
 )
 
 const userSchema = type({
-	id: idSchema,
 	createdAt: nonNegativeNumberSchema,
-	handle: handleSchema,
 	displayName: displayNameSchema,
-	profilePictureUrl: webUrlSchema,
-	urls: webUrlSchema.array().atMostLength(4),
 	hackatimeId: type.or(type("string"), "null"),
-	slackId: slackIdSchema,
+	handle: handleSchema,
+	id: idSchema,
 	private: type({
-		permissionLevel: type.enumerated("USER", "ADMIN", "ROOT"),
 		devices: type({
 			id: idSchema,
 			name: type("string").atLeastLength(1),
 		}).array(),
 		needsReauth: type("boolean"),
+		permissionLevel: type.enumerated("USER", "ADMIN", "ROOT"),
 	}),
+	profilePictureUrl: webUrlSchema,
+	slackId: slackIdSchema,
+	urls: webUrlSchema.array().atMostLength(4),
 })
 
 const ownerSchema = type({
-	id: idSchema,
 	createdAt: nonNegativeNumberSchema,
-	handle: handleSchema,
 	displayName: displayNameSchema,
-	profilePictureUrl: webUrlSchema,
-	urls: webUrlSchema.array().atMostLength(4),
 	hackatimeId: type.or(type("string"), "null"),
+	handle: handleSchema,
+	id: idSchema,
+	profilePictureUrl: webUrlSchema,
 	slackId: slackIdSchema,
+	urls: webUrlSchema.array().atMostLength(4),
 })
 
 const timelapseSchema = type({
-	name: type("string").atLeastLength(2).atMostLength(MAX_NAME_LENGTH),
-	description: type("string").atMostLength(MAX_DESCRIPTION_LENGTH).optional(),
-	visibility: type.enumerated("UNLISTED", "PUBLIC", "FAILED_PROCESSING"),
-	id: idSchema,
 	createdAt: nonNegativeNumberSchema,
+	description: type("string").atMostLength(MAX_DESCRIPTION_LENGTH).optional(),
+	duration: nonNegativeNumberSchema,
+	id: idSchema,
+	name: type("string").atLeastLength(2).atMostLength(MAX_NAME_LENGTH),
+	owner: ownerSchema,
 	playbackUrl: nullableWebUrlSchema,
 	thumbnailUrl: nullableWebUrlSchema,
-	duration: nonNegativeNumberSchema,
-	owner: ownerSchema,
+	visibility: type.enumerated("UNLISTED", "PUBLIC", "FAILED_PROCESSING"),
 })
 
 const userResponseSchema = type({
-	ok: "true",
 	data: {
 		user: userSchema,
 	},
+	ok: "true",
 })
 
 const timelapseResponseSchema = type({
-	ok: "true",
 	data: {
 		timelapse: timelapseSchema,
 	},
+	ok: "true",
 })
 
 export type LapseUserInfo = {
@@ -149,9 +149,9 @@ export function parseLapseUserInfoResponse(value: unknown): LapseUserInfo {
 		}
 	).data
 	return {
-		id: user.id,
-		handle: user.handle,
 		displayName: user.displayName,
+		handle: user.handle,
+		id: user.id,
 		profilePictureUrl: user.profilePictureUrl,
 	}
 }
@@ -177,19 +177,19 @@ export function parseLapseTimelapseResponse(value: unknown): LapseTimelapse {
 		}
 	).data
 	return {
+		createdAt: timelapse.createdAt,
+		description: timelapse.description ?? "",
+		duration: timelapse.duration,
 		id: timelapse.id,
 		name: timelapse.name,
-		description: timelapse.description ?? "",
-		visibility: timelapse.visibility,
-		createdAt: timelapse.createdAt,
-		playbackUrl: timelapse.playbackUrl,
-		thumbnailUrl: timelapse.thumbnailUrl,
-		duration: timelapse.duration,
 		owner: {
-			handle: timelapse.owner.handle,
 			displayName: timelapse.owner.displayName,
+			handle: timelapse.owner.handle,
 			profilePictureUrl: timelapse.owner.profilePictureUrl,
 		},
+		playbackUrl: timelapse.playbackUrl,
+		thumbnailUrl: timelapse.thumbnailUrl,
+		visibility: timelapse.visibility,
 	}
 }
 
@@ -214,14 +214,14 @@ export async function fetchLapseJson(
 		})
 		if (!response.ok) {
 			await cancelLapseResponse(response)
-			return { status: response.status, ok: false, body: undefined }
+			return { body: undefined, ok: false, status: response.status }
 		}
 
 		try {
 			return {
-				status: response.status,
-				ok: true,
 				body: await response.json(),
+				ok: true,
+				status: response.status,
 			}
 		} catch {
 			if (controller.signal.aborted) throw new LapseApiTimeoutError()

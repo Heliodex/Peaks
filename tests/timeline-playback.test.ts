@@ -65,10 +65,10 @@ describe("TimelinePlayback", () => {
 		const state = { src: "video-a" }
 		const rates: number[] = []
 		const playback = new TimelinePlayback({
-			video: () => undefined,
-			src: () => state.src,
 			onDuration: () => {},
 			onFrameRate: rate => rates.push(rate),
+			src: () => state.src,
+			video: () => undefined,
 		})
 
 		expect(playback.frameRate).toBe(0)

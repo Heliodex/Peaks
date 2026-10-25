@@ -168,9 +168,9 @@ export class PaneLayout {
 	/** Current bounds, used to describe the separators to assistive tech. */
 	get bounds() {
 		return {
-			left: { min: DEFAULT_LEFT_WIDTH, max: this.#leftMax },
-			right: { min: DEFAULT_RIGHT_WIDTH, max: this.#rightMax },
-			timeline: { min: DEFAULT_TIMELINE_HEIGHT, max: this.#timelineMax },
+			left: { max: this.#leftMax, min: DEFAULT_LEFT_WIDTH },
+			right: { max: this.#rightMax, min: DEFAULT_RIGHT_WIDTH },
+			timeline: { max: this.#timelineMax, min: DEFAULT_TIMELINE_HEIGHT },
 		}
 	}
 }

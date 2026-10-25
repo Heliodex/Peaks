@@ -7,14 +7,14 @@ type Global = typeof globalThis & { localStorage?: Storage }
 export function installLocalStorage(): void {
 	const store = new Map<string, string>()
 	const storage: Storage = {
-		getItem: key => store.get(key) ?? null,
-		setItem: (key, value) => void store.set(key, value),
-		removeItem: key => void store.delete(key),
 		clear: () => store.clear(),
+		getItem: key => store.get(key) ?? null,
 		key: index => [...store.keys()][index] ?? null,
 		get length() {
 			return store.size
 		},
+		removeItem: key => void store.delete(key),
+		setItem: (key, value) => void store.set(key, value),
 	}
 	;(globalThis as Global).localStorage = storage
 }

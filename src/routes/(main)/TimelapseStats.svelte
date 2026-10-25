@@ -68,8 +68,8 @@ const thresholdIndex = $derived(
 const description = $derived(
 	timelapse
 		? describeTimelapse({
-				id: timelapse.id,
 				duration: timelapse.duration,
+				id: timelapse.id,
 				idleRanges: activeIdleRanges,
 				selections,
 			})
@@ -79,26 +79,26 @@ const description = $derived(
 
 {#if timelapse}
 	<TimelapseStatsCards
-		{timelapse}
 		{actualDuration}
-		{idleDuration}
 		{annotationDeflation}
 		{idleAnalyzing}
+		{idleDuration}
 		{ignoreIdle}
+		{timelapse}
 	/>
 
-	<TimelapseSelections bind:selections {activeIdleRanges} />
+	<TimelapseSelections {activeIdleRanges} bind:selections />
 
 	<TimelapseIdleControls
-		{idleRanges}
 		{idleAnalyzing}
-		{ignoreIdle}
+		{idleRanges}
 		{idleThreshold}
-		{thresholdIndex}
-		{onToggleIgnoreIdle}
-		{onSetIdleThreshold}
-		{onResetIdleThreshold}
+		{ignoreIdle}
 		{onRecalculateIdle}
+		{onResetIdleThreshold}
+		{onSetIdleThreshold}
+		{onToggleIgnoreIdle}
+		{thresholdIndex}
 	/>
 
 	<section class="border-t border-line-soft pt-2">

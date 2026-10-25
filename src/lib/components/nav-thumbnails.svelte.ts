@@ -13,8 +13,8 @@ const NAV_THUMBNAIL_KIND = "nav"
 
 // Overview thumbnails are stable per source, so keep them across mounts and skip re-capturing when the same timelapse is reopened.
 const navFrameCache = createObjectUrlCache<string[]>({
-	max: MAX_CACHED_NAV,
 	kind: NAV_THUMBNAIL_KIND,
+	max: MAX_CACHED_NAV,
 	urls: frames => frames,
 })
 

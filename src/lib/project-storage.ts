@@ -53,7 +53,7 @@ function parseAnnotation(value: unknown): AnnotationDeflation | null {
 	if (typeof reason !== "string" || !isFiniteNonNegative(duration)) {
 		return null
 	}
-	return { reason, duration }
+	return { duration, reason }
 }
 
 function parseAnnotations(value: unknown): AnnotationDeflation[] {
@@ -67,7 +67,7 @@ function parseIdleRange(value: unknown): IdleRange | null {
 	if (typeof value !== "object" || value === null) return null
 	const { start, end } = value as Record<string, unknown>
 	if (!isFiniteNonNegative(start) || !isFiniteNonNegative(end)) return null
-	return { start, end }
+	return { end, start }
 }
 
 /** Parse cached idle ranges, preserving an empty array as "scanned, none". */
@@ -102,17 +102,17 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 
 	const idleRanges = parseIdleRanges(rawIdleRanges)
 	return {
-		id,
-		name,
-		duration,
-		idleDuration,
 		annotations: parseAnnotations(annotations),
-		ignoreIdle: ignoreIdle === true,
+		description,
+		duration,
+		id,
+		idleDuration,
 		// Entries stored before the threshold was adjustable – or off the selectable scale – snap to the nearest option.
 		idleThreshold: nearestIdleThreshold(
 			isFiniteNonNegative(idleThreshold) ? idleThreshold : Number.NaN,
 		),
-		description,
+		ignoreIdle: ignoreIdle === true,
+		name,
 		...(idleRanges !== undefined ? { idleRanges } : {}),
 	}
 }
@@ -204,13 +204,13 @@ function parseStore(value: unknown): ProjectStore | null {
 		&& parsed.some(project => project.id === currentId)
 			? currentId
 			: parsed[0].id
-	return { projects: parsed, currentId: current }
+	return { currentId: current, projects: parsed }
 }
 
 /** Build a store holding a single empty project. */
 function emptyStore(): ProjectStore {
 	const project = createProject()
-	return { projects: [project], currentId: project.id }
+	return { currentId: project.id, projects: [project] }
 }
 
 /** Load the workspace's projects, falling back to a single empty project. */

@@ -66,33 +66,33 @@ describe("coalesced local persistence", () => {
 		const saves: Array<{ id: string; count: number }> = []
 		const storageFailures: boolean[] = []
 		const session = new ReviewSession({
-			routeParam: () => "",
-			projectId: () => "p1",
-			projectName: () => "Project",
-			project: () => [],
-			projectLoaded: () => false,
+			encodeShare: async () => "encoded",
+			navigate: async () => {},
 			onDecoded: () => {},
 			onResetIdle: () => {},
 			onStorageError: failed => storageFailures.push(failed),
+			project: () => [],
+			projectId: () => "p1",
+			projectLoaded: () => false,
+			projectName: () => "Project",
+			routeParam: () => "",
 			saveSelections: (id, selections) => {
-				saves.push({ id, count: selections.length })
+				saves.push({ count: selections.length, id })
 				return true
 			},
-			encodeShare: async () => "encoded",
-			navigate: async () => {},
 		})
 
 		session.submittedId = "t1"
 		session.loaded = true
-		session.selections = [{ id: "s1", start: 0, end: 1 }]
+		session.selections = [{ end: 1, id: "s1", start: 0 }]
 		effects[1]()
-		session.selections = [{ id: "s1", start: 0, end: 2 }]
+		session.selections = [{ end: 2, id: "s1", start: 0 }]
 		effects[1]()
-		session.selections = [{ id: "s1", start: 0, end: 3 }]
+		session.selections = [{ end: 3, id: "s1", start: 0 }]
 		effects[1]()
 
 		await wait(250)
-		expect(saves).toEqual([{ id: "t1", count: 1 }])
+		expect(saves).toEqual([{ count: 1, id: "t1" }])
 		expect(storageFailures).toEqual([false])
 		session.close()
 	})
@@ -108,14 +108,6 @@ describe("coalesced local persistence", () => {
 		let calls = 0
 		let projectLoaded = false
 		const session = new ReviewSession({
-			routeParam: () => "",
-			projectId: () => "p1",
-			projectName: () => "Project",
-			project: () => [],
-			projectLoaded: () => projectLoaded,
-			onDecoded: () => {},
-			onResetIdle: () => {},
-			onStorageError: () => {},
 			encodeShare: async state => {
 				calls += 1
 				active += 1
@@ -133,6 +125,14 @@ describe("coalesced local persistence", () => {
 			navigate: async target => {
 				navigations.push(target)
 			},
+			onDecoded: () => {},
+			onResetIdle: () => {},
+			onStorageError: () => {},
+			project: () => [],
+			projectId: () => "p1",
+			projectLoaded: () => projectLoaded,
+			projectName: () => "Project",
+			routeParam: () => "",
 		})
 
 		session.submittedId = "t1"
@@ -143,7 +143,7 @@ describe("coalesced local persistence", () => {
 		expect(calls).toBe(1)
 		expect(maxActive).toBe(1)
 
-		session.selections = [{ id: "s1", start: 0, end: 1 }]
+		session.selections = [{ end: 1, id: "s1", start: 0 }]
 		effects[2]()
 		await wait(225)
 		expect(calls).toBe(1)

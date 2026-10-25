@@ -74,8 +74,8 @@ export class ProjectWorkspace {
 		// does not serialize the entire workspace on every intermediate state.
 		$effect(() => {
 			const store: ProjectStore = {
-				projects: $state.snapshot(this.projects),
 				currentId: this.currentProjectId,
+				projects: $state.snapshot(this.projects),
 			}
 			if (!this.projectLoaded) return
 			this.#pendingStore = store

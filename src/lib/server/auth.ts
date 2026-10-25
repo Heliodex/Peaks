@@ -82,7 +82,7 @@ export async function validateSessionToken(
 		{ sess: Record("session", token) },
 	)
 	if (!res?.session || !res.user)
-		return { session: null, user: null, renewed: false }
+		return { renewed: false, session: null, user: null }
 	return res
 }
 
@@ -247,7 +247,7 @@ export async function generatePkcePair(): Promise<{
 		.replace(/\//g, "_")
 		.replace(/=+$/, "")
 
-	return { verifier, challenge }
+	return { challenge, verifier }
 }
 
 /**
@@ -256,12 +256,12 @@ export async function generatePkcePair(): Promise<{
 export function getLapseAuthUrl(state: string, codeChallenge: string): string {
 	const params = new URLSearchParams({
 		client_id: LAPSE_CLIENT_ID,
+		code_challenge: codeChallenge,
+		code_challenge_method: "S256",
 		redirect_uri: LAPSE_REDIRECT_URI,
 		response_type: "code",
 		scope: "user:read",
 		state,
-		code_challenge: codeChallenge,
-		code_challenge_method: "S256",
 	})
 	return `https://api.lapse.hackclub.com/api/auth/authorize?${params.toString()}`
 }
@@ -287,12 +287,12 @@ async function requestLapseToken(
 	let result: LapseJsonResult
 	try {
 		result = await fetchLapseJson(LAPSE_TOKEN_URL, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/x-www-form-urlencoded",
-				Accept: "application/json",
-			},
 			body: params,
+			headers: {
+				Accept: "application/json",
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+			method: "POST",
 		})
 	} catch (error) {
 		if (
@@ -320,12 +320,12 @@ export async function exchangeLapseCodeForToken(
 ): Promise<LapseTokenResponse> {
 	return requestLapseToken(
 		new URLSearchParams({
-			grant_type: "authorization_code",
-			code,
-			redirect_uri: LAPSE_REDIRECT_URI,
 			client_id: LAPSE_CLIENT_ID,
 			client_secret: LAPSE_CLIENT_SECRET,
+			code,
 			code_verifier: codeVerifier,
+			grant_type: "authorization_code",
+			redirect_uri: LAPSE_REDIRECT_URI,
 		}),
 	)
 }
@@ -336,10 +336,10 @@ export async function refreshLapseAccessToken(
 ): Promise<LapseTokenResponse> {
 	return requestLapseToken(
 		new URLSearchParams({
-			grant_type: "refresh_token",
-			refresh_token: refreshToken,
 			client_id: LAPSE_CLIENT_ID,
 			client_secret: LAPSE_CLIENT_SECRET,
+			grant_type: "refresh_token",
+			refresh_token: refreshToken,
 		}),
 	)
 }
@@ -409,12 +409,12 @@ export async function findOrCreateUser(
 	tokenResponse: LapseTokenResponse,
 ): Promise<RecordId<"user">> {
 	const lapseData: LapseData = {
-		id: userInfo.id,
-		handle: userInfo.handle,
-		displayName: userInfo.displayName,
-		profilePictureUrl: userInfo.profilePictureUrl,
 		accessToken: tokenResponse.access_token,
 		accessTokenExpiresAt: lapseTokenExpiresAt(tokenResponse.expires_in),
+		displayName: userInfo.displayName,
+		handle: userInfo.handle,
+		id: userInfo.id,
+		profilePictureUrl: userInfo.profilePictureUrl,
 		refreshToken: tokenResponse.refresh_token,
 	}
 

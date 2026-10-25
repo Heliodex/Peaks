@@ -20,15 +20,15 @@ const methodColours = Object.freeze({
 	POST: yellow("POST"),
 })
 const pathnameColours = Object.freeze({
+	admin: red,
 	api: green,
 	download: yellow,
+	login: blue,
 	moderation: yellow,
+	place: magenta,
+	register: blue,
 	report: yellow,
 	statistics: yellow,
-	register: blue,
-	login: blue,
-	place: magenta,
-	admin: red,
 })
 
 function pathnameColour(pathname: string) {

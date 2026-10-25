@@ -3,9 +3,9 @@
 
 export const apps = [
 	{
+		args: "./build",
+		interpreter: "none",
 		name: "Peaks",
 		script: "bun",
-		interpreter: "none",
-		args: "./build",
 	},
 ]

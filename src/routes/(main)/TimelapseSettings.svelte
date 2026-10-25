@@ -49,7 +49,7 @@ const currentLabel = $derived(history.nodes[history.currentId]?.label ?? "")
 
 let canvasEl = $state<HTMLDivElement>()
 // The view glides to its target through a CSS transform transition (disabled while dragging).
-let view = $state({ x: 0, y: 0, scale: 1 })
+let view = $state({ scale: 1, x: 0, y: 0 })
 let dragging = $state<{
 	pointerId: number
 	startX: number
@@ -86,9 +86,9 @@ function centreOnCurrent() {
 	const rect = el.getBoundingClientRect()
 	const scale = view.scale
 	view = clampView({
+		scale,
 		x: rect.width / 2 - node.x * scale,
 		y: rect.height / 2 - node.y * scale,
-		scale,
 	})
 }
 
@@ -100,9 +100,9 @@ $effect(() => {
 	const scale = untrack(() => view.scale)
 	const rect = el.getBoundingClientRect()
 	view = clampView({
+		scale,
 		x: rect.width / 2 - node.x * scale,
 		y: rect.height / 2 - node.y * scale,
-		scale,
 	})
 })
 
@@ -112,12 +112,12 @@ function startPan(event: PointerEvent) {
 	if ((event.target as HTMLElement).closest("button")) return
 	const el = event.currentTarget as HTMLElement
 	dragging = {
+		moved: false,
+		originX: view.x,
+		originY: view.y,
 		pointerId: event.pointerId,
 		startX: event.clientX,
 		startY: event.clientY,
-		originX: view.x,
-		originY: view.y,
-		moved: false,
 	}
 	try {
 		el.setPointerCapture(event.pointerId)
@@ -202,10 +202,10 @@ function normalizeSeekInput(
 		</h2>
 		<label class="flex cursor-pointer items-start gap-2 text-sm">
 			<input
-				type="checkbox"
 				checked={justifyTimeline}
-				onchange={e => onToggleJustifyTimeline(e.currentTarget.checked)}
 				class="mt-0.5 h-4 w-4 accent-primary-500"
+				onchange={e => onToggleJustifyTimeline(e.currentTarget.checked)}
+				type="checkbox"
 			>
 			<span class="flex flex-col gap-0.5">
 				<span>Justify timeline</span>
@@ -233,15 +233,15 @@ function normalizeSeekInput(
 			</span>
 			<span class="flex shrink-0 items-center gap-1.5">
 				<input
-					type="number"
-					min={MIN_SEEK_STEP}
-					max={MAX_SEEK_STEP}
-					step="1"
-					value={seekStep}
-					onchange={e => onSetSeekStep(e.currentTarget.valueAsNumber)}
-					onblur={normalizeSeekInput}
 					aria-label="Arrow-key seek step in seconds"
 					class="field w-16 px-1.5 py-0.5 text-right text-xs tabular-nums"
+					max={MAX_SEEK_STEP}
+					min={MIN_SEEK_STEP}
+					onblur={normalizeSeekInput}
+					onchange={e => onSetSeekStep(e.currentTarget.valueAsNumber)}
+					step="1"
+					type="number"
+					value={seekStep}
 				>
 				<span class="text-xs text-neutral-400">seconds</span>
 			</span>
@@ -255,28 +255,28 @@ function normalizeSeekInput(
 			</h2>
 			<div class="flex gap-1">
 				<button
-					type="button"
+					class="btn px-1.5 py-0.5 text-xs"
 					onclick={centreOnCurrent}
 					title="Centre on the current step"
-					class="btn px-1.5 py-0.5 text-xs"
+					type="button"
 				>
 					Centre
 				</button>
 				<button
-					type="button"
-					onclick={() => history.undo()}
-					disabled={!history.canUndo}
-					title="Undo (Ctrl+Z)"
 					class="btn px-1.5 py-0.5 text-xs"
+					disabled={!history.canUndo}
+					onclick={() => history.undo()}
+					title="Undo (Ctrl+Z)"
+					type="button"
 				>
 					Undo
 				</button>
 				<button
-					type="button"
-					onclick={() => history.redo()}
-					disabled={!history.canRedo}
-					title="Redo (Ctrl+Y)"
 					class="btn px-1.5 py-0.5 text-xs"
+					disabled={!history.canRedo}
+					onclick={() => history.redo()}
+					title="Redo (Ctrl+Y)"
+					type="button"
 				>
 					Redo
 				</button>
@@ -286,16 +286,16 @@ function normalizeSeekInput(
 			<p class="text-xs text-neutral-400">No actions yet.</p>
 		{:else}
 			<div
-				bind:this={canvasEl}
-				role="application"
 				aria-label="History graph. Drag to pan, scroll to zoom, and activate a node to jump to it."
 				class="relative h-72 touch-none overflow-hidden border border-line-soft bg-black select-none {dragging
 					? "cursor-grabbing"
 					: "cursor-grab"}"
+				onpointercancel={endPan}
 				onpointerdown={startPan}
 				onpointermove={movePan}
 				onpointerup={endPan}
-				onpointercancel={endPan}
+				role="application"
+				bind:this={canvasEl}
 				{@attach canvasGestures}
 			>
 				<div
@@ -308,32 +308,25 @@ function normalizeSeekInput(
 					style:transform="translate({view.x}px, {view.y}px) scale({view.scale})"
 				>
 					<svg
-						class="pointer-events-none absolute top-0 left-0 overflow-visible"
-						width={graph.width}
-						height={graph.height}
 						aria-hidden="true"
+						class="pointer-events-none absolute top-0 left-0 overflow-visible"
+						height={graph.height}
+						width={graph.width}
 					>
 						{#each graph.edges as edge (`${edge.from}→${edge.to}`)}
 							<path
-								d={edge.d}
-								fill="none"
-								stroke-width="1.5"
-								stroke-linecap="round"
 								class={edge.onPath
 									? "stroke-primary-500"
 									: "stroke-neutral-600"}
+								d={edge.d}
+								fill="none"
+								stroke-linecap="round"
+								stroke-width="1.5"
 							/>
 						{/each}
 					</svg>
 					{#each graph.nodes as node (node.id)}
 						<button
-							type="button"
-							onclick={() => handleNodeClick(node.id)}
-							onpointerenter={event =>
-								showLabel(node.label, event)}
-							onpointermove={event =>
-								showLabel(node.label, event)}
-							onpointerleave={() => (hovered = null)}
 							aria-label={node.label}
 							class={[
 								"absolute rounded-full border transition-colors",
@@ -345,19 +338,26 @@ function normalizeSeekInput(
 											? "border-neutral-400 bg-neutral-600"
 											: "border-neutral-700 bg-neutral-800 hover:border-neutral-500",
 							]}
+							onclick={() => handleNodeClick(node.id)}
+							onpointerenter={event =>
+								showLabel(node.label, event)}
+							onpointerleave={() => (hovered = null)}
+							onpointermove={event =>
+								showLabel(node.label, event)}
+							type="button"
+							style:height="{NODE}px"
 							style:left="{node.x - NODE / 2}px"
 							style:top="{node.y - NODE / 2}px"
 							style:width="{NODE}px"
-							style:height="{NODE}px"
 						>
 							{#if node.showLabel}
 								<span
+									aria-hidden="true"
 									class="pointer-events-none absolute top-1/2 left-full ml-1.5 -translate-y-1/2 whitespace-nowrap text-xs {node.current
 										? "text-primary-300"
 										: node.onPath
 											? "text-neutral-300"
 											: "text-neutral-500"}"
-									aria-hidden="true"
 								>
 									{node.label}
 								</span>

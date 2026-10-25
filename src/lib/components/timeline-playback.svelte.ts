@@ -29,9 +29,9 @@ export class TimelinePlayback {
 	// While the video plays the cursor stays locked to the (already frame-driven) time, so only paused seeks and scrubs are smoothed.
 	// Springing the time rather than its screen position keeps the cursor aligned with the frames as the view zooms under a spring of its own.
 	#playheadSpring = new Spring(0, {
-		stiffness: 0.4,
 		damping: 1,
 		precision: 0.001,
+		stiffness: 0.4,
 	})
 	playheadTime = $derived(this.#playheadSpring.current)
 

@@ -31,7 +31,7 @@ mock.module("#lib/server/db.js", () => ({
 			},
 		}),
 	},
-	Record: (table: string, id: string) => ({ table, id }),
+	Record: (table: string, id: string) => ({ id, table }),
 }))
 
 const { exchangeLapseCodeForToken, fetchLapseTimelapse, fetchLapseUserInfo } =
@@ -40,45 +40,45 @@ const { exchangeLapseCodeForToken, fetchLapseTimelapse, fetchLapseUserInfo } =
 const originalFetch = globalThis.fetch
 
 const userPayload = {
-	id: "user-1",
 	createdAt: 1_700_000_000_000,
-	handle: "tester",
 	displayName: "Tester",
-	profilePictureUrl: "https://cdn.example/avatar.png",
-	urls: [],
 	hackatimeId: null,
-	slackId: null,
+	handle: "tester",
+	id: "user-1",
 	private: {
-		permissionLevel: "USER",
 		devices: [],
 		needsReauth: false,
+		permissionLevel: "USER",
 	},
+	profilePictureUrl: "https://cdn.example/avatar.png",
+	slackId: null,
+	urls: [],
 }
 
 const timelapsePayload = {
+	createdAt: 1_700_000_000_000,
+	duration: 12.5,
 	id: "timelapse-1",
 	name: "A timelapse",
-	visibility: "PUBLIC",
-	createdAt: 1_700_000_000_000,
+	owner: {
+		createdAt: 1_700_000_000_000,
+		displayName: "Tester",
+		hackatimeId: null,
+		handle: "tester",
+		id: "user-1",
+		profilePictureUrl: "https://cdn.example/avatar.png",
+		slackId: null,
+		urls: [],
+	},
 	playbackUrl: "https://cdn.example/video.mp4",
 	thumbnailUrl: null,
-	duration: 12.5,
-	owner: {
-		id: "user-1",
-		createdAt: 1_700_000_000_000,
-		handle: "tester",
-		displayName: "Tester",
-		profilePictureUrl: "https://cdn.example/avatar.png",
-		urls: [],
-		hackatimeId: null,
-		slackId: null,
-	},
+	visibility: "PUBLIC",
 }
 
 const response = (body: unknown, status = 200): Response =>
 	new Response(JSON.stringify(body), {
-		status,
 		headers: { "Content-Type": "application/json" },
+		status,
 	})
 
 afterEach(() => {
@@ -92,12 +92,12 @@ afterAll(() => {
 describe("Lapse authentication API", () => {
 	test("validates a profile response before returning it", async () => {
 		globalThis.fetch = (async () =>
-			response({ ok: true, data: { user: userPayload } })) as typeof fetch
+			response({ data: { user: userPayload }, ok: true })) as typeof fetch
 
 		await expect(fetchLapseUserInfo("access-token")).resolves.toEqual({
-			id: userPayload.id,
-			handle: userPayload.handle,
 			displayName: userPayload.displayName,
+			handle: userPayload.handle,
+			id: userPayload.id,
 			profilePictureUrl: userPayload.profilePictureUrl,
 		})
 	})
@@ -128,8 +128,8 @@ describe("Lapse authentication API", () => {
 			const url = String(input)
 			const headers = new Headers(init?.headers)
 			calls.push({
-				url,
 				authorization: headers.get("Authorization") ?? undefined,
+				url,
 			})
 			call += 1
 			if (call === 1) return new Response(null, { status: 401 })
@@ -137,22 +137,22 @@ describe("Lapse authentication API", () => {
 				return response({
 					access_token: "new-access-token",
 					expires_in: 3600,
-					token_type: "Bearer",
 					scope: "user:read",
+					token_type: "Bearer",
 				})
 
-			return response({ ok: true, data: { timelapse: timelapsePayload } })
+			return response({ data: { timelapse: timelapsePayload }, ok: true })
 		}) as typeof fetch
 
 		const user = {
 			id: Record("user", "1"),
 			lapseData: {
-				id: userPayload.id,
-				handle: userPayload.handle,
-				displayName: userPayload.displayName,
-				profilePictureUrl: userPayload.profilePictureUrl,
 				accessToken: "old-access-token",
 				accessTokenExpiresAt: Date.now() + 60_000,
+				displayName: userPayload.displayName,
+				handle: userPayload.handle,
+				id: userPayload.id,
+				profilePictureUrl: userPayload.profilePictureUrl,
 				refreshToken: "refresh-token",
 			},
 		} as Parameters<typeof fetchLapseTimelapse>[0]
@@ -163,8 +163,8 @@ describe("Lapse authentication API", () => {
 			...timelapsePayload,
 			description: "",
 			owner: {
-				handle: timelapsePayload.owner.handle,
 				displayName: timelapsePayload.owner.displayName,
+				handle: timelapsePayload.owner.handle,
 				profilePictureUrl: timelapsePayload.owner.profilePictureUrl,
 			},
 		})
@@ -182,12 +182,12 @@ describe("Lapse authentication API", () => {
 		const user = {
 			id: Record("user", "1"),
 			lapseData: {
-				id: userPayload.id,
-				handle: userPayload.handle,
-				displayName: userPayload.displayName,
-				profilePictureUrl: userPayload.profilePictureUrl,
 				accessToken: "access-token",
 				accessTokenExpiresAt: Date.now() + 60_000,
+				displayName: userPayload.displayName,
+				handle: userPayload.handle,
+				id: userPayload.id,
+				profilePictureUrl: userPayload.profilePictureUrl,
 			},
 		} as Parameters<typeof fetchLapseTimelapse>[0]
 
