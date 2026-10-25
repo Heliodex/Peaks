@@ -85,14 +85,14 @@ const timelapseResponseSchema = type({
 	ok: "true",
 })
 
-export type LapseUserInfo = {
+export interface LapseUserInfo {
 	id: string
 	handle: string
 	displayName: string
 	profilePictureUrl: string
 }
 
-export type LapseTimelapse = {
+export interface LapseTimelapse {
 	id: string
 	name: string
 	description: string
@@ -193,7 +193,7 @@ export function parseLapseTimelapseResponse(value: unknown): LapseTimelapse {
 	}
 }
 
-export type LapseJsonResult = {
+export interface LapseJsonResult {
 	status: number
 	ok: boolean
 	body: unknown

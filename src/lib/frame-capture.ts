@@ -3,14 +3,14 @@
 import { lapseProxyUrl } from "./lapse.js"
 import { seekVideo } from "./media.js"
 
-export type CapturedFrame = {
+export interface CapturedFrame {
 	/** Raw JPEG bytes, ready to persist without any base64 round-trip. */
 	blob: Blob
 	/** Object URL for rendering the frame in an `<img>`. */
 	url: string
 }
 
-export type FrameCapturer = {
+export interface FrameCapturer {
 	/** Seek to `time` and return a small JPEG snapshot. */
 	captureAt: (time: number, epsilon?: number) => Promise<CapturedFrame>
 	/** Release the underlying video element. */

@@ -12,7 +12,7 @@ const SELECTION_SAVE_DEBOUNCE_MS = 200
 const SHARE_ENCODE_DEBOUNCE_MS = 200
 const URL_WRITE_DEBOUNCE_MS = 300
 
-type ShareState = {
+interface ShareState {
 	projectId: string
 	id: string
 	selections: TimelineSelection[]
@@ -20,12 +20,12 @@ type ShareState = {
 	project: ProjectTimelapse[]
 }
 
-type PendingSelection = {
+interface PendingSelection {
 	id: string
 	selections: TimelineSelection[]
 }
 
-type ReviewSessionOptions = {
+interface ReviewSessionOptions {
 	/** Encoded `/{state}` path (empty on the landing page). */
 	routeParam: () => string
 	projectId: () => string

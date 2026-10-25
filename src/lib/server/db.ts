@@ -3,7 +3,7 @@ import { Surreal, RecordId as SurrealRecordId, Table } from "surrealdb"
 import initQuery from "#lib/server/init.surql?raw"
 import { building } from "$app/env"
 
-type GlobalSurrealState = {
+interface GlobalSurrealState {
 	instance?: Surreal
 	ready?: Promise<void>
 }
@@ -64,7 +64,7 @@ export const db = globalState.__surreal.instance as Surreal
 // On reload this waits for the idempotent schema refresh before exporting the connection.
 await (globalState.__surreal.ready as Promise<void>)
 
-type RecordIdTypes = {
+interface RecordIdTypes {
 	hasSession: string
 	user: string
 	session: string

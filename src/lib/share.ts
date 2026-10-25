@@ -36,7 +36,7 @@ const MAX_DURATION_MS = MAX_DURATION_SECONDS * 1000
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/
 const OVERLAP_EPSILON = 1e-9
 
-export type ShareState = {
+export interface ShareState {
 	projectId: string
 	selections: TimelineSelection[]
 	projectName: string
@@ -67,7 +67,7 @@ type SharePayload = [
 	ShareProjectTuple[],
 	string,
 ]
-type ParsedSharePayload = {
+interface ParsedSharePayload {
 	state: ShareState
 	selections: Map<string, TimelineSelection[]>
 }
@@ -123,14 +123,14 @@ function toBase64Url(bytes: Uint8Array): string {
 	let binary = ""
 	for (const byte of bytes) binary += String.fromCharCode(byte)
 	return btoa(binary)
-		.replace(/\+/g, "-")
-		.replace(/\//g, "_")
+		.replaceAll('+', "-")
+		.replaceAll('/', "_")
 		.replace(/=+$/, "")
 }
 
 function fromBase64Url(value: string): Uint8Array {
 	if (!BASE64URL_PATTERN.test(value)) throw new Error("Invalid base64url")
-	const base64 = value.replace(/-/g, "+").replace(/_/g, "/")
+	const base64 = value.replaceAll('-', "+").replaceAll('_', "/")
 	const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4)
 	const binary = atob(padded)
 	const bytes = new Uint8Array(binary.length)
@@ -264,7 +264,7 @@ function parseSelection(
 	duration: number,
 ): TimelineSelection | null {
 	if (!selectionTupleSchema.allows(value)) return null
-	const [start, end, reason] = value as ShareSelectionTuple
+	const [start, end, reason] = value
 	if (!isValidRange(start, end, Math.round(duration * 1000))) return null
 
 	let reasonId: string | undefined
@@ -293,7 +293,7 @@ function parseSelections(
 
 function parseIdleTuple(value: unknown, duration: number): IdleRange | null {
 	if (!idleTupleSchema.allows(value)) return null
-	const [start, end] = value as ShareIdleTuple
+	const [start, end] = value
 	return isValidRange(start, end, Math.round(duration * 1000))
 		? { end: end / 1000, start: start / 1000 }
 		: null

@@ -6,7 +6,7 @@ import { snapToFrame } from "#lib/timeline.js"
 // Assumed frame rate for single-frame stepping if detection hasn't finished
 export const FALLBACK_FRAME_RATE = 30
 
-type TimelinePlaybackOptions = {
+interface TimelinePlaybackOptions {
 	video: () => HTMLVideoElement | undefined
 	src: () => string
 	onDuration: (duration: number) => void
@@ -28,7 +28,7 @@ export class TimelinePlayback {
 	// Playback position shown by the cursor, eased by a spring so seeks glide into place rather than jumping.
 	// While the video plays the cursor stays locked to the (already frame-driven) time, so only paused seeks and scrubs are smoothed.
 	// Springing the time rather than its screen position keeps the cursor aligned with the frames as the view zooms under a spring of its own.
-	#playheadSpring = new Spring(0, {
+	readonly #playheadSpring = new Spring(0, {
 		damping: 1,
 		precision: 0.001,
 		stiffness: 0.4,

@@ -18,7 +18,7 @@ const navFrameCache = createObjectUrlCache<string[]>({
 	urls: frames => frames,
 })
 
-type NavThumbnailsOptions = {
+interface NavThumbnailsOptions {
 	src: () => string
 	duration: () => number
 	/** Capture a frame from the shared timeline pool (avoids another video). */
@@ -54,9 +54,9 @@ export class NavThumbnails {
 				const stored = await loadThumbnails(NAV_THUMBNAIL_KIND, src)
 				if (cancelled) return
 				if (stored.length > 0) {
-					for (const { key, blob } of stored) {
+					for (const { key, blob } of stored) 
 						frames[key] = URL.createObjectURL(blob)
-					}
+					
 					navFrameCache.set(src, frames)
 					retained = true
 					this.frames = frames
@@ -90,9 +90,9 @@ export class NavThumbnails {
 
 			return () => {
 				cancelled = true
-				if (!retained) {
+				if (!retained) 
 					for (const url of frames) URL.revokeObjectURL(url)
-				}
+				
 			}
 		})
 	}

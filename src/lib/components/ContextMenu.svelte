@@ -1,5 +1,5 @@
 <script lang="ts" module>
-export type ContextMenuItem = {
+export interface ContextMenuItem {
 	label: string
 	/** Style the item as destructive. */
 	danger?: boolean
@@ -76,7 +76,7 @@ function onKeydown(event: KeyboardEvent) {
 		buttons[0]?.focus()
 	} else if (event.key === "End") {
 		event.preventDefault()
-		buttons[buttons.length - 1]?.focus()
+		buttons.at(-1)?.focus()
 	}
 }
 

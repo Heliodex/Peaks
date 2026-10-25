@@ -8,8 +8,8 @@ import { goto } from "$app/navigation"
 import { getTimelapse } from "./api.remote.js"
 import type { ReviewTimelapse } from "./review-types.js"
 
-type ResolvedId = { id: string; meta: ReviewTimelapse | null }
-type LoadOperation = {
+interface ResolvedId { id: string; meta: ReviewTimelapse | null }
+interface LoadOperation {
 	id: number
 	projectId: string
 	openId: string
@@ -84,7 +84,7 @@ async function resolveIds(
 	return { missing, unchecked, valid }
 }
 
-type TimelapseLoaderOptions = {
+interface TimelapseLoaderOptions {
 	openId: () => string
 	entries: () => ProjectTimelapse[]
 	projectId: () => string

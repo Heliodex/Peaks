@@ -35,7 +35,7 @@ const DRAG_THRESHOLD_PX = 4
 // Minimum on-screen width (px) of a selection so its handles stay usable
 const MIN_SELECTION_PX = 4
 
-type SelectionEditorOptions = {
+interface SelectionEditorOptions {
 	selections: () => TimelineSelection[]
 	setSelections: (selections: TimelineSelection[]) => void
 	duration: () => number
@@ -67,9 +67,9 @@ export class SelectionEditor {
 		let id = `selection-${++this.#nextId}`
 		while (
 			this.#options.selections().some(selection => selection.id === id)
-		) {
+		) 
 			id = `selection-${++this.#nextId}`
-		}
+		
 		return id
 	}
 
@@ -151,21 +151,21 @@ export class SelectionEditor {
 			selection.end,
 		)
 		const minLength = this.#minSelectionLength(track)
-		if (resizeEl.dataset.resize === "start") {
+		if (resizeEl.dataset.resize === "start") 
 			this.drag = {
 				id,
 				kind: "resize-start",
 				max: Math.max(left, selection.end - minLength),
 				min: left,
 			}
-		} else {
+		 else 
 			this.drag = {
 				id,
 				kind: "resize-end",
 				max: right,
 				min: Math.min(right, selection.start + minLength),
 			}
-		}
+		
 		track.setPointerCapture(event.pointerId)
 		event.preventDefault()
 		return true
@@ -341,9 +341,9 @@ export class SelectionEditor {
 		this.drag = null
 		this.pan = null
 
-		if (track.hasPointerCapture(event.pointerId)) {
+		if (track.hasPointerCapture(event.pointerId)) 
 			track.releasePointerCapture(event.pointerId)
-		}
+		
 		if (!state) return
 
 		if (state.kind === "create") {
@@ -351,11 +351,11 @@ export class SelectionEditor {
 				.selections()
 				.find(s => s.id === state.id)
 			// An un-dragged press (or an empty range) is discarded like a click.
-			if (!state.moved || !created || created.end - created.start <= 0) {
+			if (!state.moved || !created || created.end - created.start <= 0) 
 				this.#options.setSelections(
 					this.#options.selections().filter(s => s.id !== state.id),
 				)
-			}
+			
 		}
 	}
 

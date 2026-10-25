@@ -14,7 +14,7 @@ describe("nearestIdleThreshold", () => {
 		expect(nearestIdleThreshold(0.007)).toBe(0.005)
 		expect(nearestIdleThreshold(0.06)).toBe(0.05)
 		expect(nearestIdleThreshold(Number.MAX_SAFE_INTEGER)).toBe(
-			IDLE_THRESHOLD_SCALE[IDLE_THRESHOLD_SCALE.length - 1],
+			IDLE_THRESHOLD_SCALE.at(-1),
 		)
 	})
 	test("falls back to the default for non-numbers", () => {
@@ -29,12 +29,12 @@ describe("idleSampleTimes", () => {
 	test("ends on the last frame when the frame rate is known", () => {
 		const times = idleSampleTimes(2, 30)
 		expect(times[0]).toBe(0)
-		expect(times[times.length - 1]).toBeCloseTo(59 / 30)
+		expect(times.at(-1)).toBeCloseTo(59 / 30)
 	})
 	test("spans the whole video without a frame rate", () => {
 		const times = idleSampleTimes(5, 0)
 		expect(times[0]).toBe(0)
-		expect(times[times.length - 1]).toBe(5)
+		expect(times.at(-1)).toBe(5)
 	})
 })
 

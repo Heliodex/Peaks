@@ -32,7 +32,7 @@ const previousState = runtime.$state
 const previousDerived = runtime.$derived
 const previousEffect = runtime.$effect
 const effects: (() => unknown)[] = []
-const effectCleanups: Array<(() => void) | undefined> = []
+const effectCleanups: ((() => void) | undefined)[] = []
 runtime.$state = value => value
 runtime.$derived = value => value
 runtime.$effect = effect => {

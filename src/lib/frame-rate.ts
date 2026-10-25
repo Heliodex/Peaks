@@ -6,7 +6,7 @@ const MIN_FRAMES = 3
 // Give up after this long, e.g. for extremely low frame rate videos
 const PROBE_TIMEOUT_MS = 6000
 
-type FrameCallbackMetadata = { presentedFrames: number; mediaTime: number }
+interface FrameCallbackMetadata { presentedFrames: number; mediaTime: number }
 type FrameCallback = (now: number, metadata: FrameCallbackMetadata) => void
 type ProbeVideo = HTMLVideoElement & {
 	requestVideoFrameCallback?: (callback: FrameCallback) => number
@@ -48,7 +48,7 @@ function createProbeVideo(src: string): ProbeVideo {
 	video.style.cssText =
 		"position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none"
 	video.src = src
-	document.body.appendChild(video)
+	document.body.append(video)
 	return video
 }
 

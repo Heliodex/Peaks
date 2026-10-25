@@ -92,7 +92,7 @@ afterAll(() => {
 describe("Lapse authentication API", () => {
 	test("validates a profile response before returning it", async () => {
 		globalThis.fetch = (async () =>
-			response({ data: { user: userPayload }, ok: true })) as typeof fetch
+			response({ data: { user: userPayload }, ok: true }))
 
 		await expect(fetchLapseUserInfo("access-token")).resolves.toEqual({
 			displayName: userPayload.displayName,
@@ -104,7 +104,7 @@ describe("Lapse authentication API", () => {
 
 	test("rejects a non-JSON profile response without exposing its body", async () => {
 		globalThis.fetch = (async () =>
-			new Response("upstream details", { status: 200 })) as typeof fetch
+			new Response("upstream details", { status: 200 }))
 
 		await expect(fetchLapseUserInfo("access-token")).rejects.toBeInstanceOf(
 			LapseApiResponseError,
@@ -113,7 +113,7 @@ describe("Lapse authentication API", () => {
 
 	test("keeps malformed token JSON typed as a token response error", async () => {
 		globalThis.fetch = (async () =>
-			new Response("not-json", { status: 200 })) as typeof fetch
+			new Response("not-json", { status: 200 }))
 
 		await expect(
 			exchangeLapseCodeForToken("code", "verifier"),
@@ -121,7 +121,7 @@ describe("Lapse authentication API", () => {
 	})
 
 	test("retries a timed-lapse request once after refreshing its token", async () => {
-		const calls: Array<{ url: string; authorization: string | undefined }> =
+		const calls: { url: string; authorization: string | undefined }[] =
 			[]
 		let call = 0
 		globalThis.fetch = (async (input, init) => {
@@ -142,7 +142,7 @@ describe("Lapse authentication API", () => {
 				})
 
 			return response({ data: { timelapse: timelapsePayload }, ok: true })
-		}) as typeof fetch
+		})
 
 		const user = {
 			id: Record("user", "1"),
@@ -177,7 +177,7 @@ describe("Lapse authentication API", () => {
 
 	test("returns null for a missing timelapse", async () => {
 		globalThis.fetch = (async () =>
-			new Response("not found", { status: 404 })) as typeof fetch
+			new Response("not found", { status: 404 }))
 
 		const user = {
 			id: Record("user", "1"),

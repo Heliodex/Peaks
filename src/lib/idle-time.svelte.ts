@@ -7,7 +7,7 @@ import {
 	idleRangesAreFrameAligned,
 } from "./idle-time.js"
 
-type IdleAnalysisOptions = {
+interface IdleAnalysisOptions {
 	src: () => string
 	duration: () => number
 	frameRate: () => number

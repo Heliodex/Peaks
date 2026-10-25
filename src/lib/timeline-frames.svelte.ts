@@ -19,9 +19,9 @@ import {
 	type ViewWindow,
 } from "./timeline.js"
 
-export type CachedFrame = { time: number; url: string; fresh: boolean }
+export interface CachedFrame { time: number; url: string; fresh: boolean }
 
-export type LayoutFrame = {
+export interface LayoutFrame {
 	time: number
 	url: string
 	fresh: boolean
@@ -29,7 +29,7 @@ export type LayoutFrame = {
 	width: number
 }
 
-export type FrameStripOptions = {
+export interface FrameStripOptions {
 	src: () => string
 	duration: () => number
 	frameRate: () => number
@@ -77,9 +77,9 @@ const trimFramesNear = (
 /** Revoke the object URLs of frames that `kept` dropped. */
 function revokeDropped(candidates: CachedFrame[], kept: CachedFrame[]) {
 	const keptSet = new Set(kept)
-	for (const frame of candidates) {
+	for (const frame of candidates) 
 		if (!keptSet.has(frame)) URL.revokeObjectURL(frame.url)
-	}
+	
 }
 
 /** Whether a frame within `tolerance` of `time` is already cached. */
@@ -110,9 +110,9 @@ function layoutFrames(
 			bestDistance = distance
 			best = frame
 		}
-		if (best && bestDistance <= maxDistance && !picks.includes(best)) {
+		if (best && bestDistance <= maxDistance && !picks.includes(best)) 
 			picks.push(best)
-		}
+		
 	}
 	picks.sort((a, b) => a.time - b.time)
 	return picks.map((frame, i) => {
@@ -183,7 +183,7 @@ async function hydrate(source: string) {
 	}
 }
 
-type CapturePool = {
+interface CapturePool {
 	/** Get (or lazily create) the pool's capturer at `index` for `source`. */
 	capturer: (index: number, source: string) => FrameCapturer
 	/** Dispose every pooled capturer. */
@@ -226,7 +226,7 @@ function createCapturePool(): CapturePool {
 // Capturing is network-bound, so a small pool of hidden videos working in parallel fills the strip. Kept deliberately small (and shared with the navigator) to limit how many video elements load at once.
 const POOL_SIZE = 2
 
-type CaptureJob = {
+interface CaptureJob {
 	source: string
 	generation: number
 	time: number

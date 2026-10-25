@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test"
 import type { Project } from "#lib/project-storage.js"
 
-type Meta = { name: string; duration: number }
+interface Meta { name: string; duration: number }
 
 const getTimelapse = mock(
 	(_id: string): Promise<Meta> =>

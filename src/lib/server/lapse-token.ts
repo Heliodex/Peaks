@@ -1,4 +1,4 @@
-export type LapseTokenResponse = {
+export interface LapseTokenResponse {
 	access_token: string
 	refresh_token?: string
 	expires_in: number

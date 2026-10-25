@@ -73,7 +73,7 @@ export type SelectionColors =
 	(typeof SELECTION_COLORS)[keyof typeof SELECTION_COLORS]
 export type AnnotationColor = Exclude<keyof typeof SELECTION_COLORS, "neutral">
 
-export type AnnotationReason = {
+export interface AnnotationReason {
 	id: string
 	label: string
 	/** Short phrase used in the written description, e.g. "spent researching". */
@@ -212,7 +212,7 @@ export const effectiveIdleRanges = (
 ): IdleRange[] => (ignoreIdle ? [] : idleRanges)
 
 /** Recorded time removed by a single annotation reason. */
-export type AnnotationDeflation = {
+export interface AnnotationDeflation {
 	/** Annotation reason id. */
 	reason: string
 	/** Recorded seconds removed by this reason. */
@@ -264,7 +264,7 @@ function mergeSpans(spans: { start: number; end: number }[]): {
 	const sorted = spans.toSorted((a, b) => a.start - b.start)
 	const merged: { start: number; end: number }[] = []
 	for (const span of sorted) {
-		const last = merged[merged.length - 1]
+		const last = merged.at(-1)
 		if (last && span.start <= last.end)
 			last.end = Math.max(last.end, span.end)
 		else merged.push({ end: span.end, start: span.start })
@@ -352,9 +352,9 @@ export function describeTimelapse({
 	if (idleTotal + deflatedTotal > 0) {
 		const finalDuration = Math.max(0, duration - idleTotal - deflatedTotal)
 		parts.push(`Final time after deflation ${formatClock(finalDuration)}.`)
-	} else {
+	} else 
 		parts.push("No deflation was applied.")
-	}
+	
 
 	return parts.join(" ")
 }

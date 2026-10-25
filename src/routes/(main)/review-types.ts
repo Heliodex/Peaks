@@ -9,7 +9,7 @@ export type ReviewTimelapse = NonNullable<
 >
 
 /** Aggregated totals across every timelapse in the project. */
-export type ProjectTotals = {
+export interface ProjectTotals {
 	recorded: number
 	idle: number
 	annotations: { reason: AnnotationReason; duration: number }[]

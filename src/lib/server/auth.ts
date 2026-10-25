@@ -55,7 +55,7 @@ export async function createSession(user: RecordId<"user">): Promise<string> {
 	return session
 }
 
-export type LapseData = {
+export interface LapseData {
 	id: string
 	handle: string
 	displayName: string
@@ -65,7 +65,7 @@ export type LapseData = {
 	refreshToken?: string
 }
 
-export type User = {
+export interface User {
 	id: RecordId<"user">
 	lapseData: LapseData
 }
@@ -243,8 +243,8 @@ export async function generatePkcePair(): Promise<{
 		new TextEncoder().encode(verifier),
 	)
 	const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
-		.replace(/\+/g, "-")
-		.replace(/\//g, "_")
+		.replaceAll('+', "-")
+		.replaceAll('/', "_")
 		.replace(/=+$/, "")
 
 	return { challenge, verifier }

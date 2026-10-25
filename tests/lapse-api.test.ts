@@ -129,7 +129,7 @@ describe("Lapse API request bounds", () => {
 	test("converts a network failure into a typed request error", async () => {
 		globalThis.fetch = (async () => {
 			throw new TypeError("network details should not escape")
-		}) as typeof fetch
+		})
 
 		await expect(
 			fetchLapseJson("https://api.example.test", {}),
@@ -144,7 +144,7 @@ describe("Lapse API request bounds", () => {
 					() => reject(new DOMException("aborted", "AbortError")),
 					{ once: true },
 				)
-			})) as typeof fetch
+			}))
 
 		await expect(
 			fetchLapseJson("https://api.example.test", {}, 5),
@@ -167,7 +167,7 @@ describe("Lapse API request bounds", () => {
 					}),
 				ok: true,
 				status: 200,
-			} as Response as unknown as Response)) as typeof fetch
+			} as Response as unknown as Response))
 
 		await expect(
 			fetchLapseJson("https://api.example.test", {}, 5),

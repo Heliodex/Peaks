@@ -3,9 +3,9 @@
 import { lapseProxyUrl } from "./lapse.js"
 import { seekVideo } from "./media.js"
 
-export type IdleRange = { start: number; end: number }
+export interface IdleRange { start: number; end: number }
 
-export type IdleAnalysisJob = {
+export interface IdleAnalysisJob {
 	promise: Promise<IdleRange[]>
 	cancel: () => void
 }
@@ -28,11 +28,11 @@ export const DEFAULT_IDLE_THRESHOLD = IDLE_THRESHOLD_SCALE[0]
 export function nearestIdleThreshold(value: number): number {
 	if (!Number.isFinite(value)) return DEFAULT_IDLE_THRESHOLD
 	let nearest: number = IDLE_THRESHOLD_SCALE[0]
-	for (const candidate of IDLE_THRESHOLD_SCALE) {
+	for (const candidate of IDLE_THRESHOLD_SCALE) 
 		if (Math.abs(candidate - value) <= Math.abs(nearest - value)) {
 			nearest = candidate
 		}
-	}
+	
 	return nearest
 }
 
@@ -58,9 +58,9 @@ export function idleSampleTimes(duration: number, frameRate: number): number[] {
 		const lastFrame = Math.max(0, Math.round(duration * frameRate) - 1)
 		const stepFrames = Math.max(1, Math.ceil(lastFrame / (MAX_SAMPLES - 1)))
 		const times: number[] = []
-		for (let frame = 0; frame < lastFrame; frame += stepFrames) {
+		for (let frame = 0; frame < lastFrame; frame += stepFrames) 
 			times.push(frame / frameRate)
-		}
+		
 		// Always finish on the last frame so the scan reaches the video's end.
 		times.push(lastFrame / frameRate)
 		return times
@@ -68,7 +68,7 @@ export function idleSampleTimes(duration: number, frameRate: number): number[] {
 	const step = Math.max(FALLBACK_STEP, duration / MAX_SAMPLES)
 	const times: number[] = []
 	for (let time = 0; time < duration; time += step) times.push(time)
-	if (times.length === 0 || times[times.length - 1] < duration)
+	if (times.length === 0 || times.at(-1) < duration)
 		times.push(duration)
 
 	return times
@@ -100,12 +100,12 @@ function spansFrameBoundary(
 	to: number,
 	frameRate: number,
 ): boolean {
-	if (frameRate > 0) {
+	if (frameRate > 0) 
 		return (
 			Math.floor(to * frameRate + 1e-6)
 			> Math.floor(from * frameRate + 1e-6)
 		)
-	}
+	
 	return to - from + 1e-6 >= FALLBACK_STEP
 }
 
@@ -133,17 +133,17 @@ export function mergeIdleRanges(intervals: IdleRange[]): IdleRange[] {
 	const sorted = [...intervals].sort((a, b) => a.start - b.start)
 	const merged: IdleRange[] = []
 	for (const interval of sorted) {
-		const last = merged[merged.length - 1]
-		if (last && interval.start <= last.end + 1e-6) {
+		const last = merged.at(-1)
+		if (last && interval.start <= last.end + 1e-6) 
 			last.end = Math.max(last.end, interval.end)
-		} else {
+		 else 
 			merged.push({ ...interval })
-		}
+		
 	}
 	return merged
 }
 
-type IdleCallbacks = {
+interface IdleCallbacks {
 	onProgress?: (progress: number) => void
 	onRanges?: (ranges: IdleRange[]) => void
 }
@@ -197,7 +197,7 @@ export const waitForData = (
 		}, timeoutMs)
 	})
 
-type VideoSampler = {
+interface VideoSampler {
 	/** Media duration reported by the loaded element, if known. */
 	duration: () => number | null
 	ensure: () => Promise<HTMLVideoElement>

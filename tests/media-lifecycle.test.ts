@@ -112,14 +112,14 @@ describe("media operation cancellation", () => {
 			capturer.dispose()
 			await expect(pending).rejects.toThrow("disposed")
 		} finally {
-			if (originalDocument === undefined) {
+			if (originalDocument === undefined) 
 				delete (globalThis as { document?: Document }).document
-			} else {
+			 else 
 				Object.defineProperty(globalThis, "document", {
 					configurable: true,
 					value: originalDocument,
 				})
-			}
+			
 		}
 	})
 })

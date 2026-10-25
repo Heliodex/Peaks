@@ -1,7 +1,7 @@
 // Global review shortcuts, handled while the review route is mounted.
 import { isInteractiveTarget } from "#lib/dom.js"
 
-type ReviewShortcutsOptions = {
+interface ReviewShortcutsOptions {
 	/** Toggle the project search dialog. */
 	toggleSearch: () => void
 	/** Whether a video is available to fullscreen. */

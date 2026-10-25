@@ -62,7 +62,7 @@ const finish: Handle = async ({ event, resolve }) => {
 		console.error("Could not log request:", e)
 	}
 
-	return await resolve(event)
+	return resolve(event)
 }
 
 // Ran every time a dynamic request is made.
@@ -76,7 +76,7 @@ export const handle: Handle = async e => {
 		event.locals.user = null
 		event.cookies.delete(sessionCookieName, { path: "/" })
 
-		return await finish(e)
+		return finish(e)
 	}
 
 	const { session, user, renewed } = await validateSessionToken(token)
@@ -84,7 +84,7 @@ export const handle: Handle = async e => {
 		event.locals.session = null
 		event.locals.user = null
 		event.cookies.delete(sessionCookieName, { path: "/" })
-		return await finish(e)
+		return finish(e)
 	}
 
 	const lapseData = user.lapseData
@@ -98,7 +98,7 @@ export const handle: Handle = async e => {
 		event.locals.session = null
 		event.locals.user = null
 		event.cookies.delete(sessionCookieName, { path: "/" })
-		return await finish(e)
+		return finish(e)
 	}
 
 	event.locals.session = session
@@ -106,7 +106,7 @@ export const handle: Handle = async e => {
 	if (renewed)
 		event.cookies.set(sessionCookieName, session, sessionCookieOptions)
 
-	return await finish(e)
+	return finish(e)
 }
 
 export const handleError: HandleServerError = async ({ error }) => {

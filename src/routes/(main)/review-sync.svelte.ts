@@ -11,7 +11,7 @@ import { getTimelapse } from "./api.remote.js"
 import type { ReviewIdle } from "./review-idle.svelte.js"
 import type { ReviewTimelapse } from "./review-types.js"
 
-type ReviewSyncOptions = {
+interface ReviewSyncOptions {
 	openId: () => string
 	loaded: () => boolean
 	entries: () => ProjectTimelapse[]

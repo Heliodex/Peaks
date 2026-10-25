@@ -1,6 +1,6 @@
 // Persists the review's user preferences in the browser's local storage, so they survive reloads without travelling in the shared URL.
 
-export type Settings = {
+export interface Settings {
 	/**
 	 * Stretch the timeline across the full window.
 	 * When off, it only spans the space between the timelapse stats and projects panels.

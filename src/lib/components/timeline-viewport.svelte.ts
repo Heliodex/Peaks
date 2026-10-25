@@ -17,7 +17,7 @@ const MAX_FRAME_TICKS = 240
 // Past this position (percent across the track) the hover time label flips to the left of the cursor so it doesn't overflow the right edge.
 const HOVER_TOOLTIP_FLIP_PERCENT = 95
 
-type TimelineViewportOptions = {
+interface TimelineViewportOptions {
 	duration: () => number
 	frameRate: () => number
 	src: () => string
@@ -34,7 +34,7 @@ export class TimelineViewport {
 	 * The part of the timeline currently visible on the main track, in seconds.
 	 * Wheel-zoom animates through a spring so scroll-zoom glides instead of stepping; drags set it instantly so they stay locked to the pointer.
 	 */
-	#spring = new Spring<ViewWindow>(
+	readonly #spring = new Spring<ViewWindow>(
 		{ end: 0, start: 0 },
 		{
 			damping: 0.85,
@@ -74,9 +74,9 @@ export class TimelineViewport {
 		const duration = this.#options.duration()
 		if (duration <= 0) return 0
 		const frameRate = this.#options.frameRate()
-		if (frameRate > 0) {
+		if (frameRate > 0) 
 			return Math.min(duration, MIN_VISIBLE_FRAMES / frameRate)
-		}
+		
 		// Without a known frame rate, don't zoom in past one second.
 		return Math.min(duration, 1)
 	}

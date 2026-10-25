@@ -41,7 +41,7 @@ export function uniqueImportedProjectName(
 	const names = new Set(projects.map(project => project.name))
 	if (!names.has(requestedName)) return requestedName
 
-	const match = requestedName.match(/^(.*) \((\d+)\)$/)
+	const match = /^(.*) \((\d+)\)$/.exec(requestedName)
 	const base = match?.[1] ?? requestedName
 	const parsedSuffix = match ? Number(match[2]) : 1
 	let suffix = Number.isSafeInteger(parsedSuffix)

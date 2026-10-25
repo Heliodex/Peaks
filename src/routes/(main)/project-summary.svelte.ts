@@ -5,7 +5,7 @@ import { formatClock, formatHours } from "#lib/timeline.js"
 import { entryFinalDuration } from "./review-format.js"
 import type { ProjectTotals } from "./review-types.js"
 
-type ProjectSummaryOptions = {
+interface ProjectSummaryOptions {
 	entries: () => ProjectTimelapse[]
 	/** Link appended to the description, or empty when the project isn't shareable. */
 	shareLink: () => string

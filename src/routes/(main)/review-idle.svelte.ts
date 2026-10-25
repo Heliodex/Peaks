@@ -4,7 +4,7 @@ import { effectiveIdleRanges, idleRecordedSeconds } from "#lib/annotations.js"
 import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 
-type ReviewIdleOptions = {
+interface ReviewIdleOptions {
 	openId: () => string
 	entries: () => ProjectTimelapse[]
 	updateProject: (update: (project: Project) => Project) => void

@@ -34,7 +34,7 @@ export const lapseLogin = form(async () => {
 	await startLapseAuth()
 })
 
-type LapseProfile = {
+interface LapseProfile {
 	id: string
 	handle: string
 	displayName: string

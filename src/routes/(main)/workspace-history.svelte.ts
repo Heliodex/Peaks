@@ -6,7 +6,7 @@ import type { IdleRange } from "#lib/idle-time.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 
-export type WorkspaceSnapshot = {
+export interface WorkspaceSnapshot {
 	projects: Project[]
 	currentProjectId: string
 	/** The open timelapse id, or empty when none is open. */
@@ -14,7 +14,7 @@ export type WorkspaceSnapshot = {
 	selections: TimelineSelection[]
 }
 
-export type HistoryNode = {
+export interface HistoryNode {
 	id: string
 	/** Monotonic creation order, used for pruning and stable ordering. */
 	seq: number
@@ -25,7 +25,7 @@ export type HistoryNode = {
 }
 
 /** A node placed in the settings graph. */
-export type HistoryGraphNode = {
+export interface HistoryGraphNode {
 	id: string
 	label: string
 	/** Centre position in layout pixels. */
@@ -41,7 +41,7 @@ export type HistoryGraphNode = {
 	redoable: boolean
 }
 
-export type HistoryGraphEdge = {
+export interface HistoryGraphEdge {
 	from: string
 	to: string
 	/** SVG path data for the curved connector. */
@@ -50,14 +50,14 @@ export type HistoryGraphEdge = {
 	onPath: boolean
 }
 
-export type HistoryGraph = {
+export interface HistoryGraph {
 	nodes: HistoryGraphNode[]
 	edges: HistoryGraphEdge[]
 	width: number
 	height: number
 }
 
-type WorkspaceHistoryOptions = {
+interface WorkspaceHistoryOptions {
 	/** Read a deep clone of the workspace's current state. */
 	read: () => WorkspaceSnapshot
 	/** Restore a snapshot into the workspace. */
@@ -303,7 +303,7 @@ function dropOldestPathNode(
 		chain.push(nodes[id])
 	if (chain.length < 2) return null
 
-	const heir = chain[chain.length - 2]
+	const heir = chain.at(-2)
 	const keep = reachableIds(nodes, heir.id)
 	const next: Record<string, HistoryNode> = {}
 	for (const [id, node] of Object.entries(nodes)) {
@@ -360,7 +360,7 @@ export class WorkspaceHistory {
 	#nextSeq = 0
 	#timer: ReturnType<typeof setTimeout> | undefined
 	// The child last navigated into, per parent, so redo returns to the branch we were on rather than the newest one.
-	#preferredChild = new Map<string, string>()
+	readonly #preferredChild = new Map<string, string>()
 
 	constructor(options: WorkspaceHistoryOptions) {
 		this.#read = options.read
@@ -414,11 +414,11 @@ export class WorkspaceHistory {
 		const place = (node: HistoryNode, depth: number): number => {
 			const children = childNodes(node)
 			let column: number
-			if (children.length === 0) {
+			if (children.length === 0) 
 				column = nextColumn++
-			} else {
+			 else {
 				const columns = children.map(child => place(child, depth + 1))
-				column = (columns[0] + columns[columns.length - 1]) / 2
+				column = (columns[0] + columns.at(-1)) / 2
 			}
 			positions.set(node.id, { x: column, y: depth })
 			return column
@@ -532,7 +532,7 @@ export class WorkspaceHistory {
 		const childId =
 			preferred && current.children.includes(preferred)
 				? preferred
-				: current.children[current.children.length - 1]
+				: current.children.at(-1)
 		return childId ? (this.nodes[childId] ?? null) : null
 	}
 
@@ -873,7 +873,7 @@ function parseNode(value: unknown): HistoryNode | null {
 	const parsedSnapshot = parseSnapshot(snapshot)
 	if (!parsedSnapshot) return null
 	return {
-		children: children as string[],
+		children: children,
 		id,
 		label,
 		parent,
@@ -920,7 +920,7 @@ function parseNodes(value: unknown): Record<string, HistoryNode> | null {
 	return reachable.size === Object.keys(nodes).length ? nodes : null
 }
 
-type PersistedHistory = {
+interface PersistedHistory {
 	nodes: Record<string, HistoryNode>
 	currentId: string
 	nextId: number

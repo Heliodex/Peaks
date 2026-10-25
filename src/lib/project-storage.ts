@@ -4,7 +4,7 @@
 import type { AnnotationDeflation } from "./annotations.js"
 import { type IdleRange, nearestIdleThreshold } from "./idle-time.js"
 
-export type ProjectTimelapse = {
+export interface ProjectTimelapse {
 	id: string
 	/** Display name from Lapse; may be empty, in which case the id is shown. */
 	name: string
@@ -27,14 +27,14 @@ export type ProjectTimelapse = {
 	idleRanges?: IdleRange[]
 }
 
-export type Project = {
+export interface Project {
 	id: string
 	name: string
 	timelapses: ProjectTimelapse[]
 }
 
 /** Every stored project plus the id of the one currently open. */
-export type ProjectStore = {
+export interface ProjectStore {
 	projects: Project[]
 	currentId: string
 }
@@ -50,9 +50,9 @@ const isFiniteNonNegative = (value: unknown): value is number =>
 function parseAnnotation(value: unknown): AnnotationDeflation | null {
 	if (typeof value !== "object" || value === null) return null
 	const { reason, duration } = value as Record<string, unknown>
-	if (typeof reason !== "string" || !isFiniteNonNegative(duration)) {
+	if (typeof reason !== "string" || !isFiniteNonNegative(duration)) 
 		return null
-	}
+	
 	return { duration, reason }
 }
 
@@ -154,13 +154,13 @@ export function newProjectId(): string {
 	const limit = Math.floor(256 / ID_ALPHABET.length) * ID_ALPHABET.length
 
 	let id = ""
-	while (id.length < ID_LENGTH) {
+	while (id.length < ID_LENGTH) 
 		for (const byte of randomBytes(ID_LENGTH - id.length)) {
 			if (byte >= limit) continue
 			id += ID_ALPHABET.charAt(byte % ID_ALPHABET.length)
 			if (id.length === ID_LENGTH) break
 		}
-	}
+	
 	return id
 }
 

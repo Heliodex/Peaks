@@ -4,7 +4,7 @@
 import { SvelteMap } from "svelte/reactivity"
 import { deleteThumbnails } from "./thumbnail-store.js"
 
-type ObjectUrlCacheOptions<T> = {
+interface ObjectUrlCacheOptions<T> {
 	/** Most sources to keep before evicting the least recently used. */
 	max: number
 	/** Persistent-storage namespace to forget alongside each eviction. */
