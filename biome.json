@@ -24,12 +24,11 @@
 	},
 	"files": {
 		"includes": [
-			"**/*.ts",
-			"**/*.js",
-			"**/*.svelte",
-			"**/*.json",
-			"!.svelte-kit",
-			"!build"
+			"src/**",
+			"tests/**",
+			"*.config.js",
+			"*.config.ts",
+			"*.json"
 		]
 	},
 	"formatter": {
@@ -48,6 +47,40 @@
 			"operatorLinebreak": "before",
 			"semicolons": "asNeeded",
 			"trailingCommas": "all"
+		}
+	},
+	"linter": {
+		"rules": {
+			"correctness": {
+				"noUndeclaredDependencies": "off"
+			},
+			"nursery": {
+				"useExplicitType": "off"
+			},
+			"style": {
+				"noInferrableTypes": "error",
+				"noNonNullAssertion": "error",
+				"noParameterAssign": "error",
+				"noUnusedTemplateLiteral": "error",
+				"noUselessElse": "error",
+				"useAsConstAssertion": "error",
+				"useDefaultParameterLast": "error",
+				"useEnumInitializers": "error",
+				"useExponentiationOperator": "error",
+				"useExportType": "error",
+				"useImportType": "error",
+				"useLiteralEnumMembers": "error",
+				"useNodejsImportProtocol": "error",
+				"useNumberNamespace": "error",
+				"useSelfClosingElements": "error",
+				"useShorthandFunctionType": "error",
+				"useSingleVarDeclarator": "error",
+				"useTemplate": "error"
+			},
+			"suspicious": {
+				"noConsole": "off",
+				"noEvolvingTypes": "off"
+			}
 		}
 	},
 	"overrides": [
