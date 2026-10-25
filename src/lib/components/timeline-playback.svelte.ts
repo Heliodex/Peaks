@@ -63,7 +63,7 @@ export class TimelinePlayback {
 			detectFrameRate(src)
 				.then(rate => {
 					if (cancelled) return
-					this.frameRate = rate > 0 ? rate : 0
+					this.frameRate = Math.max(rate, 0)
 					this.frameRateReady = true
 					this.#options.onFrameRate(rate)
 				})
