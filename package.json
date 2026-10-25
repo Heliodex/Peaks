@@ -11,6 +11,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"serve": "bunx pm2 start",
+		"lint": "biome check",
+		"lint:fix": "biome check --fix",
 		"list": "bunx pm2 list",
 		"logs": "bunx pm2 logs"
 	},
