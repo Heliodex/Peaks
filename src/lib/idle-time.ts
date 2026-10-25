@@ -70,7 +70,8 @@ export function idleSampleTimes(duration: number, frameRate: number): number[] {
 	const step = Math.max(FALLBACK_STEP, duration / MAX_SAMPLES)
 	const times: number[] = []
 	for (let time = 0; time < duration; time += step) times.push(time)
-	if (times.length === 0 || times.at(-1) < duration) times.push(duration)
+	if (times.length === 0 || (times.at(-1) ?? -Infinity) < duration)
+		times.push(duration)
 
 	return times
 }

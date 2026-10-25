@@ -304,6 +304,7 @@ function dropOldestPathNode(
 	if (chain.length < 2) return null
 
 	const heir = chain.at(-2)
+	if (!heir) return null
 	const keep = reachableIds(nodes, heir.id)
 	const next: Record<string, HistoryNode> = {}
 	for (const [id, node] of Object.entries(nodes)) {
@@ -417,7 +418,7 @@ export class WorkspaceHistory {
 			if (children.length === 0) column = nextColumn++
 			else {
 				const columns = children.map(child => place(child, depth + 1))
-				column = (columns[0] + columns.at(-1)) / 2
+				column = (columns[0] + (columns.at(-1) ?? columns[0])) / 2
 			}
 			positions.set(node.id, { x: column, y: depth })
 			return column
