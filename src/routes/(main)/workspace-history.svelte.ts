@@ -873,7 +873,7 @@ function parseNode(value: unknown): HistoryNode | null {
 	const parsedSnapshot = parseSnapshot(snapshot)
 	if (!parsedSnapshot) return null
 	return {
-		children: children,
+		children,
 		id,
 		label,
 		parent,

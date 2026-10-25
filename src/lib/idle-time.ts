@@ -29,9 +29,9 @@ export function nearestIdleThreshold(value: number): number {
 	if (!Number.isFinite(value)) return DEFAULT_IDLE_THRESHOLD
 	let nearest: number = IDLE_THRESHOLD_SCALE[0]
 	for (const candidate of IDLE_THRESHOLD_SCALE) 
-		if (Math.abs(candidate - value) <= Math.abs(nearest - value)) {
+		if (Math.abs(candidate - value) <= Math.abs(nearest - value)) 
 			nearest = candidate
-		}
+		
 	
 	return nearest
 }
