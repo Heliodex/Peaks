@@ -37,7 +37,9 @@
 	"html": {
 		"experimentalFullSupportEnabled": true,
 		"formatter": {
-			"enabled": true
+			"enabled": true,
+			"indentStyle": "tab",
+			"indentWidth": 4
 		}
 	},
 	"javascript": {
@@ -258,7 +260,7 @@
 					}
 				}
 			},
-			"includes": ["package.json"]
+			"includes": ["**/package.json"]
 		},
 		{
 			"includes": ["**/*.svelte"],
