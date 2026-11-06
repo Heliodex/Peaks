@@ -7,6 +7,5 @@ let { children } = $props()
 
 <svelte:head>
 	<link href={favicon} rel="icon">
-	<title>Peaks</title>
 </svelte:head>
 {@render children()}
