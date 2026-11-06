@@ -2,6 +2,8 @@
 
 Last updated: 2026-09-23.
 
+> **Update (2026-11-06):** Peaks no longer signs users in. Authentication, sessions, token refresh and the SurrealDB user store were removed in favour of the public Lapse API. Findings 2 and 9 are therefore historical. The media proxy remains, now without an auth gate, and is still restricted to Lapse media hosts and paths.
+
 The original review has now been remediated across all nine highest-priority areas. Findings 4 and 9 still have explicitly documented follow-up work, so they are marked as partially resolved rather than closed. The remaining sections are open correctness, security, accessibility, deployment, and tooling work.
 
 ## Status summary
