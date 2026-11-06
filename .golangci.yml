@@ -1,0 +1,217 @@
+version: "2"
+
+# The default profile is strict: every current linter is enabled.
+# Deprecated aliases are disabled in favour of their replacements:
+#   exhaustruct -> exhaustruct_v5, gomodguard -> gomodguard_v2, wsl -> wsl_v5
+linters:
+    default: all
+    disable:
+        # Deprecated aliases.
+        - exhaustruct
+        - gomodguard
+        - wsl
+        # Opposing or architecture-specific rules.
+        - containedctx
+        - contextcheck
+        - dupword
+        - err113
+        - exhaustruct_v5
+        - forbidigo
+        - gochecknoglobals
+        - gochecknoinits
+        - lll
+        - nlreturn
+        - noinlineerr
+        - nilerr
+        - nonamedreturns
+        - paralleltest
+        - tagliatelle
+        - testpackage
+        - varnamelen
+    exclusions:
+        generated: lax
+        presets:
+            - common-false-positives
+            - std-error-handling
+        rules:
+            - path: (^|/)binding/
+              text: .
+            - linters:
+                  - bodyclose
+              path: _test\.go
+            - linters:
+                  - gosec
+              path: _test\.go
+            - linters:
+                  - funlen
+              path: _test\.go
+            - linters:
+                  - noctx
+              path: _test\.go
+            - linters:
+                  - unqueryvet
+              path: _test\.go
+            - linters:
+                  - unparam
+              path: _test\.go
+    settings:
+        cyclop:
+            max-complexity: 40
+        funlen:
+            lines: 130
+            statements: 80
+        gocognit:
+            min-complexity: 45
+        dogsled:
+            max-blank-identifiers: 3
+        gocyclo:
+            min-complexity: 40
+        depguard:
+            rules:
+                main:
+                    allow:
+                        - $gostd
+                        - better-deploy
+                        - go.bytecodealliance.org
+                        - go/ast
+                        - go/parser
+                        - go/token
+                        - golang.org/x/sys/unix
+                        - modernc.org/sqlite
+                        - modernc.org/sqlite/lib
+                        - wt.example
+                        - github.com/heliodex/better-deploy/wt/packages
+                        - ire/contract
+        canonicalheader:
+            exclusions:
+                - X-WT-App-Body-SHA256
+                - X-WT-App-Caller
+                - X-WT-App-Signature
+                - X-WT-App-Signature-V2
+                - X-WT-App-Timestamp
+                - X-WT-User-Email
+                - X-WT-User-Groups
+                - X-WT-User-Id
+                - X-WT-User-Name
+                - X-WT-User-Signature
+        exhaustive:
+            default-signifies-exhaustive: true
+        funcorder:
+            constructor: true
+            struct-method: false
+            alphabetical: false
+            function: false
+        goconst:
+            ignore-tests: true
+            min-occurrences: 10
+        gomoddirectives:
+            replace-local: true
+        gosec:
+            excludes:
+                - G104
+                - G107
+                - G122
+                - G301
+                - G302
+                - G306
+                - G204
+                - G702
+                - G703
+                - G704
+                - G706
+        mnd:
+            ignored-numbers:
+                - "0"
+                - "1"
+                - "2"
+                - "3"
+                - "4"
+                - "5"
+                - "6"
+                - "7"
+                - "8"
+                - "9"
+                - "10"
+                - "12"
+                - "13"
+                - "14"
+                - "16"
+                - "20"
+                - "30"
+                - "32"
+                - "50"
+                - "60"
+                - "64"
+                - "100"
+                - "125"
+                - "128"
+                - "200"
+                - "500"
+                - "512"
+                - "1000"
+                - "1024"
+                - "3000"
+                - "10001"
+                - "20000"
+                - "0xff"
+                - "400"
+                - "0o111"
+                - "0o600"
+                - "0o644"
+                - "0o750"
+                - "0o755"
+                - "0o700"
+        nestif:
+            min-complexity: 15
+        revive:
+            enable-default-rules: true
+            rules:
+                - name: exported
+                  disabled: true
+                - name: package-comments
+                  disabled: true
+        nolintlint:
+            require-explanation: true
+            require-specific: true
+        wrapcheck:
+            ignore-interface-regexps:
+                - Scan
+                - Err
+            ignore-sigs:
+                - .Errorf(
+                - errors.New(
+                - errors.Unwrap(
+                - errors.Join(
+                - better-deploy/wt-supervisor.
+                - crypto/pbkdf2.
+                - crypto/rand.
+                - database/sql.
+                - golang.org/x/sys/unix.
+                - modernc.org/sqlite.
+                - strconv.
+                - strings.
+                - github.com/heliodex/better-deploy/wt/packages/
+                - time.
+                - context.
+                - archive/tar.
+                - bufio.
+                - compress/gzip.
+                - embed.
+                - encoding/json/v2.
+                - flag.
+                - io.
+                - mime/multipart.
+                - io/fs.
+                - net/http.
+                - net.
+                - os/exec.
+                - os.
+                - path/filepath.
+
+output:
+    formats:
+        text:
+            path: stdout
+            colors: true
+            print-linter-name: true
+            print-issued-lines: true
