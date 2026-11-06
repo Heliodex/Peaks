@@ -11,17 +11,13 @@
 		"dev": "vite dev",
 		"lint": "oxlint && biome check",
 		"lint:fix": "oxlint --fix && biome check --fix",
-		"list": "bunx pm2 list",
-		"logs": "bunx pm2 logs",
 		"prepare": "svelte-kit sync || echo ''",
 		"preview": "vite preview",
-		"prod": "bun i -p && vite build",
-		"serve": "bunx pm2 start",
 		"svelte:check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"svelte:check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"svelte:check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"test": "bun test"
 	},
 	"dependencies": {
-		"@sveltejs/adapter-node": "^6.0.0",
 		"@sveltejs/kit": "next",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "^4.3.3",
@@ -32,6 +28,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.6.3",
+		"@sveltejs/adapter-static": "^4.0.1",
 		"@types/bun": "^1.4.4",
 		"@typescript/native": "npm:typescript@^7.0.2",
 		"oxlint": "^1.89.0",

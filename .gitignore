@@ -1,12 +1,20 @@
 node_modules
 
+# wt app build output
+/static
+/main.wasm
+/main.cwasm
+/artefact.json
+/.wt-build.json
+/web/build
+/web/.svelte-kit
+/web/.wt-dev.vite.config.ts
+
 # Output
 .output
 .vercel
 .netlify
 .wrangler
-/.svelte-kit
-/build
 
 # OS
 .DS_Store
