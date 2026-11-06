@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-23.
 
-> **Update (2026-11-06):** Peaks no longer signs users in. Authentication, sessions, token refresh and the SurrealDB user store were removed in favour of the public Lapse API. Findings 2 and 9 are therefore historical. The media proxy remains, now without an auth gate, and is still restricted to Lapse media hosts and paths.
+> **Update (2026-11-06):** Peaks no longer signs users in. Authentication, sessions, token refresh and the SurrealDB user store were removed in favour of the public Lapse API. Findings 2 and 9 are therefore historical. The frontend now lives in `web/` as a static SvelteKit app under `wt`; the media proxy is a Go WASM component (`media_proxy.go`), still without an auth gate and still restricted to Lapse media hosts and paths.
 
 The original review has now been remediated across all nine highest-priority areas. Findings 4 and 9 still have explicitly documented follow-up work, so they are marked as partially resolved rather than closed. The remaining sections are open correctness, security, accessibility, deployment, and tooling work.
 
@@ -26,7 +26,7 @@ The original review has now been remediated across all nine highest-priority are
 
 **Status: Core issue resolved; operational hardening remains.**
 
-The proxy no longer accepts arbitrary authenticated URLs. `src/lib/server/lapse-media.ts` now restricts requests to exact HTTPS Lapse media origins and approved media paths. It rejects credentials, non-default ports, fragments, oversized URLs, and unapproved hosts. Redirects are handled manually, limited to three hops, and checked against the same Lapse/R2 allowlist. The response must be a video response before it is forwarded.
+The proxy no longer accepts arbitrary authenticated URLs. `media_proxy.go` restricts requests to exact HTTPS Lapse media origins and approved media paths. It rejects credentials, non-default ports, fragments, oversized URLs, and unapproved hosts. Redirects are handled manually, limited to three hops, and checked against the same Lapse/R2 allowlist. The response must be a video response before it is forwarded. The allowlist and redirect cases are covered by `main_test.go`.
 
 The remaining recommendations are operational hardening rather than the original arbitrary-URL vulnerability:
 
