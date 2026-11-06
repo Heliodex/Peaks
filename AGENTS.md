@@ -1,3 +1,8 @@
+# Docs
+
+SvelteKit docs at https://svelte.dev/docs/kit/llms.txt  
+Svelte docs at https://svelte.dev/docs/svelte/llms.txt
+
 # Code style guidelines
 
 - Replace em-dashes (—) with en-dashes (–) in text or comments
