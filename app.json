@@ -1,0 +1,16 @@
+{
+	"name": "peaks",
+	"host": "peaks.heliodex.cf",
+	"health": "/healthz",
+	"build_component": "go tool componentize-go -d \"$(go list -m -f '{{.Dir}}' github.com/heliodex/better-deploy/wt/packages/v2)/wit\" -w wt:app/app build",
+	"build_static": "cd web && bun install --frozen-lockfile && bun run build && rm -rf ../static && cp -r build ../static",
+	"dev": {
+		"build": "go tool componentize-go -d \"$(go list -m -f '{{.Dir}}' github.com/heliodex/better-deploy/wt/packages/v2)/wit\" -w wt:app/app build",
+		"command": "bun run dev",
+		"proxy": ["/lapse-proxy"]
+	},
+	"server_paths": ["/lapse-proxy"],
+	"network": "inherit",
+	"memory_mb": 256,
+	"max_concurrency": 8
+}
