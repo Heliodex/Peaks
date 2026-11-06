@@ -144,6 +144,7 @@ func TestHandlerForwardsRange(t *testing.T) {
 
 	handler := testHandler(func(r *http.Request) (*http.Response, error) {
 		upstream = r
+
 		return fakeResponse(http.StatusPartialContent, "video-bytes", map[string]string{
 			"Accept-Ranges":  "bytes",
 			"Content-Length": "11",
@@ -157,30 +158,38 @@ func TestHandlerForwardsRange(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, proxyRequest(lookoutVideoURL), nil)
 	request.Header.Set("Range", "bytes=0-1023")
 	request.Header.Set("If-None-Match", `"etag"`)
+
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 
 	if upstream == nil {
 		t.Fatal("upstream request was never made")
 	}
+
 	if got := upstream.Header.Get("Range"); got != "bytes=0-1023" {
 		t.Errorf("upstream Range = %q, want %q", got, "bytes=0-1023")
 	}
+
 	if got := upstream.Header.Get("If-None-Match"); got != "" {
 		t.Errorf("upstream If-None-Match = %q, want empty", got)
 	}
+
 	if recorder.Code != http.StatusPartialContent {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusPartialContent)
 	}
+
 	if got := recorder.Body.String(); got != "video-bytes" {
 		t.Errorf("body = %q, want %q", got, "video-bytes")
 	}
+
 	if got := recorder.Header().Get("Content-Range"); got != "bytes 0-10/11" {
 		t.Errorf("Content-Range = %q", got)
 	}
+
 	if got := recorder.Header().Get("Content-Type"); got != "video/mp4; charset=binary" {
 		t.Errorf("Content-Type = %q, want video/mp4; charset=binary", got)
 	}
+
 	if got := recorder.Header().Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
 		t.Errorf("Cache-Control = %q", got)
 	}
@@ -191,6 +200,7 @@ func TestHandlerForwardsConditionalHeadersWithoutRange(t *testing.T) {
 
 	handler := testHandler(func(r *http.Request) (*http.Response, error) {
 		upstream = r
+
 		return fakeResponse(http.StatusOK, "video", map[string]string{
 			"Content-Type": "video/mp4",
 		}), nil
@@ -199,15 +209,18 @@ func TestHandlerForwardsConditionalHeadersWithoutRange(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, proxyRequest(lookoutVideoURL), nil)
 	request.Header.Set("If-None-Match", `"etag"`)
 	request.Header.Set("If-Modified-Since", "Wed, 21 Oct 2015 07:28:00 GMT")
+
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 
 	if got := upstream.Header.Get("If-None-Match"); got != `"etag"` {
 		t.Errorf("upstream If-None-Match = %q", got)
 	}
+
 	if got := upstream.Header.Get("If-Modified-Since"); got != "Wed, 21 Oct 2015 07:28:00 GMT" {
 		t.Errorf("upstream If-Modified-Since = %q", got)
 	}
+
 	if recorder.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusOK)
 	}
@@ -224,6 +237,7 @@ func TestHandlerFollowsAllowedRedirect(t *testing.T) {
 			if got := r.URL.String(); got != lookoutVideoURL {
 				t.Errorf("first request = %q, want %q", got, lookoutVideoURL)
 			}
+
 			return fakeResponse(http.StatusFound, "", map[string]string{
 				"Location": lookoutAssetURL,
 			}), nil
@@ -231,29 +245,34 @@ func TestHandlerFollowsAllowedRedirect(t *testing.T) {
 			if got := r.URL.String(); got != lookoutAssetURL {
 				t.Errorf("second request = %q, want %q", got, lookoutAssetURL)
 			}
+
 			if got := r.Header.Get("Range"); got != "bytes=0-1" {
 				t.Errorf("redirected Range = %q, want bytes=0-1", got)
 			}
+
 			return fakeResponse(http.StatusPartialContent, "asset", map[string]string{
 				"Content-Type": "video/mp4",
 			}), nil
 		default:
 			t.Fatalf("unexpected request %d to %s", calls, r.URL)
-			return nil, nil
+			return fakeResponse(http.StatusInternalServerError, "", nil), nil
 		}
 	})
 
 	request := httptest.NewRequest(http.MethodGet, proxyRequest(lookoutVideoURL), nil)
 	request.Header.Set("Range", "bytes=0-1")
+
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 
 	if recorder.Code != http.StatusPartialContent {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusPartialContent)
 	}
+
 	if got := recorder.Body.String(); got != "asset" {
 		t.Errorf("body = %q, want asset", got)
 	}
+
 	if calls != 2 {
 		t.Errorf("calls = %d, want 2", calls)
 	}
@@ -275,6 +294,7 @@ func TestHandlerBlocksDisallowedRedirect(t *testing.T) {
 	if recorder.Code != http.StatusBadGateway {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusBadGateway)
 	}
+
 	if !strings.Contains(recorder.Body.String(), "Media redirect blocked") {
 		t.Errorf("body = %q, want a blocked-redirect message", recorder.Body.String())
 	}
@@ -285,6 +305,7 @@ func TestHandlerStopsAfterTooManyRedirects(t *testing.T) {
 
 	handler := testHandler(func(_ *http.Request) (*http.Response, error) {
 		calls++
+
 		return fakeResponse(http.StatusFound, "", map[string]string{
 			"Location": lookoutVideoURL,
 		}), nil
@@ -299,6 +320,7 @@ func TestHandlerStopsAfterTooManyRedirects(t *testing.T) {
 	if recorder.Code != http.StatusBadGateway {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusBadGateway)
 	}
+
 	if calls != maxMediaRedirects+1 {
 		t.Errorf("calls = %d, want %d", calls, maxMediaRedirects+1)
 	}
@@ -338,12 +360,15 @@ func TestHandlerNotModifiedHasNoBody(t *testing.T) {
 	if recorder.Code != http.StatusNotModified {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusNotModified)
 	}
+
 	if got := recorder.Body.String(); got != "" {
 		t.Errorf("body = %q, want empty", got)
 	}
+
 	if got := recorder.Header().Get("ETag"); got != `"etag"` {
 		t.Errorf("ETag = %q", got)
 	}
+
 	if got := recorder.Header().Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
 		t.Errorf("Cache-Control = %q", got)
 	}
@@ -365,9 +390,11 @@ func TestHandlerPassesThroughUpstreamErrors(t *testing.T) {
 	if recorder.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
 	}
+
 	if got := recorder.Body.String(); got != "upstream error" {
 		t.Errorf("body = %q, want upstream error", got)
 	}
+
 	if got := recorder.Header().Get("Cache-Control"); got != "no-store" {
 		t.Errorf("Cache-Control = %q, want no-store", got)
 	}
@@ -381,6 +408,7 @@ type shortWriteBuffer struct {
 func (w *shortWriteBuffer) Write(p []byte) (int, error) {
 	count := min(len(p), w.max)
 	w.data = append(w.data, p[:count]...)
+
 	return count, nil
 }
 
@@ -397,9 +425,11 @@ func TestCopyResponseBodyHandlesShortWrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("copyResponseBody returned %v", err)
 	}
+
 	if written != 6 {
 		t.Errorf("written = %d, want 6", written)
 	}
+
 	if got := string(dst.data); got != "abcdef" {
 		t.Errorf("data = %q, want abcdef", got)
 	}

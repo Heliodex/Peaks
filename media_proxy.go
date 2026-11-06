@@ -168,6 +168,7 @@ func (p *mediaProxy) handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(upstream.StatusCode)
+
 	if upstream.StatusCode == http.StatusNotModified {
 		return
 	}
@@ -181,6 +182,7 @@ func (p *mediaProxy) handle(w http.ResponseWriter, r *http.Request) {
 // adapter can return while its response stream is still accepting data.
 func copyResponseBody(dst io.Writer, src io.Reader) (int64, error) {
 	buffer := make([]byte, 32*1024)
+
 	var total int64
 
 	for {
@@ -195,6 +197,7 @@ func copyResponseBody(dst io.Writer, src io.Reader) (int64, error) {
 				if writeErr != nil {
 					return total, writeErr
 				}
+
 				if count == 0 {
 					return total, io.ErrShortWrite
 				}
@@ -204,6 +207,7 @@ func copyResponseBody(dst io.Writer, src io.Reader) (int64, error) {
 		if errors.Is(readErr, io.EOF) {
 			return total, nil
 		}
+
 		if readErr != nil {
 			return total, readErr
 		}
@@ -220,6 +224,7 @@ func (p *mediaProxy) fetchMedia(
 	if err != nil {
 		return nil, err
 	}
+
 	request.Header = upstreamHeaders(r)
 
 	response, err := p.client.Do(request)
@@ -238,6 +243,7 @@ func (p *mediaProxy) fetchMedia(
 
 	location := response.Header.Get("Location")
 	_ = response.Body.Close()
+
 	if location == "" {
 		return nil, errNoRedirectLocation
 	}
@@ -263,6 +269,7 @@ func upstreamHeaders(r *http.Request) http.Header {
 	if value := r.Header.Get("If-None-Match"); value != "" {
 		headers.Set("If-None-Match", value)
 	}
+
 	if value := r.Header.Get("If-Modified-Since"); value != "" {
 		headers.Set("If-Modified-Since", value)
 	}
