@@ -1,7 +1,6 @@
 <script lang="ts">
 import type { IdleRange } from "#lib/idle-time.js"
 import type { TimelineSelection } from "#lib/timeline.js"
-import { getLapseData, logout } from "./api.remote.js"
 import type { ReviewTimelapse } from "./review-types.js"
 import TimelapseSettings from "./TimelapseSettings.svelte"
 import TimelapseStats from "./TimelapseStats.svelte"
@@ -166,33 +165,36 @@ function onTabKeydown(event: KeyboardEvent) {
 	<section
 		class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-line-soft p-3"
 	>
-		<svelte:boundary>
-			{#snippet pending()}
-				<p class="text-sm text-neutral-400">Loading profile…</p>
-			{/snippet}
+		{#if timelapse}
+			<a
+				class="flex min-w-0 items-center gap-2"
+				href="https://lapse.hackclub.com/user/@{timelapse.owner.handle}"
+				rel="noreferrer"
+				target="_blank"
+			>
+				<img
+					alt=""
+					class="h-8 w-8 rounded-full object-cover ring-1 ring-neutral-700"
+					src={timelapse.owner.profilePictureUrl}
+				>
+				<span class="flex min-w-0 flex-col">
+					<span class="truncate text-sm font-medium">
+						{timelapse.owner.displayName}
+					</span>
+					<span class="truncate text-xs text-neutral-400">
+						@{timelapse.owner.handle}
+					</span>
+				</span>
+			</a>
+		{/if}
 
-			{const profile = $derived(await getLapseData())}
-			{#if profile}
-				<div class="flex items-center gap-2">
-					<img
-						alt=""
-						class="h-8 w-8 rounded-full object-cover ring-1 ring-neutral-700"
-						src={profile.profilePictureUrl}
-					>
-					<div class="flex flex-col">
-						<span class="text-sm font-medium">
-							{profile.displayName}
-						</span>
-						<span class="text-xs text-neutral-400">
-							@{profile.handle}
-						</span>
-					</div>
-				</div>
-			{/if}
-		</svelte:boundary>
-
-		<form {...logout}>
-			<button class="btn text-sm" type="submit">Log out</button>
-		</form>
+		<a
+			class="btn text-sm"
+			href="https://lapse.hackclub.com"
+			rel="noreferrer"
+			target="_blank"
+		>
+			View on Lapse
+		</a>
 	</section>
 </aside>

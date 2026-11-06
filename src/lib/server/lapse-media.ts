@@ -1,12 +1,14 @@
 const MAX_MEDIA_URL_LENGTH = 8192
 const LAPSE_MEDIA_ORIGINS = new Set([
 	"https://lookout.hackclub.com",
+	"https://lookout.hackclub-assets.com",
 	"https://public.lapse-hackclub.link",
 ])
 const R2_HOST_SUFFIX = ".r2.cloudflarestorage.com"
 const LAPSE_MEDIA_PATHS = [
 	/^\/api\/media\/[A-Za-z0-9_-]+\/video\.(?:mp4|webm|mov)$/i,
 	/^\/timelapses\/[A-Za-z0-9_-]+\/timelapse-[A-Za-z0-9_-]+\.(?:mp4|webm|mov)$/i,
+	/^\/timelapses\/[A-Za-z0-9_-]+\/original-[A-Za-z0-9]+\.(?:mp4|webm|mov)$/i,
 ]
 const R2_MEDIA_PATH = /^\/collapse\/timelapses\/[A-Za-z0-9_-]+\/[^/]+$/i
 
@@ -53,8 +55,9 @@ export function parseLapseMediaTarget(value: string): URL {
 
 /**
  * Validate redirects from Lapse media endpoints. Lapse currently serves media
- * directly from public.lapse-hackclub.link and redirects lookout media to a
- * public Cloudflare R2 host, so only those paths are accepted.
+ * directly from public.lapse-hackclub.link and redirects lookout media to
+ * lookout.hackclub-assets.com, with older recordings still on a public
+ * Cloudflare R2 host, so only those paths are accepted.
  */
 export function parseLapseMediaRedirect(location: string, base: URL): URL {
 	let url: URL

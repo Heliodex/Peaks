@@ -11,13 +11,11 @@ const getTimelapse = mock(
 		Promise.resolve({ duration: 1, name: "Timelapse" }),
 )
 const goto = mock((_url: string): Promise<void> => Promise.resolve())
-const apiRemotePath = new URL(
-	"../src/routes/(main)/api.remote.ts",
-	import.meta.url,
-).pathname
+const lapseClientPath = new URL("../src/lib/lapse-client.ts", import.meta.url)
+	.pathname
 
 mock.module("$app/navigation", () => ({ goto }))
-mock.module(apiRemotePath, () => ({ getTimelapse }))
+mock.module(lapseClientPath, () => ({ getTimelapse }))
 
 const runtime = globalThis as typeof globalThis & {
 	$state?: { snapshot(value: unknown): unknown }

@@ -6,9 +6,9 @@ import ContextMenu, {
 	contextMenuPosition,
 } from "#lib/components/ContextMenu.svelte"
 import { createCopyToClipboard } from "#lib/copy.svelte.js"
+import { getTimelapseThumbnails } from "#lib/lapse-client.js"
 import type { ProjectTimelapse } from "#lib/project-storage.js"
 import { MAX_TIMELAPSE_THUMBNAIL_BATCH_SIZE } from "#lib/timelapse-batch.js"
-import { getTimelapseThumbnails } from "./api.remote.js"
 import { ListReorder } from "./list-reorder.svelte.js"
 import {
 	annotationTotal,

@@ -21,14 +21,11 @@
 		"svelte:check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"dependencies": {
-		"@surrealdb/node": "^3.1.0",
 		"@sveltejs/adapter-node": "^6.0.0",
 		"@sveltejs/kit": "next",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@tailwindcss/vite": "^4.3.3",
 		"arktype": "^2.2.9",
-		"picocolors": "^1.1.1",
-		"surrealdb": "^2.1.1",
 		"svelte": "^5.57.2",
 		"tailwindcss": "^4.3.3",
 		"vite": "^8.3.5"

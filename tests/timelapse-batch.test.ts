@@ -4,7 +4,7 @@ import {
 	MAX_TIMELAPSE_THUMBNAIL_BATCH_SIZE,
 	mapWithConcurrency,
 	timelapseThumbnailIds,
-} from "../src/lib/server/timelapse-batch.js"
+} from "../src/lib/timelapse-batch.js"
 
 describe("timelapse thumbnail batches", () => {
 	test("limits the number of IDs accepted by the remote schema", () => {

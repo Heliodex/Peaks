@@ -13,6 +13,7 @@ const analyzeIdle = mock((): IdleAnalysisJob => {
 
 mock.module("svelte", () => ({
 	onDestroy: () => {},
+	onMount: () => {},
 	untrack: <T>(fn: () => T): T => fn(),
 }))
 

@@ -1,11 +1,11 @@
 // Resolving and opening timelapses by id: parse pasted ids, validate them against Lapse, seed the project, then navigate.
 
 import { DEFAULT_IDLE_THRESHOLD } from "#lib/idle-time.js"
+import { getTimelapse } from "#lib/lapse-client.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import { loadSelections } from "#lib/selection-storage.js"
 import { encodeShare, SharePayloadError } from "#lib/share.js"
 import { goto } from "$app/navigation"
-import { getTimelapse } from "./api.remote.js"
 import type { ReviewTimelapse } from "./review-types.js"
 
 interface ResolvedId {

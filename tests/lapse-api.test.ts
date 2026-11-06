@@ -5,24 +5,7 @@ import {
 	LapseApiResponseError,
 	LapseApiTimeoutError,
 	parseLapseTimelapseResponse,
-	parseLapseUserInfoResponse,
-} from "#lib/server/lapse-api.js"
-
-const user = {
-	createdAt: 1_700_000_000_000,
-	displayName: "Tester",
-	hackatimeId: null,
-	handle: "tester",
-	id: "user-1",
-	private: {
-		devices: [],
-		needsReauth: false,
-		permissionLevel: "USER",
-	},
-	profilePictureUrl: "https://cdn.example/avatar.png",
-	slackId: null,
-	urls: [],
-}
+} from "#lib/lapse-api.js"
 
 const timelapse = {
 	createdAt: 1_700_000_000_000,
@@ -51,37 +34,6 @@ afterEach(() => {
 })
 
 describe("Lapse API response validation", () => {
-	test("accepts and projects a valid user response", () => {
-		expect(
-			parseLapseUserInfoResponse({ data: { user }, ok: true }),
-		).toEqual({
-			displayName: user.displayName,
-			handle: user.handle,
-			id: user.id,
-			profilePictureUrl: user.profilePictureUrl,
-		})
-	})
-
-	test("rejects malformed user responses", () => {
-		for (const value of [
-			null,
-			{},
-			{ error: "ERROR", message: "bad", ok: false },
-			{ data: {}, ok: true },
-			{
-				data: {
-					// oxlint-disable-next-line no-script-url - intentional invalid URL asserting the validator rejects javascript: URLs.
-					user: { ...user, profilePictureUrl: "javascript:alert(1)" },
-				},
-				ok: true,
-			},
-			{ data: { user: { ...user, createdAt: Number.NaN } }, ok: true },
-		])
-			expect(() => parseLapseUserInfoResponse(value)).toThrow(
-				LapseApiResponseError,
-			)
-	})
-
 	test("accepts nullable media and defaults an omitted description", () => {
 		expect(
 			parseLapseTimelapseResponse({

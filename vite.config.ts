@@ -16,7 +16,7 @@ export default defineConfig({
 						? undefined
 						: true,
 			},
-			experimental: { forkPreloads: true, remoteFunctions: true },
+			experimental: { forkPreloads: true },
 		}),
 	],
 })

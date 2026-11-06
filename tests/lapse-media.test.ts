@@ -10,11 +10,16 @@ const publicVideoUrl =
 	"https://public.lapse-hackclub.link/timelapses/pgigZC4HUf6P/timelapse-pgigZC4HUf6P.mp4"
 const r2Url =
 	"https://f8d710a55cb9b516d88635f103c2c9f2.r2.cloudflarestorage.com/collapse/timelapses/7e3d670e-28a0-465c-8747-73fc50ef44c7/original-video.mp4?signature=test"
+const lookoutAssetUrl =
+	"https://lookout.hackclub-assets.com/timelapses/7e3d670e-28a0-465c-8747-73fc50ef44c7/original-ff41fe17601ec9b75be7a80b135e2e35.mp4"
 
 describe("Lapse media proxy URL validation", () => {
 	test("accepts the known Lapse video endpoints", () => {
 		expect(parseLapseMediaTarget(videoUrl).href).toBe(videoUrl)
 		expect(parseLapseMediaTarget(publicVideoUrl).href).toBe(publicVideoUrl)
+		expect(parseLapseMediaTarget(lookoutAssetUrl).href).toBe(
+			lookoutAssetUrl,
+		)
 	})
 
 	test("rejects non-video, non-HTTPS, and arbitrary-host targets", () => {
@@ -51,6 +56,13 @@ describe("Lapse media proxy URL validation", () => {
 		expect(parseLapseMediaRedirect(r2Url, base).href).toBe(r2Url)
 	})
 
+	test("accepts the Lookout asset redirect", () => {
+		const base = parseLapseMediaTarget(videoUrl)
+		expect(parseLapseMediaRedirect(lookoutAssetUrl, base).href).toBe(
+			lookoutAssetUrl,
+		)
+	})
+
 	test("rejects redirects outside the media allowlist", () => {
 		const base = parseLapseMediaTarget(videoUrl)
 		expect(() =>
@@ -62,6 +74,12 @@ describe("Lapse media proxy URL validation", () => {
 		expect(() =>
 			parseLapseMediaRedirect(
 				"https://attacker.r2.cloudflarestorage.com/other/video.mp4",
+				base,
+			),
+		).toThrow()
+		expect(() =>
+			parseLapseMediaRedirect(
+				"https://lookout.hackclub-assets.com/other/video.mp4",
 				base,
 			),
 		).toThrow()

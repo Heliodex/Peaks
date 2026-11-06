@@ -1,7 +1,7 @@
 // Shared prop types for the review panes.
 
 import type { AnnotationReason } from "#lib/annotations.js"
-import type { getTimelapse } from "./api.remote.js"
+import type { getTimelapse } from "#lib/lapse-client.js"
 
 /** A resolved Lapse timelapse, as returned by the `getTimelapse` query. */
 export type ReviewTimelapse = NonNullable<

@@ -30,25 +30,6 @@ const slackIdSchema = type.or(
 	"null",
 )
 
-const userSchema = type({
-	createdAt: nonNegativeNumberSchema,
-	displayName: displayNameSchema,
-	hackatimeId: type.or(type("string"), "null"),
-	handle: handleSchema,
-	id: idSchema,
-	private: type({
-		devices: type({
-			id: idSchema,
-			name: type("string").atLeastLength(1),
-		}).array(),
-		needsReauth: type("boolean"),
-		permissionLevel: type.enumerated("USER", "ADMIN", "ROOT"),
-	}),
-	profilePictureUrl: webUrlSchema,
-	slackId: slackIdSchema,
-	urls: webUrlSchema.array().atMostLength(4),
-})
-
 const ownerSchema = type({
 	createdAt: nonNegativeNumberSchema,
 	displayName: displayNameSchema,
@@ -72,26 +53,12 @@ const timelapseSchema = type({
 	visibility: type.enumerated("UNLISTED", "PUBLIC", "FAILED_PROCESSING"),
 })
 
-const userResponseSchema = type({
-	data: {
-		user: userSchema,
-	},
-	ok: "true",
-})
-
 const timelapseResponseSchema = type({
 	data: {
 		timelapse: timelapseSchema,
 	},
 	ok: "true",
 })
-
-export interface LapseUserInfo {
-	displayName: string
-	handle: string
-	id: string
-	profilePictureUrl: string
-}
 
 export interface LapseTimelapse {
 	createdAt: number
@@ -132,29 +99,6 @@ export class LapseApiTimeoutError extends Error {
 
 function invalidResponse(): never {
 	throw new LapseApiResponseError()
-}
-
-/** Parse and validate the profile response returned by Lapse. */
-export function parseLapseUserInfoResponse(value: unknown): LapseUserInfo {
-	if (!userResponseSchema.allows(value)) return invalidResponse()
-	const { user } = (
-		value as {
-			data: {
-				user: {
-					id: string
-					handle: string
-					displayName: string
-					profilePictureUrl: string
-				}
-			}
-		}
-	).data
-	return {
-		displayName: user.displayName,
-		handle: user.handle,
-		id: user.id,
-		profilePictureUrl: user.profilePictureUrl,
-	}
 }
 
 /** Parse and validate a timelapse response returned by Lapse. */

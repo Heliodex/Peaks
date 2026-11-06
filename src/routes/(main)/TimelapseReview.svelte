@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onDestroy, onMount } from "svelte"
 import { SvelteSet } from "svelte/reactivity"
+import { getTimelapse } from "#lib/lapse-client.js"
 import type { Project } from "#lib/project-storage.js"
 import {
 	clampSeekStep,
@@ -11,7 +12,6 @@ import {
 } from "#lib/settings-storage.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 import { page } from "$app/state"
-import { getTimelapse } from "./api.remote.js"
 import ProjectPane from "./ProjectPane.svelte"
 import ProjectSearch from "./ProjectSearch.svelte"
 import ProjectTimelapses from "./ProjectTimelapses.svelte"
@@ -36,7 +36,7 @@ const decodePathParam = (pathname: string): string =>
 	decodeURIComponent(pathname.slice(1))
 
 /**
- * Encoded project state taken from the `/{state}` path (empty on the `/home` landing).
+ * Encoded project state taken from the `/{state}` path (empty on the `/` landing).
  * The open timelapse id is carried inside that state, so it no longer needs to live in the URL separately.
  * Shallow writes update `page.shallow.url` rather than `page.url`, so prefer it when present.
  */

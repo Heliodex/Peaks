@@ -17,6 +17,7 @@ const detectFrameRate = mock((src: string): Promise<number> => {
 
 mock.module("svelte", () => ({
 	onDestroy: () => {},
+	onMount: () => {},
 	untrack: <T>(fn: () => T): T => fn(),
 }))
 const frameRatePath = new URL("../src/lib/frame-rate.ts", import.meta.url)

@@ -5,9 +5,9 @@ import {
 	describeTimelapse,
 } from "#lib/annotations.js"
 import type { IdleRange } from "#lib/idle-time.js"
+import { getTimelapse } from "#lib/lapse-client.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import type { TimelineSelection } from "#lib/timeline.js"
-import { getTimelapse } from "./api.remote.js"
 import type { ReviewIdle } from "./review-idle.svelte.js"
 import type { ReviewTimelapse } from "./review-types.js"
 

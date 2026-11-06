@@ -1,1 +1,34 @@
+import { type } from "arktype"
+
 export const MAX_TIMELAPSE_THUMBNAIL_BATCH_SIZE = 50
+
+// Bound both the number of upstream requests and how many run at once.
+export const MAX_CONCURRENT_TIMELAPSE_REQUESTS = 5
+
+export const timelapseThumbnailIds = type("string[]").atMostLength(
+	MAX_TIMELAPSE_THUMBNAIL_BATCH_SIZE,
+)
+
+export async function mapWithConcurrency<T, R>(
+	values: readonly T[],
+	concurrency: number,
+	mapper: (value: T) => Promise<R>,
+): Promise<R[]> {
+	if (concurrency < 1) throw new Error("Concurrency must be positive")
+
+	const results = Array.from({ length: values.length }) as R[]
+	let nextIndex = 0
+	const workers = Array.from(
+		{ length: Math.min(concurrency, values.length) },
+		async () => {
+			while (true) {
+				const index = nextIndex++
+				if (index >= values.length) return
+				results[index] = await mapper(values[index])
+			}
+		},
+	)
+
+	await Promise.all(workers)
+	return results
+}

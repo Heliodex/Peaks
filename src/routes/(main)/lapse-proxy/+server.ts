@@ -1,6 +1,5 @@
 // Proxies the Lapse CDN's video files through the server so the client can read pixels for timeline previews without the CDN sending CORS headers.
 import { error, type RequestEvent } from "@sveltejs/kit"
-import { authorise } from "#lib/server/auth.js"
 import {
 	parseLapseMediaRedirect,
 	parseLapseMediaTarget,
@@ -107,10 +106,9 @@ function forwardHeaders(upstream: Response): Headers {
 
 	const cacheable = [200, 206, 304].includes(upstream.status)
 	// Lapse media URLs are unique per timelapse and never rewritten, so a long, immutable lifetime is safe for successful media responses.
-	// `private` keeps the authenticated response out of shared caches.
 	headers.set(
 		"cache-control",
-		cacheable ? "private, max-age=31536000, immutable" : "no-store",
+		cacheable ? "public, max-age=31536000, immutable" : "no-store",
 	)
 	return headers
 }
@@ -126,8 +124,6 @@ function isVideoResponse(response: Response): boolean {
 }
 
 export async function GET({ url, request }: RequestEvent) {
-	await authorise()
-
 	const parsed = parseTarget(url)
 	const upstream = await fetchMedia(parsed, request)
 	if (!isVideoResponse(upstream)) {
