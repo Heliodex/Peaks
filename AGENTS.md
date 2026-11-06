@@ -2,6 +2,7 @@
 
 SvelteKit docs at https://svelte.dev/docs/kit/llms.txt  
 Svelte docs at https://svelte.dev/docs/svelte/llms.txt
+Lapse API docs at https://api.lapse.hackclub.com/docs
 
 # Code style guidelines
 
