@@ -187,22 +187,18 @@ The following remain open review items:
 
 ## Open security and deployment follow-ups
 
-- Encrypt Lapse access and refresh tokens at rest with a dedicated key and migrate existing plaintext values.
 - Add response-size limits, request timeouts, and rate limits to the media proxy; its redirect/body streaming path still needs a bounded request policy.
-- Consider bounded retry/backoff for transient upstream failures; the Lapse client currently retries only the existing single `401` refresh case.
-- Consider hashing session identifiers at rest.
-- Pin tested SvelteKit and adapter versions, and document the use of experimental remote functions, async Svelte, and `forkPreloads`.
-- Keep deployment configuration to one SurrealDB process/instance, use a stable working directory, and close the database gracefully during shutdown.
-- Replace the startup `OVERWRITE` schema strategy with versioned migrations for production. HMR now intentionally reapplies the idempotent init query so local schema edits are visible immediately.
+- Consider bounded retry/backoff for transient upstream failures.
+- Pin tested SvelteKit, `wt`, and wasmtime versions, and document the static frontend plus WASM component boundary.
+- Keep the media proxy on a trusted `wt` network profile (`network: inherit`); untrusted-mode egress is IPv4 CIDR + port only and cannot express Lapse's Cloudflare hosts safely.
+- Review the `wt` deployment host and idle timeout before production; the static frontend keeps serving while the component is asleep.
 
 ## Tooling and maintenance improvements
 
-- `hooks.server.ts` imports `picocolors`, but it is not a direct dependency in `package.json`; add it explicitly or remove the import.
 - Build-time packages such as SvelteKit, Vite, Tailwind, and the adapter are in `dependencies` rather than `devDependencies`.
-- `sharp` has no source import and `@typescript/native` is not used by a project script; verify whether both can be removed.
+- `@typescript/native` is not used by a project script; verify whether it can be removed.
 - `prepare` uses `svelte-kit sync || echo ''`, which hides synchronization failures.
-- There are no `lint`, `format:check`, or `test` scripts and no visible CI configuration.
-- `ecosystem.config.js:8` contains `intperpreter`; the PM2 option is `interpreter`.
+- There is no visible CI configuration for the Go and SvelteKit checks.
 
 ## Refactoring opportunities
 
@@ -212,17 +208,19 @@ The main composition roots remain large:
 - `Timeline.svelte` combines playback, viewport, selection editing, idle scanning, thumbnails, gestures, and rendering.
 - `workspace-history.svelte.ts` combines tree algorithms, diffing, graph layout, persistence, and Svelte state.
 - `share.ts` combines compression, parsing, validation, domain recomputation, and local-storage side effects.
-- `api.remote.ts` mixes transport definitions, authorization, database access, Lapse API calls, and batching.
 
-A future refactor could separate pure domain/schema modules, the Lapse API client, session/auth persistence, share codecs, workspace controllers, and presentation components.
+A future refactor could separate pure domain/schema modules, the Lapse API client, share codecs, workspace controllers, and presentation components.
 
 ## Verification
 
 Latest verification for the current tree:
 
-- `bun test`: 143 tests passed.
-- `bun run check`: passed with 0 errors and 0 warnings.
-- `bun run build`: passed.
+- `go test ./...`: passed.
+- `cd web && bun test`: 129 tests passed.
+- `cd web && bun run svelte:check`: 0 errors, 0 warnings.
+- `cd web && bun run lint`: clean.
+- `cd web && bun run build` and `wt build --dir .`: passed.
+- `wt dev --dir . --vite=false`: static app, `/lapse-proxy`, frame previews, and idle scanning verified.
 - `bun audit`: no known vulnerabilities in 175 checked packages.
 - `git diff --check`: passed.
 - `bunx biome check src tests`: currently reports three formatting issues in `src/lib/assets/favicon.svg`, `src/routes/(main)/ProjectSearch.svelte`, and `src/routes/layout.css`; the files touched by the high-priority fixes pass targeted Biome checks.
