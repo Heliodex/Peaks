@@ -6,6 +6,7 @@ node_modules
 /main.cwasm
 /artefact.json
 /.wt-build.json
+/*.tar.gz
 /web/build
 /web/.svelte-kit
 /web/.wt-dev.vite.config.ts
