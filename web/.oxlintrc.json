@@ -14,11 +14,7 @@
 		"builtin": true,
 		"node": true
 	},
-	"ignorePatterns": [
-		"node_modules/**",
-		".svelte-kit/**",
-		"build/**"
-	],
+	"ignorePatterns": ["node_modules/**", ".svelte-kit/**", "build/**"],
 	"options": {
 		"denyWarnings": true,
 		"reportUnusedDisableDirectives": "warn",
@@ -114,7 +110,10 @@
 		"promise/no-nesting": "off",
 		"promise/prefer-await-to-callbacks": "off",
 		"promise/prefer-await-to-then": "off",
-		"typescript/consistent-indexed-object-style": ["error", "index-signature"],
+		"typescript/consistent-indexed-object-style": [
+			"error",
+			"index-signature"
+		],
 		"typescript/consistent-return": "off",
 		"typescript/consistent-type-imports": "warn",
 		"typescript/method-signature-style": ["error", "method"],
