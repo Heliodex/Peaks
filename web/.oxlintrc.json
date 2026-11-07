@@ -17,8 +17,6 @@
 	"ignorePatterns": [
 		"node_modules/**",
 		".svelte-kit/**",
-		".celld/**",
-		".wrangler/**",
 		"build/**"
 	],
 	"options": {
