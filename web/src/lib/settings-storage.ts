@@ -30,7 +30,7 @@ export function clampSeekStep(value: number): number {
 /** Validate a value read back from storage, filling in any missing fields. */
 function parseSettings(value: unknown): Settings | null {
 	if (typeof value !== "object" || value === null) return null
-	const { justifyTimeline, seekStep } = value as Record<string, unknown>
+	const { justifyTimeline, seekStep } = value as { [_: string]: unknown }
 	return {
 		...DEFAULT_SETTINGS,
 		justifyTimeline:

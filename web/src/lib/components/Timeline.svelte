@@ -249,7 +249,7 @@ function onPointerLeave() {
  * Spacebar plays/pauses the video, the left/right arrow keys seek by the configured step, and the up/down arrow keys step one frame, instead of scrolling the page. Ignored while typing in or interacting with a control.
  */
 function onKeyDown(event: KeyboardEvent) {
-	const actions: Record<string, () => void> = {
+	const actions: { [_: string]: () => void } = {
 		" ": () => playback.togglePlay(),
 		ArrowDown: () => playback.stepFrame(-1),
 		ArrowLeft: () =>

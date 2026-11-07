@@ -29,7 +29,7 @@ export class ProjectWorkspace {
 	readonly #saveProjects: typeof saveProjects
 	#saveTimer: ReturnType<typeof setTimeout> | undefined
 	#pendingStore: ProjectStore | undefined
-	#storageFailures: Record<StorageSource, boolean> = {
+	#storageFailures: { [_: string]: boolean } = {
 		projects: false,
 		selections: false,
 	}

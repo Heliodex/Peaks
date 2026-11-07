@@ -69,7 +69,7 @@ describe("ListReorder grid targets", () => {
 	// Exercises the grid hit-testing the drag relies on, against stubbed `document` / `HTMLElement`: cards laid out three per row.
 	class StubElement {
 		dataset!: { reorderId: string }
-		getBoundingClientRect!: () => Record<string, number>
+		getBoundingClientRect!: () => { [_: string]: number }
 	}
 
 	const layout = Array.from({ length: 6 }, (_, index) => {

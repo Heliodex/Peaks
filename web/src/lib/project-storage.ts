@@ -49,7 +49,7 @@ const isFiniteNonNegative = (value: unknown): value is number =>
 
 function parseAnnotation(value: unknown): AnnotationDeflation | null {
 	if (typeof value !== "object" || value === null) return null
-	const { reason, duration } = value as Record<string, unknown>
+	const { reason, duration } = value as { [_: string]: unknown }
 	if (typeof reason !== "string" || !isFiniteNonNegative(duration))
 		return null
 
@@ -65,7 +65,7 @@ function parseAnnotations(value: unknown): AnnotationDeflation[] {
 
 function parseIdleRange(value: unknown): IdleRange | null {
 	if (typeof value !== "object" || value === null) return null
-	const { start, end } = value as Record<string, unknown>
+	const { start, end } = value as { [_: string]: unknown }
 	if (!isFiniteNonNegative(start) || !isFiniteNonNegative(end)) return null
 	return { end, start }
 }
@@ -90,7 +90,7 @@ function parseEntry(value: unknown): ProjectTimelapse | null {
 		idleThreshold,
 		description,
 		idleRanges: rawIdleRanges,
-	} = value as Record<string, unknown>
+	} = value as { [_: string]: unknown }
 	if (
 		typeof id !== "string"
 		|| typeof name !== "string"
@@ -182,7 +182,7 @@ export function uniqueProjectName(projects: Project[]): string {
 
 function parseProject(value: unknown): Project | null {
 	if (typeof value !== "object" || value === null) return null
-	const { id, name, timelapses } = value as Record<string, unknown>
+	const { id, name, timelapses } = value as { [_: string]: unknown }
 	if (typeof id !== "string" || !id) return null
 	return {
 		id,
@@ -193,7 +193,7 @@ function parseProject(value: unknown): Project | null {
 
 function parseStore(value: unknown): ProjectStore | null {
 	if (typeof value !== "object" || value === null) return null
-	const { projects, currentId } = value as Record<string, unknown>
+	const { projects, currentId } = value as { [_: string]: unknown }
 	if (!Array.isArray(projects)) return null
 	const parsed = projects
 		.map(parseProject)

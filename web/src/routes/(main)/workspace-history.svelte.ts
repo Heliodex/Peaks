@@ -212,7 +212,7 @@ export function describeChange(
 
 /** The ids on the path from `currentId` up to the root, which pruning never removes. */
 function pathIds(
-	nodes: Record<string, HistoryNode>,
+	nodes: { [_: string]: HistoryNode },
 	currentId: string,
 ): Set<string> {
 	const ids = new Set<string>()
@@ -228,7 +228,7 @@ function pathIds(
 
 /** The oldest leaf that pruning may remove, or null when only the current branch is left. */
 function oldestLeaf(
-	nodes: Record<string, HistoryNode>,
+	nodes: { [_: string]: HistoryNode },
 	protectedIds: Set<string>,
 ): HistoryNode | null {
 	let oldest: HistoryNode | null = null
@@ -241,9 +241,9 @@ function oldestLeaf(
 
 /** Remove a leaf, detaching it from its parent. */
 function removeLeaf(
-	nodes: Record<string, HistoryNode>,
+	nodes: { [_: string]: HistoryNode },
 	leaf: HistoryNode,
-): Record<string, HistoryNode> {
+): { [_: string]: HistoryNode } {
 	const next = { ...nodes }
 	delete next[leaf.id]
 	const parent = leaf.parent ? nodes[leaf.parent] : null
@@ -257,10 +257,10 @@ function removeLeaf(
 
 /** Drop the oldest leaves until at most `limit` nodes remain, keeping the current branch intact. */
 function pruneLeaves(
-	nodes: Record<string, HistoryNode>,
+	nodes: { [_: string]: HistoryNode },
 	currentId: string,
 	limit: number,
-): Record<string, HistoryNode> {
+): { [_: string]: HistoryNode } {
 	let result = nodes
 	while (Object.keys(result).length > limit) {
 		const leaf = oldestLeaf(result, pathIds(result, currentId))
@@ -272,7 +272,7 @@ function pruneLeaves(
 
 /** Every node reachable from `rootId` by following children. */
 function reachableIds(
-	nodes: Record<string, HistoryNode>,
+	nodes: { [_: string]: HistoryNode },
 	rootId: string,
 ): Set<string> {
 	const keep = new Set<string>()
@@ -291,9 +291,9 @@ function reachableIds(
  * Used only when the branch itself is the last thing over budget; returns null when a single node remains.
  */
 function dropOldestPathNode(
-	nodes: Record<string, HistoryNode>,
+	nodes: { [_: string]: HistoryNode },
 	currentId: string,
-): Record<string, HistoryNode> | null {
+): { [_: string]: HistoryNode } | null {
 	const chain: HistoryNode[] = []
 	for (
 		let id: string | null = currentId;
@@ -306,7 +306,7 @@ function dropOldestPathNode(
 	const heir = chain.at(-2)
 	if (!heir) return null
 	const keep = reachableIds(nodes, heir.id)
-	const next: Record<string, HistoryNode> = {}
+	const next: { [_: string]: HistoryNode } = {}
 	for (const [id, node] of Object.entries(nodes)) {
 		if (!keep.has(id)) continue
 		next[id] = id === heir.id ? { ...node, parent: null } : node
@@ -315,7 +315,7 @@ function dropOldestPathNode(
 }
 
 /** Estimated serialized size of a tree, using each snapshot's cached size plus per-node overhead. */
-function nodesSize(nodes: Record<string, HistoryNode>): number {
+function nodesSize(nodes: { [_: string]: HistoryNode }): number {
 	let total = 0
 	for (const node of Object.values(nodes))
 		total += snapshotSize(node.snapshot) + NODE_OVERHEAD
@@ -327,10 +327,10 @@ function nodesSize(nodes: Record<string, HistoryNode>): number {
  * Oldest leaves go first; only when the current branch alone is too large is its oldest node dropped and its child promoted, so the branch itself stays intact for as long as possible.
  */
 function pruneToBudget(
-	nodes: Record<string, HistoryNode>,
+	nodes: { [_: string]: HistoryNode },
 	currentId: string,
 	maxBytes: number,
-): Record<string, HistoryNode> {
+): { [_: string]: HistoryNode } {
 	let result = nodes
 	let total = nodesSize(result)
 	while (total > maxBytes) {
@@ -354,7 +354,7 @@ export class WorkspaceHistory {
 	readonly #apply: (snapshot: WorkspaceSnapshot) => void
 
 	// Raw state: node snapshots are large and never mutated in place, and the tree is always swapped wholesale, so deep proxying them would only add overhead on every read and serialize.
-	nodes = $state.raw<Record<string, HistoryNode>>({})
+	nodes = $state.raw<{ [_: string]: HistoryNode }>({})
 	/** The node the live state is at. */
 	currentId = $state("")
 
@@ -617,7 +617,7 @@ const MAX_PERSISTED_BYTES = 1_500_000
  * The shrink is estimated from cached snapshot sizes, so only the nodes that survive are serialized: the old halving loop re-serialized the whole (often many-megabyte) tree on every retry, which stalled the main thread for up to seconds on each edit.
  */
 export function saveHistory(
-	nodes: Record<string, HistoryNode>,
+	nodes: { [_: string]: HistoryNode },
 	currentId: string,
 	nextId: number,
 ): void {
@@ -662,7 +662,7 @@ const MAX_HISTORY_SELECTIONS = 5_000
 const MAX_HISTORY_IDLE_RANGES = 10_000
 const MAX_HISTORY_ANNOTATIONS = 10_000
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
+const isRecord = (value: unknown): value is { [_: string]: unknown } =>
 	typeof value === "object" && value !== null && !Array.isArray(value)
 
 const isHistoryString = (
@@ -882,7 +882,7 @@ function parseNode(value: unknown): HistoryNode | null {
 	}
 }
 
-function parseNodes(value: unknown): Record<string, HistoryNode> | null {
+function parseNodes(value: unknown): { [_: string]: HistoryNode } | null {
 	if (!isRecord(value)) return null
 	const entries = Object.entries(value)
 	if (entries.length === 0 || entries.length > MAX_NODES) return null
@@ -923,7 +923,7 @@ function parseNodes(value: unknown): Record<string, HistoryNode> | null {
 interface PersistedHistory {
 	currentId: string
 	nextId: number
-	nodes: Record<string, HistoryNode>
+	nodes: { [_: string]: HistoryNode }
 }
 
 /** Load and fully validate a persisted history tree. */

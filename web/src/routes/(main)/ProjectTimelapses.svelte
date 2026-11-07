@@ -81,7 +81,7 @@ function copyId(id: string, x: number, y: number) {
 }
 
 // Thumbnail URLs for the current entries. They resolve after the grid has rendered, so titles and times show immediately and images fill in.
-let thumbnails = $state<Record<string, string | null>>({})
+let thumbnails = $state<{ [_: string]: string | null }>({})
 
 $effect(() => {
 	// Sorted and de-duplicated so merely reordering the project doesn't invalidate the query's argument-keyed cache.
@@ -92,7 +92,7 @@ $effect(() => {
 	}
 	let cancelled = false
 	const loadThumbnails = async () => {
-		let loaded: Record<string, string | null> = {}
+		let loaded: { [_: string]: string | null } = {}
 		for (
 			let index = 0;
 			index < ids.length;

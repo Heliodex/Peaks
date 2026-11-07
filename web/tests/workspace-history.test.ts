@@ -180,8 +180,8 @@ test("HISTORY_NODE_SIZE is shared with the view", () => {
 function chain(
 	count: number,
 	makeSnapshot: (index: number) => WorkspaceSnapshot,
-): { nodes: Record<string, HistoryNode>; currentId: string } {
-	const nodes: Record<string, HistoryNode> = {}
+): { nodes: { [_: string]: HistoryNode }; currentId: string } {
+	const nodes: { [_: string]: HistoryNode } = {}
 	let parent: string | null = null
 	for (let i = 0; i < count; i++) {
 		const id = `h${i}`
@@ -219,7 +219,7 @@ const readStored = (): { currentId: string; nodeCount: number } => {
 	if (!raw) return { currentId: "", nodeCount: 0 }
 	const parsed = JSON.parse(raw) as {
 		currentId: string
-		nodes: Record<string, unknown>
+		nodes: { [_: string]: unknown }
 	}
 	return {
 		currentId: parsed.currentId,

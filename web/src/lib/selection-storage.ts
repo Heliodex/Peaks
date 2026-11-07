@@ -10,7 +10,7 @@ const storageKey = (timelapseId: string): string =>
 /** Validate a value read back from storage before trusting it as a selection. */
 function parseSelection(value: unknown): TimelineSelection | null {
 	if (typeof value !== "object" || value === null) return null
-	const { id, start, end, reason } = value as Record<string, unknown>
+	const { id, start, end, reason } = value as { [_: string]: unknown }
 	if (
 		typeof id !== "string"
 		|| typeof start !== "number"
