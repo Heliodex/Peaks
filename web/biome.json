@@ -28,7 +28,8 @@
 			"tests/**",
 			"*.config.js",
 			"*.config.ts",
-			"*.json"
+			"*.json",
+			"!.wt-dev.vite.config.ts"
 		]
 	},
 	"formatter": {
