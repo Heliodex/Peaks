@@ -43,10 +43,15 @@ export function getTimelapse(
 
 	const request = requestTimelapse(id)
 	timelapses.set(id, request)
-	request.catch(() => {
-		// A failed request shouldn't poison the cache; the next open can retry.
+	// Failures and unknown ids aren't cached, so the next open can retry (a timelapse may be published after an earlier miss).
+	const forget = () => {
 		if (timelapses.get(id) === request) timelapses.delete(id)
-	})
+	}
+	request
+		.then(result => {
+			if (result === null) forget()
+		})
+		.catch(forget)
 	return request
 }
 

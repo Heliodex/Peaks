@@ -82,6 +82,22 @@ describe("client-side Lapse requests", () => {
 		expect(await getTimelapse("missing")).toBeNull()
 	})
 
+	test("retries an id that was unknown on an earlier attempt", async () => {
+		let calls = 0
+		globalThis.fetch = () => {
+			calls++
+			return Promise.resolve(
+				calls === 1
+					? new Response(null, { status: 404 })
+					: jsonResponse({ data: { timelapse }, ok: true }),
+			)
+		}
+
+		expect(await getTimelapse("later")).toBeNull()
+		expect(await getTimelapse("later")).not.toBeNull()
+		expect(calls).toBe(2)
+	})
+
 	test("raises typed errors for failed and malformed responses", async () => {
 		globalThis.fetch = () =>
 			Promise.resolve(new Response(null, { status: 500 }))
