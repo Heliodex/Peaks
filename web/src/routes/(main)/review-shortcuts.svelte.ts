@@ -1,5 +1,5 @@
 // Global review shortcuts, handled while the review route is mounted.
-import { isInteractiveTarget } from "#lib/dom.js"
+import { isInteractiveTarget, isTyping } from "#lib/dom.js"
 
 interface ReviewShortcutsOptions {
 	/** Create and open a new project. */
@@ -67,23 +67,18 @@ export class ReviewShortcuts {
 			return
 		}
 
-		if (isInteractiveTarget(event)) return
-
-		// Ctrl/Cmd+Z and Ctrl/Cmd+Y (plus Ctrl+Shift+Z) drive the workspace history. Left to the browser while typing above.
+		// Ctrl/Cmd+Z and Ctrl/Cmd+Y (plus Ctrl+Shift+Z) drive the workspace history. Only text entry keeps the browser's own undo; a focused button still lets them through, since buttons don't use them.
 		if ((event.ctrlKey || event.metaKey) && !event.altKey) {
 			const key = event.key.toLowerCase()
-			if (key === "z") {
+			if ((key === "z" || key === "y") && !isTyping(event.target)) {
 				event.preventDefault()
-				if (event.shiftKey) this.#options.redo()
-				else this.#options.undo()
-				return
-			}
-			if (key === "y") {
-				event.preventDefault()
-				this.#options.redo()
+				if (key === "z" && !event.shiftKey) this.#options.undo()
+				else this.#options.redo()
 				return
 			}
 		}
+
+		if (isInteractiveTarget(event)) return
 
 		const key = event.key.toLowerCase()
 		const modified = event.metaKey || event.ctrlKey || event.altKey
