@@ -139,6 +139,7 @@ $effect(() => {
 				animate:flip={cardShift}
 			>
 				<button
+					aria-keyshortcuts="Shift+F10"
 					class={[
 						"flex h-full w-full flex-col overflow-hidden border border-line-soft bg-surface-raised text-left transition-colors select-none",
 						reorderable

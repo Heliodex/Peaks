@@ -141,6 +141,7 @@ function closeMenu(restoreFocus = false) {
 				>
 			{:else}
 				<button
+					aria-keyshortcuts="Shift+F10"
 					class={[
 						"min-w-0 flex-1 truncate px-1.5 py-0.5 text-left transition-colors",
 						projects.length > 1

@@ -96,6 +96,7 @@ function copyId(id: string, x: number, y: number) {
 		>
 			<button
 				aria-current={entry.id === submittedId ? "true" : undefined}
+				aria-keyshortcuts="Shift+F10"
 				class={[
 					"flex min-w-0 flex-1 flex-col justify-center py-1 pr-1 pl-1.5 text-left",
 					entries.length > 1
