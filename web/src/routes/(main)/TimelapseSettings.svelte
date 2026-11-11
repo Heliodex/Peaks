@@ -1,10 +1,8 @@
 <script lang="ts">
 import { untrack } from "svelte"
 import { MAX_SEEK_STEP, MIN_SEEK_STEP } from "#lib/settings-storage.js"
-import {
-	HISTORY_NODE_SIZE,
-	type WorkspaceHistory,
-} from "./workspace-history.svelte.js"
+import type { WorkspaceHistory } from "./workspace-history.svelte.js"
+import { HISTORY_NODE_SIZE } from "./workspace-history-graph.js"
 
 let {
 	justifyTimeline,

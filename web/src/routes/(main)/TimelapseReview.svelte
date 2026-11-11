@@ -26,10 +26,8 @@ import { ReviewSync } from "./review-sync.svelte.js"
 import TimelinePane from "./TimelinePane.svelte"
 import { TimelapseLoader } from "./timelapse-loader.svelte.js"
 import VideoPane from "./VideoPane.svelte"
-import {
-	WorkspaceHistory,
-	type WorkspaceSnapshot,
-} from "./workspace-history.svelte.js"
+import { WorkspaceHistory } from "./workspace-history.svelte.js"
+import type { WorkspaceSnapshot } from "./workspace-history-types.js"
 
 /** Decode a path segment, falling back to the raw text when it is malformed. */
 const decodePathParam = (pathname: string): string =>

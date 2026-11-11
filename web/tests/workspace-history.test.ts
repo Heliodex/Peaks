@@ -1,15 +1,17 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import type { TimelineSelection } from "#lib/timeline.js"
+import { WorkspaceHistory } from "../src/routes/(main)/workspace-history.svelte.ts"
+import { describeChange } from "../src/routes/(main)/workspace-history-describe.ts"
+import { HISTORY_NODE_SIZE } from "../src/routes/(main)/workspace-history-graph.ts"
 import {
-	describeChange,
-	HISTORY_NODE_SIZE,
-	type HistoryNode,
 	loadHistory,
 	saveHistory,
-	WorkspaceHistory,
-	type WorkspaceSnapshot,
-} from "../src/routes/(main)/workspace-history.svelte.ts"
+} from "../src/routes/(main)/workspace-history-storage.ts"
+import type {
+	HistoryNode,
+	WorkspaceSnapshot,
+} from "../src/routes/(main)/workspace-history-types.ts"
 import {
 	clearLocalStorage,
 	installLocalStorage,
