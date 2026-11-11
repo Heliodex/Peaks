@@ -12,13 +12,16 @@ import {
 } from "#lib/settings-storage.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 import { page } from "$app/state"
+import CenteredState from "./CenteredState.svelte"
 import ProjectPane from "./ProjectPane.svelte"
 import ProjectSearch from "./ProjectSearch.svelte"
 import ProjectTimelapses from "./ProjectTimelapses.svelte"
 import { PaneLayout } from "./pane-layout.svelte.js"
 import { ProjectSummary } from "./project-summary.svelte.js"
 import { ProjectWorkspace } from "./project-workspace.svelte.js"
+import ResizeHandle from "./ResizeHandle.svelte"
 import ReviewDetails from "./ReviewDetails.svelte"
+import { keyboardResize } from "./resize-grip.js"
 import { ReviewIdle } from "./review-idle.svelte.js"
 import { ReviewSession } from "./review-session.svelte.js"
 import { ReviewShortcuts } from "./review-shortcuts.svelte.js"
@@ -124,24 +127,6 @@ function setSeekStep(value: number) {
 	seekStep = clampSeekStep(value)
 }
 
-/** Pixels a pane separator moves per arrow-key press (tripled while Shift is held). */
-const RESIZE_STEP = 16
-
-/**
- * Move one of the pane separators from the keyboard.
- * `deltaForKey` maps the pressed arrow key to a direction (or null when the key is irrelevant).
- */
-function keyboardResize(
-	event: KeyboardEvent,
-	resize: (delta: number) => void,
-	deltaForKey: (key: string) => number | null,
-) {
-	const delta = deltaForKey(event.key)
-	if (delta === null) return
-	event.preventDefault()
-	resize(delta * RESIZE_STEP * (event.shiftKey ? 3 : 1))
-}
-
 const onLeftHandleKeydown = (event: KeyboardEvent) =>
 	keyboardResize(
 		event,
@@ -162,106 +147,6 @@ const onTimelineHandleKeydown = (event: KeyboardEvent) =>
 		dy => panes.resizeTimelineBy(dy),
 		key => (key === "ArrowUp" ? 1 : key === "ArrowDown" ? -1 : null),
 	)
-
-/** Matches the grip's CSS fade-out, so a recentre doesn't happen mid-transition. */
-const GRIP_RESET_DELAY_MS = 120
-// Pending recentres, per handle, so leaving one handle can't cancel another's.
-const gripResetTimers = new WeakMap<
-	HTMLElement,
-	ReturnType<typeof setTimeout>
->()
-// The resize in progress, so its grip keeps following the pointer even off the thin handle.
-let resizing: {
-	handle: HTMLElement
-	orientation: "vertical" | "horizontal"
-} | null = null
-
-/** Move the resize grip to sit next to the pointer, cancelling any pending recentre. */
-function positionGrip(
-	handle: HTMLElement,
-	orientation: "vertical" | "horizontal",
-	clientX: number,
-	clientY: number,
-) {
-	const pending = gripResetTimers.get(handle)
-	if (pending !== undefined) {
-		clearTimeout(pending)
-		gripResetTimers.delete(handle)
-	}
-
-	const rect = handle.getBoundingClientRect()
-	const offset =
-		orientation === "vertical" ? clientY - rect.top : clientX - rect.left
-	handle.style.setProperty("--grip-position", `${offset}px`)
-}
-
-/** Recentre the grip once the pointer has left (or the drag ended) and the fade-out has finished. */
-function scheduleGripReset(handle: HTMLElement) {
-	clearTimeout(gripResetTimers.get(handle))
-	gripResetTimers.set(
-		handle,
-		setTimeout(() => {
-			gripResetTimers.delete(handle)
-			handle.style.removeProperty("--grip-position")
-		}, GRIP_RESET_DELAY_MS),
-	)
-}
-
-function moveGrip(event: PointerEvent, orientation: "vertical" | "horizontal") {
-	positionGrip(
-		event.currentTarget as HTMLElement,
-		orientation,
-		event.clientX,
-		event.clientY,
-	)
-}
-
-function resetGrip(event: PointerEvent) {
-	const handle = event.currentTarget as HTMLElement
-	// While a resize is running the grip stays with the pointer, even off the thin handle.
-	if (resizing?.handle === handle) return
-	scheduleGripReset(handle)
-}
-
-/**
- * Start a resize and keep the grip on the pointer via window events until the drag ends.
- * The pointer often leaves the narrow handle while resizing quickly or once a pane hits its minimum, and the grip must stay put rather than recentring.
- */
-function beginResize(
-	event: PointerEvent,
-	orientation: "vertical" | "horizontal",
-	onpointerdown: (event: PointerEvent) => void,
-) {
-	const handle = event.currentTarget as HTMLElement
-	positionGrip(handle, orientation, event.clientX, event.clientY)
-	resizing = { handle, orientation }
-	window.addEventListener("pointermove", onWindowResizeMove)
-	window.addEventListener("pointerup", endResize)
-	window.addEventListener("pointercancel", endResize)
-	onpointerdown(event)
-}
-
-function onWindowResizeMove(event: PointerEvent) {
-	const state = resizing
-	if (state)
-		positionGrip(
-			state.handle,
-			state.orientation,
-			event.clientX,
-			event.clientY,
-		)
-}
-
-function endResize() {
-	const state = resizing
-	resizing = null
-	window.removeEventListener("pointermove", onWindowResizeMove)
-	window.removeEventListener("pointerup", endResize)
-	window.removeEventListener("pointercancel", endResize)
-	// Leave the grip under the pointer if it's still over the handle; otherwise let it fade back to the centre.
-	if (state && !state.handle.matches(":hover"))
-		scheduleGripReset(state.handle)
-}
 
 /**
  * Open timelapses by id.
@@ -372,54 +257,6 @@ const summary = new ProjectSummary({
 
 <svelte:window onkeydown={shortcuts.onKeyDown} />
 
-{#snippet resizeHandle(options: {
-	modifier: string
-	orientation: "vertical" | "horizontal"
-	label: string
-	value: number
-	min: number
-	max: number
-	onpointerdown: (event: PointerEvent) => void
-	onkeydown: (event: KeyboardEvent) => void
-})}
-	<!-- A focusable separator is a window splitter: the resize handle is keyboard-operable, which the linters can't tell from a static separator. -->
-	<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-	<!-- biome-ignore lint/a11y/useSemanticElements: A window splitter is not an <hr>. -->
-	<div
-		aria-label={options.label}
-		aria-orientation={options.orientation}
-		aria-valuemax={Math.round(options.max)}
-		aria-valuemin={Math.round(options.min)}
-		aria-valuenow={Math.round(options.value)}
-		class={[
-			"resize-handle",
-			options.modifier,
-			"hidden hover:bg-primary-500/10 lg:block",
-		]}
-		onkeydown={options.onkeydown}
-		onpointerdown={event =>
-			beginResize(event, options.orientation, options.onpointerdown)}
-		onpointerleave={resetGrip}
-		onpointermove={event => moveGrip(event, options.orientation)}
-		role="separator"
-		tabindex="0"
-	>
-		<span aria-hidden="true" class="resize-grip"></span>
-	</div>
-{/snippet}
-
-{#snippet centeredState(message: string, loading = false)}
-	<section
-		class="area-video flex flex-col items-center justify-center gap-3 p-4 text-center"
-	>
-		{#if loading}
-			<span aria-hidden="true" class="spinner"></span>
-		{/if}
-		<p class="text-sm text-neutral-400">{message}</p>
-	</section>
-{/snippet}
-
 <main
 	class={[
 		"dashboard",
@@ -449,16 +286,16 @@ const summary = new ProjectSummary({
 		submittedId={session.submittedId}
 	/>
 
-	{@render resizeHandle({
-		label: "Resize project panel",
-		max: panes.bounds.right.max,
-		min: panes.bounds.right.min,
-		modifier: "resize-handle-right",
-		onkeydown: onRightHandleKeydown,
-		onpointerdown: panes.startRightResize,
-		orientation: "vertical",
-		value: panes.rightWidth,
-	})}
+	<ResizeHandle
+		label="Resize project panel"
+		max={panes.bounds.right.max}
+		min={panes.bounds.right.min}
+		modifier="resize-handle-right"
+		onkeydown={onRightHandleKeydown}
+		onpointerdown={panes.startRightResize}
+		orientation="vertical"
+		value={panes.rightWidth}
+	/>
 
 	<ReviewDetails
 		hasTimelapse={Boolean(session.submittedId)}
@@ -479,22 +316,22 @@ const summary = new ProjectSummary({
 		bind:selections={session.selections}
 	/>
 
-	{@render resizeHandle({
-		label: "Resize timelapse data panel",
-		max: panes.bounds.left.max,
-		min: panes.bounds.left.min,
-		modifier: "resize-handle-left",
-		onkeydown: onLeftHandleKeydown,
-		onpointerdown: panes.startLeftResize,
-		orientation: "vertical",
-		value: panes.leftWidth,
-	})}
+	<ResizeHandle
+		label="Resize timelapse data panel"
+		max={panes.bounds.left.max}
+		min={panes.bounds.left.min}
+		modifier="resize-handle-left"
+		onkeydown={onLeftHandleKeydown}
+		onpointerdown={panes.startLeftResize}
+		orientation="vertical"
+		value={panes.leftWidth}
+	/>
 
 	{#if session.submittedId}
 		{#key session.submittedId}
 			<svelte:boundary>
 				{#snippet pending()}
-					{@render centeredState("Loading timelapse…", true)}
+					<CenteredState loading message="Loading timelapse…" />
 				{/snippet}
 
 				{#snippet failed(error: unknown, reset: () => void)}
@@ -534,26 +371,26 @@ const summary = new ProjectSummary({
 							bind:selections={session.selections}
 						/>
 
-						{@render resizeHandle({
-							label: "Resize timeline",
-							max: panes.bounds.timeline.max,
-							min: panes.bounds.timeline.min,
-							modifier: "resize-handle-timeline",
-							onkeydown: onTimelineHandleKeydown,
-							onpointerdown: panes.startTimelineResize,
-							orientation: "horizontal",
-							value: panes.timelineHeight,
-						})}
+						<ResizeHandle
+							label="Resize timeline"
+							max={panes.bounds.timeline.max}
+							min={panes.bounds.timeline.min}
+							modifier="resize-handle-timeline"
+							onkeydown={onTimelineHandleKeydown}
+							onpointerdown={panes.startTimelineResize}
+							orientation="horizontal"
+							value={panes.timelineHeight}
+						/>
 					{/if}
 				{:else}
-					{@render centeredState(
-						`No timelapse found for ID "${session.submittedId}".`,
-					)}
+					<CenteredState
+						message="No timelapse found for ID &quot;{session.submittedId}&quot;."
+					/>
 				{/if}
 			</svelte:boundary>
 		{/key}
 	{:else if routeParam && !session.loaded}
-		{@render centeredState("Loading timelapse…", true)}
+		<CenteredState loading message="Loading timelapse…" />
 	{:else if workspace.projectEntries.length > 0}
 		<ProjectTimelapses
 			entries={workspace.projectEntries}
@@ -563,9 +400,9 @@ const summary = new ProjectSummary({
 				workspace.reorderCurrentProject(timelapses)}
 		/>
 	{:else}
-		{@render centeredState(
-			"No timelapses in this project. Add one from the Project panel.",
-		)}
+		<CenteredState
+			message="No timelapses in this project. Add one from the Project panel."
+		/>
 	{/if}
 </main>
 
@@ -600,100 +437,6 @@ const summary = new ProjectSummary({
 	grid-template-areas:
 		"right video project"
 		"right timeline project";
-}
-
-.resize-handle {
-	position: absolute;
-	z-index: 30;
-	touch-action: none;
-}
-
-/* A faint grip along each separator hints that the pane can be dragged; it lights up on hover and keyboard focus. */
-.resize-grip {
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	background: var(--color-neutral-600);
-	opacity: 0.35;
-	translate: -50% -50%;
-	transition:
-		opacity 120ms ease,
-		background-color 120ms ease;
-}
-
-/* On the vertical separators the grip tracks the pointer's height (falling back to the centre). */
-.resize-handle-left .resize-grip,
-.resize-handle-right .resize-grip {
-	top: var(--grip-position, 50%);
-	width: 2px;
-	height: 2.5rem;
-}
-
-/* On the timeline separator it tracks the pointer's horizontal position instead. */
-.resize-handle-timeline .resize-grip {
-	left: var(--grip-position, 50%);
-	width: 2.5rem;
-	height: 2px;
-}
-
-.resize-handle:hover .resize-grip,
-.resize-handle:focus-visible .resize-grip,
-.resize-handle:active .resize-grip {
-	background: var(--color-primary-500);
-	opacity: 1;
-}
-
-.spinner {
-	width: 1.25rem;
-	height: 1.25rem;
-	border: 2px solid var(--color-neutral-700);
-	border-top-color: var(--color-primary-500);
-	border-radius: 50%;
-	animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin {
-	to {
-		rotate: 360deg;
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.spinner {
-		animation: none;
-	}
-}
-
-.resize-handle-right {
-	top: 0;
-	right: var(--right-width);
-	bottom: var(--timeline-height);
-	width: 0.75rem;
-	cursor: col-resize;
-	transform: translateX(50%);
-}
-
-.resize-handle-left {
-	top: 0;
-	bottom: var(--timeline-height);
-	left: var(--left-width);
-	width: 0.75rem;
-	cursor: col-resize;
-	transform: translateX(-50%);
-}
-
-.resize-handle-timeline {
-	right: 0;
-	bottom: var(--timeline-height);
-	left: 0;
-	height: 0.75rem;
-	cursor: row-resize;
-	transform: translateY(50%);
-}
-
-.timeline-centred .resize-handle-timeline {
-	right: var(--right-width);
-	left: var(--left-width);
 }
 
 :global(.area-project) {
