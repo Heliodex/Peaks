@@ -75,6 +75,7 @@ let {
 			<span>Idle sensitivity</span>
 			<input
 				aria-label="Idle detection sensitivity"
+				aria-valuetext="Threshold {idleThreshold}"
 				class="w-24 accent-primary-500"
 				max={IDLE_THRESHOLD_SCALE.length - 1}
 				min="0"

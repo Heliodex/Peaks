@@ -33,6 +33,8 @@ const shortcuts = $derived<{ description: string; keys: string[] }[]>([
 	{ description: "Search projects", keys: ["Ctrl", "K"] },
 	{ description: "Fullscreen video", keys: ["F"] },
 	{ description: "New project", keys: ["N"] },
+	{ description: "Undo", keys: ["Ctrl", "Z"] },
+	{ description: "Redo", keys: ["Ctrl", "Y"] },
 ])
 
 // The graph is drawn as dots on a pannable, zoomable canvas.
