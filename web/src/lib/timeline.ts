@@ -33,6 +33,7 @@ export function snapToFrame(time: number, frameRate: number): number {
 
 /** Format seconds as `m:ss`, or `h:mm:ss` once the duration reaches an hour. */
 export function formatClock(seconds: number): string {
+	if (!Number.isFinite(seconds)) return "0:00"
 	const total = Math.max(0, Math.floor(seconds))
 	const h = Math.floor(total / 3600)
 	const m = Math.floor((total % 3600) / 60)

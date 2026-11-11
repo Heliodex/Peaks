@@ -30,6 +30,11 @@ describe("snapToFrame", () => {
 })
 
 describe("formatClock", () => {
+	test("falls back to zero for non-finite times", () => {
+		expect(formatClock(Number.NaN)).toBe("0:00")
+		expect(formatClock(Number.POSITIVE_INFINITY)).toBe("0:00")
+	})
+
 	test("formats minutes and seconds", () => {
 		expect(formatClock(0)).toBe("0:00")
 		expect(formatClock(65)).toBe("1:05")
