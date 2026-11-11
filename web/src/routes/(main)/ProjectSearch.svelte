@@ -1,4 +1,5 @@
 <script lang="ts">
+import { onDestroy } from "svelte"
 import { prefersReducedMotion } from "svelte/motion"
 import { fade, type SlideParams, scale, slide } from "svelte/transition"
 import type { Project } from "#lib/project-storage.js"
@@ -20,6 +21,21 @@ let {
 	onLoadTimelapse(projectId: string, timelapseId: string): void
 	onClose(): void
 } = $props()
+
+// Where focus goes back to on close. Captured during init, before the autofocus attachment moves focus into the field.
+const returnFocusTo =
+	typeof document !== "undefined"
+	&& document.activeElement instanceof HTMLElement
+		? document.activeElement
+		: null
+// The app behind the dialog is inert while it's open, so screen readers can't read or reach it either.
+const page =
+	typeof document !== "undefined" ? document.querySelector("main") : null
+if (page) page.inert = true
+onDestroy(() => {
+	if (page) page.inert = false
+	if (returnFocusTo?.isConnected) returnFocusTo.focus()
+})
 
 // Which list the arrow keys and the search field act on.
 // The timelapse pane only appears once a project has been expanded with the right arrow.
