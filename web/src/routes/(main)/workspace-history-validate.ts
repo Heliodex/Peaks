@@ -1,6 +1,6 @@
 // Runtime validation for persisted history. Anything malformed, oversized or inconsistent is rejected whole rather than partially repaired.
 import type { AnnotationDeflation } from "#lib/annotations.js"
-import type { IdleRange } from "#lib/idle-time.js"
+import type { IdleRange } from "#lib/idle-detection.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 import { MAX_NODES, reachableIds } from "./workspace-history-tree.js"

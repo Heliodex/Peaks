@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, mock, test } from "bun:test"
-import type { IdleAnalysisJob, IdleRange } from "#lib/idle-time.js"
+import type { IdleRange } from "#lib/idle-detection.js"
+import type { IdleAnalysisJob } from "#lib/idle-time.js"
 
 const jobs: { cancel(): void }[] = []
 const analyzeIdle = mock((): IdleAnalysisJob => {

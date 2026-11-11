@@ -11,7 +11,7 @@ import {
 	selectionColors,
 	selectionDeflation,
 } from "#lib/annotations.js"
-import type { IdleRange } from "#lib/idle-time.ts"
+import type { IdleRange } from "#lib/idle-detection.ts"
 import { PLAYBACK_TO_RECORDED, type TimelineSelection } from "#lib/timeline.js"
 
 describe("findAnnotationReason", () => {

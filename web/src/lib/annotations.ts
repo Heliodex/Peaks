@@ -1,6 +1,6 @@
 // Annotation reasons for timelapse selections. Each reason records how much of the selected stretch should be discounted from the timelapse's actual time, and the colour used to draw it on the timelines.
 
-import type { IdleRange } from "./idle-time.js"
+import type { IdleRange } from "./idle-detection.js"
 import {
 	formatClock,
 	PLAYBACK_TO_RECORDED,

@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { IdleRange } from "#lib/idle-time.js"
+import type { IdleRange } from "#lib/idle-detection.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 import type { ReviewTimelapse } from "./review-types.js"
 import TimelapseSettings from "./TimelapseSettings.svelte"

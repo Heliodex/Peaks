@@ -4,7 +4,7 @@ import {
 	deflationByReason,
 	describeTimelapse,
 } from "#lib/annotations.js"
-import type { IdleRange } from "#lib/idle-time.js"
+import type { IdleRange } from "#lib/idle-detection.js"
 import { getTimelapse } from "#lib/lapse-client.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import type { TimelineSelection } from "#lib/timeline.js"

@@ -2,7 +2,7 @@
 // Only one project is current at a time; the review view mirrors that one into the URL while the rest stay local.
 
 import type { AnnotationDeflation } from "./annotations.js"
-import { type IdleRange, nearestIdleThreshold } from "./idle-time.js"
+import { type IdleRange, nearestIdleThreshold } from "./idle-detection.js"
 
 export interface ProjectTimelapse {
 	/** Recorded seconds removed by each annotation reason. */

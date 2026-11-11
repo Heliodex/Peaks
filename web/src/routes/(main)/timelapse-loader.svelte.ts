@@ -1,6 +1,6 @@
 // Resolving and opening timelapses by id: parse pasted ids, validate them against Lapse, seed the project, then navigate.
 
-import { DEFAULT_IDLE_THRESHOLD } from "#lib/idle-time.js"
+import { DEFAULT_IDLE_THRESHOLD } from "#lib/idle-detection.js"
 import { getTimelapse } from "#lib/lapse-client.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import { loadSelections } from "#lib/selection-storage.js"

@@ -7,7 +7,7 @@ import {
 	idleSampleTimes,
 	mergeIdleRanges,
 	nearestIdleThreshold,
-} from "#lib/idle-time.js"
+} from "#lib/idle-detection.js"
 
 describe("nearestIdleThreshold", () => {
 	test("snaps to the closest selectable threshold", () => {

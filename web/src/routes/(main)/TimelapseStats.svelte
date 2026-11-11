@@ -6,7 +6,7 @@ import {
 	selectionDeflation,
 } from "#lib/annotations.js"
 import CopyButton from "#lib/components/CopyButton.svelte"
-import { IDLE_THRESHOLD_SCALE, type IdleRange } from "#lib/idle-time.js"
+import { IDLE_THRESHOLD_SCALE, type IdleRange } from "#lib/idle-detection.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 import type { ReviewTimelapse } from "./review-types.js"
 import TimelapseIdleControls from "./TimelapseIdleControls.svelte"

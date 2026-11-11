@@ -5,7 +5,7 @@ import {
 	describeTimelapse,
 	idleRecordedSeconds,
 } from "./annotations.js"
-import type { IdleRange } from "./idle-time.js"
+import type { IdleRange } from "./idle-detection.js"
 import type { ProjectTimelapse } from "./project-storage.js"
 import {
 	MAX_DURATION_SECONDS,

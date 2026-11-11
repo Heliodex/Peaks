@@ -1,6 +1,6 @@
 <script lang="ts">
 import Timeline from "#lib/components/Timeline.svelte"
-import type { IdleRange } from "#lib/idle-time.js"
+import type { IdleRange } from "#lib/idle-detection.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 
 let {

@@ -1,7 +1,7 @@
 <script lang="ts">
 import { effectiveIdleRanges, selectionColors } from "#lib/annotations.js"
 import type { CapturedFrame } from "#lib/frame-capture.js"
-import type { IdleRange } from "#lib/idle-time.js"
+import type { IdleRange } from "#lib/idle-detection.js"
 import {
 	clamp,
 	MIN_VISIBLE_FRAMES,

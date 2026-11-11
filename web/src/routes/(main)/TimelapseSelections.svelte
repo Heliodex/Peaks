@@ -4,7 +4,7 @@ import {
 	selectionColors,
 	selectionDeflation,
 } from "#lib/annotations.js"
-import type { IdleRange } from "#lib/idle-time.js"
+import type { IdleRange } from "#lib/idle-detection.js"
 import { formatClock, type TimelineSelection } from "#lib/timeline.js"
 import { formatDuration } from "./review-format.js"
 

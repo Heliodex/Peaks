@@ -1,6 +1,6 @@
 // Wire format for share payloads: the positional tuple types and the arktype schemas that bound their shape.
 import { type } from "arktype"
-import { IDLE_THRESHOLD_SCALE } from "./idle-time.js"
+import { IDLE_THRESHOLD_SCALE } from "./idle-detection.js"
 import {
 	MAX_DURATION_MS,
 	MAX_DURATION_SECONDS,

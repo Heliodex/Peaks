@@ -1,11 +1,7 @@
 // Reactive wrapper around `analyzeIdle`, exposing partial results while the video is being scanned. A cached set of ranges can stand in for a scan, and a revision token lets the caller request a fresh scan on demand.
 import { onDestroy, untrack } from "svelte"
-import {
-	analyzeIdle,
-	type IdleAnalysisJob,
-	type IdleRange,
-	idleRangesAreFrameAligned,
-} from "./idle-time.js"
+import { type IdleRange, idleRangesAreFrameAligned } from "./idle-detection.js"
+import { analyzeIdle, type IdleAnalysisJob } from "./idle-time.js"
 
 interface IdleAnalysisOptions {
 	/** Override the frame analyzer, primarily for isolated lifecycle tests. */

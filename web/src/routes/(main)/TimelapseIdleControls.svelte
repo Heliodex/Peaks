@@ -3,7 +3,7 @@ import {
 	DEFAULT_IDLE_THRESHOLD,
 	IDLE_THRESHOLD_SCALE,
 	type IdleRange,
-} from "#lib/idle-time.js"
+} from "#lib/idle-detection.js"
 
 let {
 	idleRanges,

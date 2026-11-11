@@ -1,7 +1,7 @@
 // The open timelapse's idle analysis: detected ranges, scan progress, and the project-entry overrides (ignore / threshold).
 import { untrack } from "svelte"
 import { effectiveIdleRanges, idleRecordedSeconds } from "#lib/annotations.js"
-import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
+import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-detection.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 
 interface ReviewIdleOptions {

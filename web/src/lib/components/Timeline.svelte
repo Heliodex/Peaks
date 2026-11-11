@@ -6,7 +6,7 @@ import {
 	selectionColors,
 } from "#lib/annotations.js"
 import { isInteractiveTarget } from "#lib/dom.js"
-import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-time.js"
+import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-detection.js"
 import { IdleAnalysis } from "#lib/idle-time.svelte.js"
 import { DEFAULT_SETTINGS } from "#lib/settings-storage.js"
 import {
