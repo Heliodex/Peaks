@@ -5,33 +5,19 @@
 
 import { onDestroy, untrack } from "svelte"
 import { SvelteSet } from "svelte/reactivity"
+import type { CapturedFrame } from "./frame-capture.js"
+import { type CapturePool, createCapturePool } from "./frame-capture-pool.js"
 import {
-	type CapturedFrame,
-	createFrameCapturer,
-	type FrameCapturer,
-} from "./frame-capture.js"
+	type CachedFrame,
+	type LayoutFrame,
+	layoutFrames,
+	queueCaptureTimes,
+	revokeDropped,
+	trimFramesNear,
+} from "./frame-strip-layout.js"
 import { createObjectUrlCache } from "./object-url-cache.js"
 import { loadThumbnails, saveThumbnail } from "./thumbnail-store.js"
-import {
-	clamp,
-	frameStepFor,
-	percentWithin,
-	type ViewWindow,
-} from "./timeline.js"
-
-export interface CachedFrame {
-	fresh: boolean
-	time: number
-	url: string
-}
-
-export interface LayoutFrame {
-	fresh: boolean
-	left: number
-	time: number
-	url: string
-	width: number
-}
+import { frameStepFor, type ViewWindow } from "./timeline.js"
 
 export interface FrameStripOptions {
 	duration(): number
@@ -50,6 +36,8 @@ const FRAME_CACHE_LIMIT = 200
 const MAX_CACHED_SOURCES = 12
 // How long a freshly captured thumbnail fades in for
 const FADE_MS = 200
+// Capturing is network-bound, so a small pool of hidden videos working in parallel fills the strip. Kept deliberately small (and shared with the navigator) to limit how many video elements load at once.
+const POOL_SIZE = 2
 
 // Persistent-storage namespace for these thumbnails, plus the time resolution used for their keys.
 const THUMBNAIL_KIND = "strip"
@@ -68,25 +56,6 @@ const frameCache = createObjectUrlCache<CachedFrame[]>({
 const framesFor = (source: string): CachedFrame[] =>
 	frameCache.get(source) ?? []
 
-/** Keep the `limit` frames nearest `center`, preserving order for the final sort. */
-const trimFramesNear = (
-	candidates: CachedFrame[],
-	center: number,
-	limit: number,
-): CachedFrame[] =>
-	candidates
-		.toSorted(
-			(a, b) => Math.abs(a.time - center) - Math.abs(b.time - center),
-		)
-		.slice(0, limit)
-
-/** Revoke the object URLs of frames that `kept` dropped. */
-function revokeDropped(candidates: CachedFrame[], kept: CachedFrame[]) {
-	const keptSet = new Set(kept)
-	for (const frame of candidates)
-		if (!keptSet.has(frame)) URL.revokeObjectURL(frame.url)
-}
-
 /** Whether a frame within `tolerance` of `time` is already cached. */
 const isTimeCached = (
 	source: string,
@@ -94,62 +63,6 @@ const isTimeCached = (
 	tolerance: number,
 ): boolean =>
 	framesFor(source).some(frame => Math.abs(frame.time - time) <= tolerance)
-
-/** Position the cached frame closest to each grid point of `step` across `view`. */
-function layoutFrames(
-	frames: CachedFrame[],
-	view: ViewWindow,
-	step: number,
-): LayoutFrame[] {
-	const maxDistance = step / 2
-	const picks: CachedFrame[] = []
-	const first = Math.floor(view.start / step)
-	const last = Math.floor(view.end / step)
-	for (let k = first; k <= last; k++) {
-		const target = k * step
-		let best: CachedFrame | null = null
-		let bestDistance = Number.POSITIVE_INFINITY
-		for (const frame of frames) {
-			const distance = Math.abs(frame.time - target)
-			if (distance >= bestDistance) continue
-			bestDistance = distance
-			best = frame
-		}
-		if (best && bestDistance <= maxDistance && !picks.includes(best))
-			picks.push(best)
-	}
-	picks.sort((a, b) => a.time - b.time)
-	return picks.map((frame, i) => {
-		const next = picks[i + 1]
-		const left = percentWithin(frame.time, view)
-		const right = next ? percentWithin(next.time, view) : 100
-		return {
-			fresh: frame.fresh,
-			left,
-			time: frame.time,
-			url: frame.url,
-			width: Math.max(0, right - left),
-		}
-	})
-}
-
-/** The grid times across `[start, end]` that aren't already cached. */
-function queueCaptureTimes(
-	start: number,
-	end: number,
-	step: number,
-	duration: number,
-	isCached: (time: number) => boolean,
-): number[] {
-	const times: number[] = []
-	const first = Math.floor(start / step)
-	const last = Math.floor(end / step)
-	for (let k = first; k <= last; k++) {
-		const time = clamp(k * step, 0, duration)
-		if (!isCached(time)) times.push(time)
-	}
-	return times
-}
 
 /**
  * Pull a source's persisted thumbnails into the in-memory cache. Runs while the source isn't already loading; frames captured meanwhile win any collisions.
@@ -186,49 +99,6 @@ async function hydrate(source: string) {
 		hydrating.delete(source)
 	}
 }
-
-interface CapturePool {
-	/** Get (or lazily create) the pool's capturer at `index` for `source`. */
-	capturer(index: number, source: string): FrameCapturer
-	/** Dispose every pooled capturer. */
-	dispose(): void
-}
-
-/**
- * Manage the pool of hidden videos that capture frames, recreating it whenever the requested source changes.
- */
-function createCapturePool(): CapturePool {
-	let poolSrc = ""
-	let capturers: FrameCapturer[] = []
-
-	const disposeCapturers = () => {
-		for (const item of capturers) item?.dispose()
-		capturers = []
-	}
-
-	const capturer = (index: number, source: string): FrameCapturer => {
-		if (poolSrc !== source) {
-			disposeCapturers()
-			poolSrc = source
-		}
-		let item = capturers[index]
-		if (item) return item
-
-		item = createFrameCapturer(source)
-		capturers[index] = item
-		return item
-	}
-
-	const dispose = () => {
-		disposeCapturers()
-		poolSrc = ""
-	}
-
-	return { capturer, dispose }
-}
-
-// Capturing is network-bound, so a small pool of hidden videos working in parallel fills the strip. Kept deliberately small (and shared with the navigator) to limit how many video elements load at once.
-const POOL_SIZE = 2
 
 interface CaptureJob {
 	generation: number
@@ -330,22 +200,12 @@ export class FrameStrip {
 			...framesFor(source),
 			{ fresh: true, time, url: captured.url },
 		]
-		let next = candidates
-		if (candidates.length > FRAME_CACHE_LIMIT) {
-			// Keep the thumbnails nearest the visible window.
-			const { start, end } = this.#options.view()
-			next = trimFramesNear(
-				candidates,
-				(start + end) / 2,
-				FRAME_CACHE_LIMIT,
-			)
-		}
-		// Revoke object URLs for any frames dropped by the trim.
-		if (next !== candidates) {
-			const kept = new Set(next)
-			for (const frame of candidates)
-				if (!kept.has(frame)) URL.revokeObjectURL(frame.url)
-		}
+		// Keep the thumbnails nearest the visible window when over the limit.
+		const next =
+			candidates.length > FRAME_CACHE_LIMIT
+				? this.#trimToView(candidates)
+				: candidates
+		revokeDropped(candidates, next)
 		frameCache.set(source, next)
 		void saveThumbnail(
 			THUMBNAIL_KIND,
@@ -353,8 +213,16 @@ export class FrameStrip {
 			Math.round(time * TIME_KEY_SCALE),
 			captured.blob,
 		)
+		this.#scheduleFadeOut(source, time)
+	}
 
-		// Only freshly captured frames should fade in; clear the flag shortly after so frames merely re-sampled while zooming/panning don't flash.
+	#trimToView(candidates: CachedFrame[]): CachedFrame[] {
+		const { start, end } = this.#options.view()
+		return trimFramesNear(candidates, (start + end) / 2, FRAME_CACHE_LIMIT)
+	}
+
+	/** Only freshly captured frames should fade in; clear the flag shortly after so frames merely re-sampled while zooming/panning don't flash. */
+	#scheduleFadeOut(source: string, time: number): void {
 		const timer = setTimeout(() => {
 			this.#settleTimers = this.#settleTimers.filter(t => t !== timer)
 			const list = frameCache.get(source)

@@ -1,6 +1,6 @@
 <script lang="ts">
+import type { LayoutFrame } from "#lib/frame-strip-layout.js"
 import { formatClock } from "#lib/timeline.js"
-import type { LayoutFrame } from "#lib/timeline-frames.svelte.js"
 
 let {
 	frames,
