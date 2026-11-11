@@ -4,6 +4,7 @@ import type { CapturedFrame } from "#lib/frame-capture.js"
 import type { IdleRange } from "#lib/idle-detection.js"
 import {
 	clamp,
+	formatClock,
 	MIN_VISIBLE_FRAMES,
 	percentOf,
 	snapToFrame,
@@ -149,6 +150,82 @@ function onPointerUp(event: PointerEvent) {
 	if (track.hasPointerCapture(event.pointerId))
 		track.releasePointerCapture(event.pointerId)
 }
+
+// Keyboard steps: a tenth of the window pans it, a twentieth moves one edge, and Shift takes bigger steps.
+const WINDOW_STEP = 0.1
+const EDGE_STEP = 0.05
+const ZOOM_FACTOR = 1.25
+
+/** Apply a window change, snapping to frames and keeping the window inside the video. */
+function setWindow(start: number, end: number, track: HTMLElement): void {
+	const minLength = minWindowLength(track)
+	const length = clamp(end - start, minLength, duration)
+	const snapped = clamp(snapToFrame(start, frameRate), 0, duration - length)
+	onviewchange({ end: snapped + length, start: snapped })
+}
+
+/** Move only the window's start edge, stopping at the minimum window length. */
+function setStart(start: number, track: HTMLElement): void {
+	const latest = view.end - minWindowLength(track)
+	onviewchange({
+		end: view.end,
+		start: clamp(snapToFrame(start, frameRate), 0, Math.max(0, latest)),
+	})
+}
+
+/** Move only the window's end edge, stopping at the minimum window length. */
+function setEnd(end: number, track: HTMLElement): void {
+	const earliest = view.start + minWindowLength(track)
+	onviewchange({
+		end: clamp(snapToFrame(end, frameRate), earliest, duration),
+		start: view.start,
+	})
+}
+
+/**
+ * Keyboard equivalents of the pointer gestures. The window pans with the arrows and jumps with Home and End; the edges move one at a time; `+` and `-` zoom about the centre.
+ */
+function onKeyDown(
+	event: KeyboardEvent,
+	part: "window" | "start" | "end",
+): void {
+	const track = event.currentTarget as HTMLElement
+	const length = view.end - view.start
+	const direction =
+		event.key === "ArrowRight" || event.key === "ArrowUp"
+			? 1
+			: event.key === "ArrowLeft" || event.key === "ArrowDown"
+				? -1
+				: 0
+	const bigStep = event.shiftKey ? 3 : 1
+	if (direction !== 0) {
+		event.preventDefault()
+		const share = part === "window" ? WINDOW_STEP : EDGE_STEP
+		const delta =
+			direction
+			* bigStep
+			* share
+			* (part === "window" ? length : duration)
+		if (part === "window")
+			setWindow(view.start + delta, view.end + delta, track)
+		else if (part === "start") setStart(view.start + delta, track)
+		else setEnd(view.end + delta, track)
+		return
+	}
+	if (event.key === "Home" && part === "window") {
+		event.preventDefault()
+		setWindow(0, length, track)
+	} else if (event.key === "End" && part === "window") {
+		event.preventDefault()
+		setWindow(duration - length, duration, track)
+	} else if (event.key === "+" || event.key === "=" || event.key === "-") {
+		event.preventDefault()
+		const factor = event.key === "-" ? ZOOM_FACTOR : 1 / ZOOM_FACTOR
+		const centre = (view.start + view.end) / 2
+		const next = clamp(length * factor, minWindowLength(track), duration)
+		setWindow(centre - next / 2, centre + next / 2, track)
+	}
+}
 </script>
 
 <!-- biome-ignore lint/a11y/useSemanticElements: `group` describes the pan/zoom controls; there is no matching semantic element. -->
@@ -189,8 +266,19 @@ function onPointerUp(event: PointerEvent) {
 	</div>
 
 	<div
-		class="absolute inset-y-0 cursor-grab active:cursor-grabbing"
+		aria-label="Zoom window"
+		aria-orientation="horizontal"
+		aria-valuemax={Math.round(
+			Math.max(0, duration - (view.end - view.start)),
+		)}
+		aria-valuemin="0"
+		aria-valuenow={Math.round(view.start)}
+		aria-valuetext="{formatClock(view.start)} to {formatClock(view.end)}"
+		class="absolute inset-y-0 cursor-grab rounded-none focus-visible:outline-2 focus-visible:outline-primary-300 active:cursor-grabbing"
 		data-nav-window
+		onkeydown={event => onKeyDown(event, "window")}
+		role="slider"
+		tabindex="0"
 		style:left="{percentOf(view.start, duration)}%"
 		style:width="{percentOf(view.end - view.start, duration)}%"
 	>
@@ -198,18 +286,36 @@ function onPointerUp(event: PointerEvent) {
 			class="pointer-events-none absolute inset-0 border-x-2 border-primary-400 bg-primary-400/30"
 		></div>
 
+		<!-- A focusable separator is a window splitter: keyboard users resize the zoom window through it. -->
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+		<!-- biome-ignore lint/a11y/useSemanticElements: A window edge is a focusable separator, not an <hr>. -->
 		<div
-			class="absolute inset-y-0 left-0 flex w-2 cursor-ew-resize items-center justify-center"
+			aria-label="Zoom window start"
+			aria-orientation="vertical"
+			aria-valuenow={Math.round(view.start)}
+			class="absolute inset-y-0 left-0 flex w-2 cursor-ew-resize items-center justify-center focus-visible:outline-2 focus-visible:outline-primary-300"
 			data-nav-resize="start"
-			role="presentation"
+			onkeydown={event => onKeyDown(event, "start")}
+			role="separator"
+			tabindex="0"
 		>
 			<span class="h-5 w-1 bg-primary-400 shadow"></span>
 		</div>
 
+		<!-- A focusable separator is a window splitter: keyboard users resize the zoom window through it. -->
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+		<!-- biome-ignore lint/a11y/useSemanticElements: A window edge is a focusable separator, not an <hr>. -->
 		<div
-			class="absolute inset-y-0 right-0 flex w-2 cursor-ew-resize items-center justify-center"
+			aria-label="Zoom window end"
+			aria-orientation="vertical"
+			aria-valuenow={Math.round(view.end)}
+			class="absolute inset-y-0 right-0 flex w-2 cursor-ew-resize items-center justify-center focus-visible:outline-2 focus-visible:outline-primary-300"
 			data-nav-resize="end"
-			role="presentation"
+			onkeydown={event => onKeyDown(event, "end")}
+			role="separator"
+			tabindex="0"
 		>
 			<span class="h-5 w-1 bg-primary-400 shadow"></span>
 		</div>
