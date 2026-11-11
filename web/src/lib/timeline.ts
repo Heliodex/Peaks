@@ -22,6 +22,15 @@ export const PLAYBACK_TO_RECORDED = 60
  */
 export const MIN_VISIBLE_FRAMES = 30
 
+/** Keys the timeline handles: play or pause, seek, and frame step. */
+export const TIMELINE_KEYS: readonly string[] = [
+	" ",
+	"ArrowDown",
+	"ArrowLeft",
+	"ArrowRight",
+	"ArrowUp",
+]
+
 export const clamp = (value: number, min: number, max: number): number =>
 	Math.min(max, Math.max(min, value))
 

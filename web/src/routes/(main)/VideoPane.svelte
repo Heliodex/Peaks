@@ -1,5 +1,11 @@
 <script lang="ts">
+import { TIMELINE_KEYS } from "#lib/timeline.js"
 import type { ReviewTimelapse } from "./review-types.js"
+
+// The timeline acts on these keys. Cancelling them here stops the video's own shortcuts (arrow-key seeking and volume, Space) from running alongside it.
+const suppressNativeKeys = (event: KeyboardEvent) => {
+	if (TIMELINE_KEYS.includes(event.key)) event.preventDefault()
+}
 
 let {
 	timelapse,
@@ -20,6 +26,7 @@ let {
 		<video
 			class="h-auto max-h-full w-full object-contain lg:h-full"
 			controls
+			onkeydown={suppressNativeKeys}
 			poster={timelapse.thumbnailUrl ?? undefined}
 			preload="auto"
 			src={timelapse.playbackUrl}
