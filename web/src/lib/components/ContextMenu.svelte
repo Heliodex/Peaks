@@ -59,6 +59,13 @@ function onKeydown(event: KeyboardEvent) {
 		return
 	}
 
+	// As in a native menu, Tab leaves it: close and return focus to where the menu was opened from.
+	if (event.key === "Tab") {
+		event.preventDefault()
+		onClose(true)
+		return
+	}
+
 	const buttons = menuEl
 		? [...menuEl.querySelectorAll<HTMLElement>('[role="menuitem"]')]
 		: []
