@@ -177,13 +177,13 @@ Regression tests cover valid and malformed profile/timelapse payloads, nullable 
 
 ### Accessibility review items
 
-The following remain open review items:
+**Status: Resolved.**
 
-- `TimelineNavigator.svelte` remains pointer-oriented without a complete keyboard equivalent for zooming and panning.
-- Project and timelapse context-menu actions should have keyboard-accessible alternatives to right-click-only operation.
-- Hidden timeline delete buttons should be removed from the tab order when visually hidden.
-- The custom search dialog needs complete focus trapping, inert background handling, and focus restoration.
-- The idle sensitivity slider should expose a useful `aria-valuetext`.
+- `TimelineNavigator.svelte` is keyboard-operable: the zoom window is a focusable slider (arrows pan, Home and End jump, `+`/`-` zoom), and its two edges are focusable separators that move one at a time.
+- Project and timelapse rows advertise `Shift+F10`, which opens their context menus from the keyboard. Context menus close on Tab and return focus to the row.
+- Hover-only timeline delete buttons are revealed when they receive keyboard focus, so they are not invisible tab stops.
+- The custom search dialog keeps the page behind it inert while open and returns focus to the previously focused element on close. Its Tab trap was already in place.
+- The idle sensitivity slider announces its threshold with `aria-valuetext`.
 
 ## Open security and deployment follow-ups
 
