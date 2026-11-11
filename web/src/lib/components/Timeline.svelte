@@ -5,7 +5,7 @@ import {
 	effectiveIdleRanges,
 	selectionColors,
 } from "#lib/annotations.js"
-import { isInteractiveTarget } from "#lib/dom.js"
+import { isTimelineKeyTarget } from "#lib/dom.js"
 import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-detection.js"
 import { IdleAnalysis } from "#lib/idle-time.svelte.js"
 import { DEFAULT_SETTINGS } from "#lib/settings-storage.js"
@@ -265,7 +265,7 @@ function onKeyDown(event: KeyboardEvent) {
 		Space: () => playback.togglePlay(),
 	}
 	const action = actions[event.key]
-	if (!action || event.defaultPrevented || isInteractiveTarget(event)) return
+	if (!action || event.defaultPrevented || !isTimelineKeyTarget(event)) return
 	if (!video || duration <= 0) return
 	if (event.repeat && event.key === " ") return
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { isInteractiveTarget, isTyping } from "#lib/dom.js"
+import { isInteractiveTarget, isTimelineKeyTarget, isTyping } from "#lib/dom.js"
 
 const element = (
 	matches: (selector: string) => boolean,
@@ -64,5 +64,26 @@ describe("DOM event target helpers", () => {
 				target: button,
 			} as unknown as Event),
 		).toBe(true)
+	})
+
+	test("timeline keys work from the video and other non-text targets", () => {
+		const video = element(selector => selector.includes("video[controls]"))
+		const keyFor = (key: string, target: EventTarget) =>
+			({ key, target }) as unknown as KeyboardEvent
+		expect(isTimelineKeyTarget(keyFor("ArrowRight", video))).toBe(true)
+		expect(isTimelineKeyTarget(keyFor(" ", video))).toBe(true)
+		const button = element(selector => selector.includes("button"))
+		expect(isTimelineKeyTarget(keyFor("ArrowUp", button))).toBe(true)
+		expect(isTimelineKeyTarget(keyFor(" ", button))).toBe(false)
+	})
+
+	test("timeline keys stay out of text entry", () => {
+		const input = element(selector => selector.includes("input"))
+		expect(
+			isTimelineKeyTarget({
+				key: "ArrowLeft",
+				target: input,
+			} as unknown as KeyboardEvent),
+		).toBe(false)
 	})
 })

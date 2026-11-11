@@ -36,6 +36,25 @@ export const isTyping = (target: EventTarget | null): boolean => {
 	)
 }
 
+// Controls that Space activates natively. The video and slider controls aren't in here, so Space still plays the video from them.
+const ACTIVATABLE_SELECTOR = [
+	"button",
+	"a[href]",
+	"summary",
+	'[role="button"]',
+	'[role="checkbox"]',
+	'[role="menuitem"]',
+	'[role="switch"]',
+].join(", ")
+
+/**
+ * Whether a timeline key (play, seek, frame step) should act for this event. It acts everywhere except text entry; Space still presses a focused button, link or toggle.
+ */
+export const isTimelineKeyTarget = (event: KeyboardEvent): boolean => {
+	if (isTyping(event.target)) return false
+	return event.key !== " " || !closest(event.target, ACTIVATABLE_SELECTOR)
+}
+
 /** Whether an event originated from a control that should handle its own keyboard input. */
 export const isInteractiveTarget = (event: Event): boolean => {
 	const path =
