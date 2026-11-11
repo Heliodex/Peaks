@@ -19,6 +19,7 @@ import { FrameStrip } from "#lib/timeline-frames.svelte.js"
 import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
 import TimelineFrames from "./TimelineFrames.svelte"
 import TimelineNavigator from "./TimelineNavigator.svelte"
+import TimelineSelections from "./TimelineSelections.svelte"
 import TimelineTicks from "./TimelineTicks.svelte"
 import { TimelinePlayback } from "./timeline-playback.svelte.js"
 import { SelectionEditor } from "./timeline-selection.svelte.js"
@@ -276,28 +277,6 @@ function onKeyDown(event: KeyboardEvent) {
 
 <svelte:window onkeydown={onKeyDown} />
 
-{#snippet selectionHandle(
-	side: "start" | "end",
-	sel: TimelineSelection,
-	handleClass: string,
-)}
-	<div
-		class={[
-			"absolute inset-y-0",
-			side === "start" ? "-left-1" : "-right-1",
-			"flex w-2 cursor-ew-resize items-center justify-center transition-opacity",
-			editor.controlsClass(sel.id),
-		]}
-		data-resize={side}
-		data-selection-id={sel.id}
-		role="presentation"
-	>
-		<span
-			class={["h-6 w-1 transition-colors", handleClass, "shadow"]}
-		></span>
-	</div>
-{/snippet}
-
 {#if duration > 0}
 	{const layoutFrames = $derived(frameStrip.layout)}
 	<div class="flex min-h-0 w-full flex-1 flex-col pt-3">
@@ -349,72 +328,12 @@ function onKeyDown(event: KeyboardEvent) {
 				{/if}
 			{/each}
 
-			<!-- Selections, clamped to the visible window -->
-			{#each selections as sel, i (sel.id)}
-				{const visibleStart = $derived(
-					Math.max(sel.start, viewport.view.start),
-				)}
-				{const visibleEnd = $derived(
-					Math.min(sel.end, viewport.view.end),
-				)}
-				{const color = $derived(selectionColors(sel.reason))}
-				{#if visibleEnd > visibleStart}
-					<!-- The selection is pointer-dragged and right-clicked; keyboard editing lives in the selections panel. -->
-					<!-- svelte-ignore a11y_no_static_element_interactions -->
-					<!-- biome-ignore lint/a11y/noStaticElementInteractions: selection overlays are pointer-driven; keyboard editing lives in the selections panel -->
-					<div
-						class={[
-							"group absolute inset-y-0",
-							editor.isCreating(sel.id)
-								? "cursor-text"
-								: "cursor-grab active:cursor-grabbing",
-						]}
-						data-selection-id={sel.id}
-						oncontextmenu={event =>
-							onSelectionContextMenu(event, sel, i)}
-						style:left="{percentWithin(
-							visibleStart,
-							viewport.view,
-						)}%"
-						style:width="{percentWithin(visibleEnd, viewport.view)
-							- percentWithin(visibleStart, viewport.view)}%"
-					>
-						<div
-							class={[
-								"pointer-events-none absolute inset-0 border-x-2 transition-[filter,background-color,border-color] group-hover:brightness-125",
-								color.border,
-								color.fill,
-							]}
-						></div>
-
-						{#if sel.start >= viewport.view.start}
-							{@render selectionHandle(
-								"start",
-								sel,
-								color.handle,
-							)}
-						{/if}
-
-						{#if sel.end <= viewport.view.end}
-							{@render selectionHandle("end", sel, color.handle)}
-						{/if}
-
-						<button
-							aria-label="Delete selection"
-							class={[
-								"btn btn-danger absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-surface text-xs shadow transition-[color,background-color,border-color,opacity]",
-								editor.controlsClass(sel.id),
-							]}
-							data-delete={sel.id}
-							onclick={e => editor.deleteSelection(sel.id, e)}
-							title="Delete selection"
-							type="button"
-						>
-							×
-						</button>
-					</div>
-				{/if}
-			{/each}
+			<TimelineSelections
+				{editor}
+				onselectionmenu={onSelectionContextMenu}
+				{selections}
+				view={viewport.view}
+			/>
 
 			{#if playback.playheadTime >= viewport.view.start
 				&& playback.playheadTime <= viewport.view.end}
