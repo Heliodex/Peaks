@@ -116,7 +116,7 @@ export class SelectionEditor {
 	controlsClass(id: string): string {
 		return this.drag?.id === id
 			? "opacity-100"
-			: "opacity-0 group-hover:opacity-100"
+			: "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
 	}
 
 	/** Whether this selection is the one currently being drawn from scratch. */
@@ -213,6 +213,11 @@ export class SelectionEditor {
 			0,
 			this.#options.duration(),
 		)
+		// `#neighborBounds` only sees selections on either side of the anchor, so refuse an anchor that already sits inside one.
+		const insideSelection = this.#options
+			.selections()
+			.some(s => s.start <= anchor && anchor < s.end)
+		if (insideSelection) return
 		const { left, right } = this.#neighborBounds("", anchor, anchor)
 		if (right - left <= 0) return
 
