@@ -5,8 +5,15 @@ import { getTimelapse } from "#lib/lapse-client.js"
 import type { Project, ProjectTimelapse } from "#lib/project-storage.js"
 import { loadSelections } from "#lib/selection-storage.js"
 import { encodeShare, SharePayloadError } from "#lib/share.js"
+import {
+	MAX_CONCURRENT_TIMELAPSE_REQUESTS,
+	mapWithConcurrency,
+} from "#lib/timelapse-batch.js"
 import { goto } from "$app/navigation"
 import type { ReviewTimelapse } from "./review-types.js"
+
+// Matches the thumbnail batch limit, so one paste can't flood Lapse with more lookups than a grid load would.
+const MAX_PASTED_IDS = 50
 
 interface ResolvedId {
 	id: string
@@ -69,8 +76,11 @@ async function resolveIds(
 	const valid: ResolvedId[] = []
 	const missing: string[] = []
 	const unchecked: string[] = []
-	await Promise.all(
-		ids.map(async id => {
+	// Bounded, so a long paste can't open a burst of upstream requests at once.
+	await mapWithConcurrency(
+		ids,
+		MAX_CONCURRENT_TIMELAPSE_REQUESTS,
+		async id => {
 			if (id === current || known.has(id)) {
 				valid.push({ id, meta: null })
 				return
@@ -82,7 +92,7 @@ async function resolveIds(
 			} catch {
 				unchecked.push(id)
 			}
-		}),
+		},
 	)
 	return { missing, unchecked, valid }
 }
@@ -158,9 +168,15 @@ export class TimelapseLoader {
 		const ids = [...new Set(value.split(/[\s,]+/).filter(Boolean))]
 		if (ids.length === 0) return
 		if (ids.length === 1 && ids[0] === operation.openId) return
+		if (ids.length > MAX_PASTED_IDS) {
+			this.#options.setError(
+				`Paste at most ${MAX_PASTED_IDS} timelapse IDs at once.`,
+			)
+			return
+		}
 		this.#options.setError(null)
 		// Ids already in the project were validated when added (and the metadata effect re-checks on open), so only new ids need resolving.
-		// Everything resolves in parallel; pasted order is restored afterwards.
+		// Lookups run with bounded concurrency; pasted order is restored afterwards.
 		const known = new Set(
 			$state.snapshot(this.#options.entries()).map(entry => entry.id),
 		)

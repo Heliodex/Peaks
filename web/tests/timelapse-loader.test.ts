@@ -141,3 +141,35 @@ describe("TimelapseLoader", () => {
 		expect(goto).toHaveBeenCalledTimes(1)
 	})
 })
+
+describe("TimelapseLoader pasted-id limits", () => {
+	test("rejects a paste over the id limit without looking anything up", async () => {
+		const { loader, state } = createHarness()
+		const ids = Array.from({ length: 51 }, (_, i) => `id-${i}`).join(" ")
+		await loader.load(ids)
+		expect(getTimelapse).not.toHaveBeenCalled()
+		expect(state.errors.at(-1)).toContain("at most 50")
+		expect(goto).not.toHaveBeenCalled()
+	})
+
+	test("limits how many lookups run at once", async () => {
+		const { loader } = createHarness()
+		let inFlight = 0
+		let peak = 0
+		getTimelapse.mockImplementation(async (_id: string) => {
+			inFlight++
+			peak = Math.max(peak, inFlight)
+			await new Promise(resolve => setTimeout(resolve, 5))
+			inFlight--
+			return { duration: 1, name: "Timelapse" }
+		})
+		const ids = Array.from({ length: 20 }, (_, i) => `id-${i}`).join(" ")
+		await loader.load(ids)
+		getTimelapse.mockImplementation((_id: string) =>
+			Promise.resolve({ duration: 1, name: "Timelapse" }),
+		)
+		expect(peak).toBeGreaterThan(1)
+		expect(peak).toBeLessThanOrEqual(5)
+		expect(goto).toHaveBeenCalledTimes(1)
+	})
+})
