@@ -62,8 +62,7 @@ func newMediaProxy(client *http.Client) *mediaProxy {
 	return &mediaProxy{client: &copied}
 }
 
-// parseMediaURL validates the URL supplied by the browser. Only the known Lapse
-// video origins and paths are accepted.
+// parseMediaURL validates the URL supplied by the browser. Only the known Lapse video origins and paths are accepted.
 func parseMediaURL(raw string) (*url.URL, error) {
 	if raw == "" || len(raw) > maxMediaURLLength {
 		return nil, errInvalidMediaURL
@@ -81,8 +80,7 @@ func parseMediaURL(raw string) (*url.URL, error) {
 	return target, nil
 }
 
-// parseMediaRedirect validates a Location header and resolves it against the URL
-// that produced the redirect. Older recordings may still point at a public R2 host.
+// parseMediaRedirect validates a Location header and resolves it against the URL that produced the redirect. Older recordings may still point at a public R2 host.
 func parseMediaRedirect(location string, base *url.URL) (*url.URL, error) {
 	reference, err := url.Parse(location)
 	if err != nil {
@@ -178,8 +176,7 @@ func (p *mediaProxy) handle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// copyResponseBody writes src to dst, tolerating the short writes the WASI HTTP
-// adapter can return while its response stream is still accepting data.
+// copyResponseBody writes src to dst, tolerating the short writes the WASI HTTP adapter can return while its response stream is still accepting data.
 func copyResponseBody(dst io.Writer, src io.Reader) (int64, error) {
 	buffer := make([]byte, 32*1024)
 
