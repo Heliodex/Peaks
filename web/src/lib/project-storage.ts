@@ -213,19 +213,33 @@ function emptyStore(): ProjectStore {
 	return { currentId: project.id, projects: [project] }
 }
 
+/** Where unreadable project data is kept, so the next save can't silently overwrite it. */
+export const UNREADABLE_BACKUP_KEY = "peaks:projects:unreadable"
+
 /** Load the workspace's projects, falling back to a single empty project. */
 export function loadProjects(): ProjectStore {
 	if (typeof localStorage === "undefined") return emptyStore()
+	let raw: string | null
 	try {
-		const raw = localStorage.getItem(STORAGE_KEY)
-		if (raw) {
-			const store = parseStore(JSON.parse(raw))
-			if (store) return store
-		}
-		return emptyStore()
+		raw = localStorage.getItem(STORAGE_KEY)
 	} catch {
 		return emptyStore()
 	}
+	if (!raw) return emptyStore()
+
+	try {
+		const store = parseStore(JSON.parse(raw))
+		if (store) return store
+	} catch {
+		// Fall through: unreadable data is preserved below.
+	}
+	// The empty store is saved on the first change, which would overwrite the original bytes. Keep a copy first.
+	try {
+		localStorage.setItem(UNREADABLE_BACKUP_KEY, raw)
+	} catch {
+		// Nothing more to do; the store still loads empty.
+	}
+	return emptyStore()
 }
 
 /** Save the workspace's projects, returning whether the write succeeded. */
