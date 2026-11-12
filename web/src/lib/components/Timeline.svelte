@@ -6,10 +6,8 @@ import {
 	selectionColors,
 } from "#lib/annotations.js"
 import { isTimelineKeyTarget } from "#lib/dom.js"
-import type { FramePreviews } from "#lib/frame-previews.svelte.js"
 import { DEFAULT_IDLE_THRESHOLD, type IdleRange } from "#lib/idle-detection.js"
 import { IdleAnalysis } from "#lib/idle-time.svelte.js"
-import { lapseProxyUrl } from "#lib/lapse.js"
 import { DEFAULT_SETTINGS } from "#lib/settings-storage.js"
 import {
 	clamp,
@@ -29,7 +27,6 @@ import { SelectionEditor } from "./timeline-selection.svelte.js"
 import { TimelineViewport } from "./timeline-viewport.svelte.js"
 
 let {
-	previews,
 	timelapse,
 	video,
 	selections = $bindable<TimelineSelection[]>([]),
@@ -41,8 +38,6 @@ let {
 	idleThreshold = DEFAULT_IDLE_THRESHOLD,
 	seekStep = DEFAULT_SETTINGS.seekStep,
 }: {
-	/** Encoded frames for scrubbing, started once the frame rate is known. */
-	previews: FramePreviews
 	timelapse: { playbackUrl: string; thumbnailUrl?: string | null }
 	video: HTMLVideoElement | undefined
 	selections?: TimelineSelection[]
@@ -78,14 +73,6 @@ const playback = new TimelinePlayback({
 	onFrameRate: (rate: number) => (frameRate = rate),
 	src: () => timelapse.playbackUrl,
 	video: () => video,
-})
-
-// Encode scrubbing previews once the frame rate is known, and release them when the timelapse changes.
-$effect(() => {
-	// The worker reads pixels, so it goes through the proxy like the idle scan.
-	if (frameRate > 0)
-		previews.start(lapseProxyUrl(timelapse.playbackUrl), frameRate)
-	return () => previews.stop()
 })
 
 // Reset the visible window to the whole video whenever its duration first becomes known.
@@ -185,8 +172,6 @@ function removeTimelineSelection(id: string) {
 
 function onTrackPointerDown(event: PointerEvent) {
 	suppressSelectionMenu = false
-	// A press is an edit or a seek, so drop any hover preview.
-	previews.scrubTime = null
 	editor.onPointerDown(event)
 }
 
@@ -195,11 +180,6 @@ function onTrackPointerUp(event: PointerEvent) {
 	editor.onPointerUp(event)
 	editor.panMoved = false
 	if (panned) suppressSelectionMenu = true
-	// With previews, hovering doesn't seek, so a click or a pan release seeks the video to where the pointer is.
-	if (!panned && previews.ready)
-		playback.seekTo(
-			pointerToTime(event.clientX, event.currentTarget as HTMLElement),
-		)
 }
 
 /** Open the reason menu for a right-clicked selection; a pan that just ended suppresses it. */
@@ -258,15 +238,12 @@ function onPointerMove(event: PointerEvent) {
 	)
 	editor.hoveredSelectionId = selectionEl?.dataset.selectionId ?? null
 	viewport.hoverTime = pointerToTime(event.clientX, track)
-	// Hovering shows the encoded frame when previews are ready. Otherwise it seeks the video, as before.
-	if (previews.ready) previews.scrubTime = viewport.hoverTime
-	else playback.seekTo(viewport.hoverTime)
+	playback.seekTo(viewport.hoverTime)
 }
 
 function onPointerLeave() {
 	if (editor.drag || editor.pan) return
 	viewport.hoverTime = null
-	previews.scrubTime = null
 	editor.hoveredSelectionId = null
 }
 

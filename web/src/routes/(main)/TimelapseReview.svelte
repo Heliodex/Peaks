@@ -1,7 +1,6 @@
 <script lang="ts">
 import { onDestroy, onMount } from "svelte"
 import { SvelteSet } from "svelte/reactivity"
-import { FramePreviews } from "#lib/frame-previews.svelte.js"
 import { getTimelapse } from "#lib/lapse-client.js"
 import type { Project } from "#lib/project-storage.js"
 import {
@@ -194,13 +193,7 @@ const loader = new TimelapseLoader({
 	updateProject: update => workspace.updateCurrentProject(update),
 })
 
-// Encoded scrubbing previews for the open timelapse; the timeline starts and stops them.
-const previews = new FramePreviews()
-
-onDestroy(() => {
-	loader.cancel()
-	previews.stop()
-})
+onDestroy(() => loader.cancel())
 
 // The project is the single home for every timelapse: opening one adds it (or refreshes its review data), and edits keep its entry in sync.
 const sync = new ReviewSync({
@@ -361,7 +354,7 @@ const summary = new ProjectSummary({
 
 				{const timelapse = await getTimelapse(session.submittedId)}
 				{#if timelapse}
-					<VideoPane {previews} {timelapse} bind:videoEl />
+					<VideoPane {timelapse} bind:videoEl />
 
 					{#if videoEl && timelapse.playbackUrl}
 						<TimelinePane
@@ -369,7 +362,6 @@ const summary = new ProjectSummary({
 							idleThreshold={idleState.threshold}
 							ignoreIdle={idleState.ignoreIdle}
 							playbackUrl={timelapse.playbackUrl}
-							{previews}
 							{seekStep}
 							thumbnailUrl={timelapse.thumbnailUrl}
 							{videoEl}
