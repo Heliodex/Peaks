@@ -1,6 +1,6 @@
 // Browser-side idle scan: samples frames from a hidden video and feeds them to the pure rules in `idle-detection.ts`.
 
-import { analyzeIdleDecoded } from "./idle-decode.js"
+import { scanSamples } from "./frame-samples.js"
 import {
 	type FrameChange,
 	frameDifference,
@@ -12,6 +12,7 @@ import {
 } from "./idle-detection.js"
 import { lapseProxyUrl } from "./lapse.js"
 import { seekVideo } from "./media.js"
+import { prepareTimelapse } from "./prepare.js"
 
 export interface IdleAnalysisJob {
 	cancel(): void
@@ -360,7 +361,7 @@ function analyzeIdleBySeeking(
 }
 
 /**
- * Scan a timelapse for idle stretches. Decodes it once on a worker when WebCodecs can handle the video, which needs no seeks and runs without the page drawn. Otherwise, or if decoding fails, it falls back to seeking frame by frame.
+ * Scan a timelapse for idle stretches. The shared prepared decode supplies a sample of every frame, which is compared here without decoding again. Where WebCodecs can't decode, or the decode fails, it falls back to seeking frame by frame.
  */
 export function analyzeIdle(
 	src: string,
@@ -369,11 +370,7 @@ export function analyzeIdle(
 	threshold: number,
 	callbacks: IdleCallbacks = {},
 ): IdleAnalysisJob {
-	if (
-		frameRate <= 0
-		|| typeof VideoDecoder === "undefined"
-		|| typeof Worker === "undefined"
-	)
+	if (frameRate <= 0 || typeof VideoDecoder === "undefined")
 		return analyzeIdleBySeeking(
 			src,
 			duration,
@@ -384,14 +381,21 @@ export function analyzeIdle(
 
 	let cancelled = false
 	let seeking: IdleAnalysisJob | null = null
-	const decoded = analyzeIdleDecoded(
-		{ frameRate, threshold, url: lapseProxyUrl(src) },
-		callbacks,
-	)
-	const promise = decoded.promise.then(
-		ranges => {
+	const promise = prepareTimelapse(src, frameRate, (done, total) =>
+		callbacks.onProgress?.(done / Math.max(1, total)),
+	).then(
+		prepared => {
 			if (cancelled) return []
-			return ranges
+			const scan = scanSamples(
+				prepared.samples,
+				prepared.frames,
+				frameRate,
+				threshold,
+			)
+			callbacks.onChanges?.(scan.changes)
+			callbacks.onRanges?.(scan.ranges)
+			callbacks.onProgress?.(1)
+			return scan.ranges
 		},
 		() => {
 			if (cancelled) return []
@@ -409,7 +413,6 @@ export function analyzeIdle(
 	return {
 		cancel: () => {
 			cancelled = true
-			decoded.cancel()
 			seeking?.cancel()
 		},
 		promise,
