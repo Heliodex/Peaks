@@ -27,6 +27,8 @@ const MAX_CONSECUTIVE_FAILURES = 5
 const RETRY_BACKOFF_MS = 250
 const LOAD_TIMEOUT_MS = 15000
 const SEEK_TIMEOUT_MS = 15000
+// A seek presents its frame within a few milliseconds when the page is visible, so a short wait is enough before falling back.
+const FRAME_PRESENT_TIMEOUT_MS = 300
 
 interface IdleCallbacks {
 	onChanges?(changes: FrameChange[]): void
@@ -174,13 +176,50 @@ function createVideoSampler(
 	return { discard, duration, ensure, seek }
 }
 
+/**
+ * Wait until the element presents the frame at `target` (within `tolerance` seconds), so the pixels drawn next are that frame. A seek reports completion before the new frame reaches the screen, and drawing straight away can read the previous frame, which then repeats as a perfectly still scene.
+ *
+ * Browsers present no frames while the page is hidden or the window isn't drawn, so the wait is best-effort: it gives up after a short timeout and the current frame is drawn anyway, rather than dropping the sample.
+ */
+function awaitPresentedFrame(
+	el: HTMLVideoElement,
+	target: number,
+	tolerance: number,
+): Promise<void> {
+	if (document.hidden || !("requestVideoFrameCallback" in el))
+		return Promise.resolve()
+	return new Promise(resolve => {
+		let settled = false
+		const finish = () => {
+			settled = true
+			clearTimeout(timer)
+			resolve()
+		}
+		const timer = setTimeout(finish, FRAME_PRESENT_TIMEOUT_MS)
+		const onFrame = (
+			_now: DOMHighResTimeStamp,
+			metadata: VideoFrameCallbackMetadata,
+		) => {
+			if (settled) return
+			if (Math.abs(metadata.mediaTime - target) > tolerance) {
+				el.requestVideoFrameCallback(onFrame)
+				return
+			}
+			finish()
+		}
+		el.requestVideoFrameCallback(onFrame)
+	})
+}
+
 /** Read a frame at `target` into a fresh pixel buffer. */
 async function captureSample(
 	ctx: CanvasRenderingContext2D,
 	sampler: VideoSampler,
 	target: number,
+	tolerance: number,
 ): Promise<Uint8ClampedArray> {
 	const el = await sampler.seek(target)
+	await awaitPresentedFrame(el, target, tolerance)
 	ctx.drawImage(el, 0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT)
 	return ctx.getImageData(0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT).data
 }
@@ -200,6 +239,8 @@ async function scanIdleFrames(
 ): Promise<IdleRange[]> {
 	// A run of identical frames is idle from the *second* capture onward: the first capture of a scene is the normal frame, and it's the unchanged repeat that marks time away. With a known frame rate, shift each idle interval one frame later so it covers the repeated frame rather than the original. Without a frame rate there are no frame ticks to align to, so the sampled boundaries stand.
 	const frameDuration = frameRate > 0 ? 1 / frameRate : 0
+	// Accept the presented frame when its media time is within half a frame of the target.
+	const tolerance = frameRate > 0 ? 0.5 / frameRate : 0.02
 	const intervals: IdleRange[] = []
 	const changes: FrameChange[] = []
 	let previous: Uint8ClampedArray | null = null
@@ -215,7 +256,7 @@ async function scanIdleFrames(
 
 		let sample: Uint8ClampedArray
 		try {
-			sample = await captureSample(ctx, sampler, target)
+			sample = await captureSample(ctx, sampler, target, tolerance)
 		} catch {
 			if (isCancelled()) break
 			// Even a fresh element couldn't produce this frame. Drop the baseline so the next comparison isn't made across the gap, and give up if the source stays unreadable.
