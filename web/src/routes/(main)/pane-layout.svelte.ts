@@ -4,7 +4,8 @@ import { clamp } from "#lib/timeline.js"
 
 const DEFAULT_LEFT_WIDTH = 320
 const DEFAULT_RIGHT_WIDTH = 288
-const DEFAULT_TIMELINE_HEIGHT = 184
+// The timeline row holds the track, its ticks and navigator, and the frame-change chart (40px) beneath them.
+const DEFAULT_TIMELINE_HEIGHT = 224
 const MIN_CENTER_WIDTH = 320
 const MIN_CENTER_HEIGHT = 200
 
