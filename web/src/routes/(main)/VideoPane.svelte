@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { FramePreviews } from "#lib/frame-previews.svelte.js"
 import { TIMELINE_KEYS } from "#lib/timeline.js"
 import type { ReviewTimelapse } from "./review-types.js"
 
@@ -8,16 +9,18 @@ const suppressNativeKeys = (event: KeyboardEvent) => {
 }
 
 let {
+	previews,
 	timelapse,
 	videoEl = $bindable(),
 }: {
+	previews: FramePreviews
 	timelapse: ReviewTimelapse
 	videoEl?: HTMLVideoElement
 } = $props()
 </script>
 
 <section
-	class="area-video flex min-h-0 items-center justify-center overflow-hidden bg-black"
+	class="area-video relative flex min-h-0 items-center justify-center overflow-hidden bg-black"
 >
 	{#if timelapse.playbackUrl}
 		<!--
@@ -34,6 +37,14 @@ let {
 		>
 			<track kind="captions">
 		</video>
+		<!-- While the timeline is scrubbed, show the encoded frame instead of seeking the video, which can be slow to decode. -->
+		{#if previews.url}
+			<img
+				alt=""
+				class="pointer-events-none absolute inset-0 h-full w-full object-contain"
+				src={previews.url}
+			>
+		{/if}
 	{:else}
 		<p class="p-4 text-center text-sm text-neutral-400">
 			This timelapse is still being processed and has no video yet.

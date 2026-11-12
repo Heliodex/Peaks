@@ -1,10 +1,12 @@
 <script lang="ts">
 import Timeline from "#lib/components/Timeline.svelte"
+import type { FramePreviews } from "#lib/frame-previews.svelte.js"
 import type { IdleRange } from "#lib/idle-detection.js"
 import type { TimelineSelection } from "#lib/timeline.js"
 
 let {
 	playbackUrl,
+	previews,
 	thumbnailUrl = null,
 	videoEl,
 	selections = $bindable<TimelineSelection[]>([]),
@@ -17,6 +19,7 @@ let {
 	seekStep,
 }: {
 	playbackUrl: string
+	previews: FramePreviews
 	thumbnailUrl?: string | null
 	videoEl: HTMLVideoElement | undefined
 	selections?: TimelineSelection[]
@@ -38,6 +41,7 @@ let {
 		{idleRevision}
 		{idleThreshold}
 		{ignoreIdle}
+		{previews}
 		{seekStep}
 		timelapse={{ playbackUrl, thumbnailUrl }}
 		video={videoEl}
