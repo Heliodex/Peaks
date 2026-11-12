@@ -1,5 +1,6 @@
 // Browser-side idle scan: samples frames from a hidden video and feeds them to the pure rules in `idle-detection.ts`.
 
+import { analyzeIdleDecoded } from "./idle-decode.js"
 import {
 	type FrameChange,
 	frameDifference,
@@ -311,7 +312,7 @@ async function scanIdleFrames(
  *
  * Loads, seeks and decodes can fail intermittently (dropped range requests, transient decode errors). Rather than aborting the whole scan on the first failure, a sample is retried on a freshly created media element; if it still can't be read the sample is skipped so the rest of the scan – and any idle ranges already found – survive.
  */
-export function analyzeIdle(
+function analyzeIdleBySeeking(
 	src: string,
 	duration: number,
 	frameRate: number,
@@ -355,5 +356,62 @@ export function analyzeIdle(
 			sampler.discard()
 		},
 		promise: settled,
+	}
+}
+
+/**
+ * Scan a timelapse for idle stretches. Decodes it once on a worker when WebCodecs can handle the video, which needs no seeks and runs without the page drawn. Otherwise, or if decoding fails, it falls back to seeking frame by frame.
+ */
+export function analyzeIdle(
+	src: string,
+	duration: number,
+	frameRate: number,
+	threshold: number,
+	callbacks: IdleCallbacks = {},
+): IdleAnalysisJob {
+	if (
+		frameRate <= 0
+		|| typeof VideoDecoder === "undefined"
+		|| typeof Worker === "undefined"
+	)
+		return analyzeIdleBySeeking(
+			src,
+			duration,
+			frameRate,
+			threshold,
+			callbacks,
+		)
+
+	let cancelled = false
+	let seeking: IdleAnalysisJob | null = null
+	const decoded = analyzeIdleDecoded(
+		{ frameRate, threshold, url: lapseProxyUrl(src) },
+		callbacks,
+	)
+	const promise = decoded.promise.then(
+		ranges => {
+			if (cancelled) return []
+			return ranges
+		},
+		() => {
+			if (cancelled) return []
+			seeking = analyzeIdleBySeeking(
+				src,
+				duration,
+				frameRate,
+				threshold,
+				callbacks,
+			)
+			return seeking.promise
+		},
+	)
+
+	return {
+		cancel: () => {
+			cancelled = true
+			decoded.cancel()
+			seeking?.cancel()
+		},
+		promise,
 	}
 }
