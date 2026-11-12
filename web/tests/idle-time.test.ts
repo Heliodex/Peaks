@@ -31,6 +31,16 @@ describe("idleSampleTimes", () => {
 		expect(times[0]).toBe(0)
 		expect(times.at(-1)).toBeCloseTo(59 / 30)
 	})
+	test("samples every frame of a short video", () => {
+		const times = idleSampleTimes(536 / 24, 24)
+		expect(times).toHaveLength(536)
+		expect(times[1] - times[0]).toBeCloseTo(1 / 24)
+	})
+	test("thins long videos to the sample cap", () => {
+		const times = idleSampleTimes(600, 24)
+		expect(times.length).toBeLessThanOrEqual(3601)
+		expect(times[1] - times[0]).toBeGreaterThan(1 / 24)
+	})
 	test("spans the whole video without a frame rate", () => {
 		const times = idleSampleTimes(5, 0)
 		expect(times[0]).toBe(0)

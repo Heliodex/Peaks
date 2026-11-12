@@ -35,8 +35,8 @@ export function nearestIdleThreshold(value: number): number {
 	return nearest
 }
 
-// Upper bound on sampled frames, so analysis stays quick on long videos.
-const MAX_SAMPLES = 300
+// Upper bound on sampled frames. Videos under the cap are sampled on every frame, so each frame-change bar is a single frame-to-frame comparison. Longer videos are thinned to stay quick, which is about 2.5 minutes at 24fps.
+const MAX_SAMPLES = 3600
 
 // Fallback sample spacing when the video's frame rate is unknown.
 const FALLBACK_STEP = 0.5
