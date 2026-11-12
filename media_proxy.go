@@ -23,9 +23,10 @@ var (
 	errBlockedRedirect    = errors.New("media redirect blocked")
 
 	mediaOrigins = map[string]struct{}{
-		"lookout.hackclub.com":        {},
-		"lookout.hackclub-assets.com": {},
-		"public.lapse-hackclub.link":  {},
+		"lookout.hackclub.com":             {},
+		"lapse-legacy.hackclub-assets.com": {},
+		"lookout.hackclub-assets.com":      {},
+		"public.lapse-hackclub.link":       {},
 	}
 
 	mediaPathPatterns = []*regexp.Regexp{

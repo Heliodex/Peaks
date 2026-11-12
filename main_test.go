@@ -12,6 +12,7 @@ import (
 const (
 	lookoutVideoURL = "https://lookout.hackclub.com/api/media/7e3d670e-28a0-465c-8747-73fc50ef44c7/video.mp4"
 	legacyVideoURL  = "https://public.lapse-hackclub.link/timelapses/pgigZC4HUf6P/timelapse-pgigZC4HUf6P.mp4"
+	lapseLegacyURL  = "https://lapse-legacy.hackclub-assets.com/timelapses/p7lHPSrXIDkD/timelapse-p7lHPSrXIDkD.mp4"
 	lookoutAssetURL = "https://lookout.hackclub-assets.com/timelapses/7e3d670e-28a0-465c-8747-73fc50ef44c7/original-ff41fe17601ec9b75be7a80b135e2e35.mp4"
 	r2VideoURL      = "https://f8d710a55cb9b516d88635f103c2c9f2.r2.cloudflarestorage.com/collapse/timelapses/7e3d670e-28a0-465c-8747-73fc50ef44c7/original-video.mp4?signature=test"
 )
@@ -47,6 +48,7 @@ func TestParseMediaURL(t *testing.T) {
 	valid := []string{
 		lookoutVideoURL,
 		legacyVideoURL,
+		lapseLegacyURL,
 		lookoutAssetURL,
 		lookoutVideoURL + "?cache=1",
 	}
