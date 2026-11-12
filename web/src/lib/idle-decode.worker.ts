@@ -99,6 +99,8 @@ async function decodeIdle(request: DecodeRequest): Promise<void> {
 	let pending: FrameChange[] = []
 	let previous: { index: number; pixels: Uint8ClampedArray } | null = null
 	let decoded = 0
+	// Decoder timestamps keep the file's edit-list offset (here two frames), so frames are counted from the first one shown, which is where the video element's timeline starts.
+	let origin: number | null = null
 	let stall: ReturnType<typeof setTimeout> | undefined
 
 	const postBatch = () => {
@@ -125,7 +127,9 @@ async function decodeIdle(request: DecodeRequest): Promise<void> {
 	const onFrame = (frame: VideoFrame) => {
 		try {
 			// Snap to whole frames so the ranges line up with the timeline's ticks.
-			const index = Math.round((frame.timestamp / 1e6) * fps)
+			const raw = Math.round((frame.timestamp / 1e6) * fps)
+			origin ??= raw
+			const index = raw - origin
 			ctx.drawImage(frame, 0, 0, SAMPLE_WIDTH, SAMPLE_HEIGHT)
 			const pixels = ctx.getImageData(
 				0,
