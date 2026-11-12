@@ -1,6 +1,7 @@
 // Prepares a timelapse in one decode: every frame is shrunk to a 32×18 sample for the idle scan, and, when WebCodecs can encode H.264, re-encoded with a keyframe every second and muxed into an MP4 held in memory.
 import { ArrayBufferTarget, Muxer } from "mp4-muxer"
 import { SAMPLE_BYTES, SAMPLE_HEIGHT, SAMPLE_WIDTH } from "./frame-samples.js"
+import { GOOD_KEYFRAME_GAP, maxKeyframeGap } from "./keyframes.js"
 import type { PrepareMessage, PrepareRequest } from "./prepare.js"
 import { decodeVideoFrames } from "./video-decode.js"
 
@@ -80,10 +81,19 @@ async function prepare(request: PrepareRequest): Promise<void> {
 				postMessage(message)
 			}
 		},
-		onStart: async ({ height, total: count, width }) => {
+		onStart: async ({
+			duration,
+			height,
+			keyframeTimes,
+			total: count,
+			width,
+		}) => {
 			total = count
 			samples = new Uint8ClampedArray(count * SAMPLE_BYTES)
 			if (typeof VideoEncoder === "undefined") return
+			// A source that already keyframes about once a second seeks quickly, so re-encoding would only cost time and memory.
+			if (maxKeyframeGap(keyframeTimes, duration) <= GOOD_KEYFRAME_GAP)
+				return
 			// Encoding is optional: if it can't start, the samples still cover the idle scan.
 			try {
 				const bitrate = Math.round(

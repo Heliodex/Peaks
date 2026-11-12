@@ -10,8 +10,12 @@ import {
 } from "mp4box"
 
 export interface VideoStart {
+	/** Length of the video in seconds, from the demuxed samples. */
+	duration: number
 	/** Coded frame height. */
 	height: number
+	/** Times, in seconds, of the keyframes. */
+	keyframeTimes: number[]
 	/** Number of encoded samples, which is the frame count. */
 	total: number
 	/** Coded frame width. */
@@ -92,8 +96,20 @@ export async function decodeVideoFrames(
 		file.appendBuffer(buffer)
 		file.flush()
 	})
+	const keyframeTimes: number[] = []
+	let duration = 0
+	for (const sample of samples) {
+		const start = sample.cts / sample.timescale
+		if (sample.is_sync) keyframeTimes.push(start)
+		duration = Math.max(
+			duration,
+			start + sample.duration / sample.timescale,
+		)
+	}
 	await options.onStart?.({
+		duration,
 		height: track.video?.height ?? 0,
+		keyframeTimes,
 		total: track.nb_samples,
 		width: track.video?.width ?? 0,
 	})
