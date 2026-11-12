@@ -1,7 +1,6 @@
 <script lang="ts">
 import { detectFrameRate } from "#lib/frame-rate.js"
-import { lapseProxyUrl } from "#lib/lapse.js"
-import { type ReencodeJob, reencodeTimelapse } from "#lib/reencode.js"
+import { prepareTimelapse } from "#lib/prepare.js"
 import { TIMELINE_KEYS } from "#lib/timeline.js"
 import type { ReviewTimelapse } from "./review-types.js"
 
@@ -40,22 +39,20 @@ $effect(() => {
 	const url = timelapse.playbackUrl
 	if (!url) return
 	let cancelled = false
-	let job: ReencodeJob | null = null
 	let objectUrl: string | null = null
 
 	void (async () => {
 		const frameRate = await detectFrameRate(url)
 		if (cancelled || frameRate <= 0) return
-		job = reencodeTimelapse({ frameRate, url: lapseProxyUrl(url) })
-		const blob = await job.promise
-		if (cancelled || !videoEl) return
-		objectUrl = URL.createObjectURL(blob)
+		// The prepared result is shared with the idle scan and cached, so this usually costs nothing.
+		const prepared = await prepareTimelapse(url, frameRate)
+		if (cancelled || !prepared.blob || !videoEl) return
+		objectUrl = URL.createObjectURL(prepared.blob)
 		switchSource(videoEl, objectUrl)
 	})().catch(() => {})
 
 	return () => {
 		cancelled = true
-		job?.cancel()
 		if (objectUrl) URL.revokeObjectURL(objectUrl)
 	}
 })
