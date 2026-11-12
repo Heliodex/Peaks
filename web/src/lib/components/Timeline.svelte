@@ -17,6 +17,7 @@ import {
 } from "#lib/timeline.js"
 import { FrameStrip } from "#lib/timeline-frames.svelte.js"
 import ContextMenu, { contextMenuPosition } from "./ContextMenu.svelte"
+import FrameChanges from "./FrameChanges.svelte"
 import TimelineFrames from "./TimelineFrames.svelte"
 import TimelineNavigator from "./TimelineNavigator.svelte"
 import TimelineSelections from "./TimelineSelections.svelte"
@@ -393,6 +394,13 @@ function onKeyDown(event: KeyboardEvent) {
 			playbackUrl={timelapse.playbackUrl}
 			playheadTime={playback.playheadTime}
 			{selections}
+			view={viewport.view}
+		/>
+
+		<FrameChanges
+			analyzing={idle.analyzing}
+			changes={idle.changes}
+			threshold={idleThreshold}
 			view={viewport.view}
 		/>
 

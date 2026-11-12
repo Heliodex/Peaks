@@ -6,6 +6,14 @@ export interface IdleRange {
 	start: number
 }
 
+/** How much a frame differs from the one sampled before it, over the span between their sample times. */
+export interface FrameChange {
+	/** Mean absolute channel difference (0-255), as compared against the idle threshold. */
+	change: number
+	end: number
+	start: number
+}
+
 /**
  * Selectable idle-detection thresholds, as a roughly 1-2-5 progression so each step up catches noticeably more as idle. Two samples count as the same frame when their mean absolute channel difference is at or below the threshold.
  */

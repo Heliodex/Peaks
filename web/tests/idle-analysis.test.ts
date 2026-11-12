@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, mock, test } from "bun:test"
-import type { IdleRange } from "#lib/idle-detection.js"
+import type { FrameChange, IdleRange } from "#lib/idle-detection.js"
 import type { IdleAnalysisJob } from "#lib/idle-time.js"
 
 const jobs: { cancel(): void }[] = []
@@ -77,6 +77,39 @@ describe("idle analysis invalidation", () => {
 		expect(analysis.analyzing).toBe(false)
 		expect(analysis.complete).toBe(false)
 		expect(analysis.ranges).toEqual([])
+	})
+
+	test("publishes frame changes from the current scan and clears them on invalidation", () => {
+		let reported: { onChanges?(changes: FrameChange[]): void } | undefined
+		const capture = mock((_src, _total, _rate, _threshold, callbacks) => {
+			reported = callbacks
+			return { cancel: mock(() => {}), promise: new Promise(() => {}) }
+		})
+		const state = {
+			duration: 10,
+			frameRate: 30,
+			ready: true,
+			revision: 0,
+			src: "video-changes",
+		}
+		const analysis = new IdleAnalysis({
+			analyze: capture,
+			cached: () => [],
+			duration: () => state.duration,
+			frameRate: () => state.frameRate,
+			ready: () => state.ready,
+			revision: () => state.revision,
+			src: () => state.src,
+			threshold: () => 0.005,
+		})
+		const changes: FrameChange[] = [{ change: 4, end: 2, start: 1 }]
+
+		reported?.onChanges?.(changes)
+		expect(analysis.changes).toEqual(changes)
+
+		state.revision = 1
+		effects.at(-1)?.()
+		expect(analysis.changes).toEqual([])
 	})
 
 	test("ReviewIdle.reset advances the invalidation revision", () => {

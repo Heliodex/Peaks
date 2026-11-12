@@ -1,6 +1,10 @@
 // Reactive wrapper around `analyzeIdle`, exposing partial results while the video is being scanned. A cached set of ranges can stand in for a scan, and a revision token lets the caller request a fresh scan on demand.
 import { onDestroy, untrack } from "svelte"
-import { type IdleRange, idleRangesAreFrameAligned } from "./idle-detection.js"
+import {
+	type FrameChange,
+	type IdleRange,
+	idleRangesAreFrameAligned,
+} from "./idle-detection.js"
 import { analyzeIdle, type IdleAnalysisJob } from "./idle-time.js"
 
 interface IdleAnalysisOptions {
@@ -27,6 +31,10 @@ export class IdleAnalysis {
 	readonly #options: IdleAnalysisOptions
 
 	ranges = $state<IdleRange[]>([])
+	/**
+	 * Frame-to-frame differences from the scan, in sample order. Empty when the ranges came from a cache, since the cache stores only the ranges.
+	 */
+	changes = $state<FrameChange[]>([])
 	progress = $state(0)
 	analyzing = $state(false)
 	/** Whether `ranges` are authoritative (a completed scan or an adopted cache) rather than partial in-flight results. */
@@ -83,6 +91,7 @@ export class IdleAnalysis {
 	#invalidate() {
 		this.#cancel()
 		this.ranges = []
+		this.changes = []
 		this.progress = 0
 		this.analyzing = false
 		this.complete = false
@@ -96,6 +105,7 @@ export class IdleAnalysis {
 
 		this.#cancel()
 		this.ranges = cachedRanges
+		this.changes = []
 		this.progress = 1
 		this.analyzing = false
 		this.complete = true
@@ -106,6 +116,7 @@ export class IdleAnalysis {
 	#startScan(url: string, total: number, rate: number) {
 		this.#cancel()
 		this.ranges = []
+		this.changes = []
 		this.progress = 0
 		this.analyzing = true
 		this.complete = false
@@ -114,6 +125,9 @@ export class IdleAnalysis {
 		const sameFrame = untrack(this.#options.threshold)
 		const analyze = this.#options.analyze ?? analyzeIdle
 		const current = analyze(url, total, rate, sameFrame, {
+			onChanges: changes => {
+				if (token === this.#token) this.changes = changes
+			},
 			onProgress: value => {
 				if (token === this.#token) this.progress = value
 			},

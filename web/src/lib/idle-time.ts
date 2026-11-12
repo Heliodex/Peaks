@@ -1,6 +1,7 @@
 // Browser-side idle scan: samples frames from a hidden video and feeds them to the pure rules in `idle-detection.ts`.
 
 import {
+	type FrameChange,
 	frameDifference,
 	type IdleRange,
 	idleSampleTimes,
@@ -27,6 +28,7 @@ const LOAD_TIMEOUT_MS = 15000
 const SEEK_TIMEOUT_MS = 15000
 
 interface IdleCallbacks {
+	onChanges?(changes: FrameChange[]): void
 	onProgress?(progress: number): void
 	onRanges?(ranges: IdleRange[]): void
 }
@@ -198,6 +200,7 @@ async function scanIdleFrames(
 	// A run of identical frames is idle from the *second* capture onward: the first capture of a scene is the normal frame, and it's the unchanged repeat that marks time away. With a known frame rate, shift each idle interval one frame later so it covers the repeated frame rather than the original. Without a frame rate there are no frame ticks to align to, so the sampled boundaries stand.
 	const frameDuration = frameRate > 0 ? 1 / frameRate : 0
 	const intervals: IdleRange[] = []
+	const changes: FrameChange[] = []
 	let previous: Uint8ClampedArray | null = null
 	let previousTarget = -1
 	let previousIdle = false
@@ -233,18 +236,21 @@ async function scanIdleFrames(
 			previous !== null
 			&& !phantomTrailingPair
 			&& spansFrameBoundary(previousTarget, target, frameRate)
-			&& frameDifference(previous, sample) <= threshold
 		) {
-			intervals.push({
-				end: times[i] + frameDuration,
-				start: times[i - 1] + frameDuration,
-			})
-			previousIdle = true
+			const change = frameDifference(previous, sample)
+			changes.push({ change, end: target, start: previousTarget })
+			previousIdle = change <= threshold
+			if (previousIdle)
+				intervals.push({
+					end: times[i] + frameDuration,
+					start: times[i - 1] + frameDuration,
+				})
 		} else previousIdle = false
 
 		previous = sample
 		previousTarget = target
 		callbacks.onProgress?.((i + 1) / times.length)
+		callbacks.onChanges?.([...changes])
 
 		// Only push partial ranges when a new idle span appears, so the idle overlays aren't rebuilt on every single sampled frame.
 		const live = mergeIdleRanges(intervals)
