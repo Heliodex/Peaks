@@ -16,5 +16,5 @@ export function maxKeyframeGap(
 	let gap = keyframeTimes[0]
 	for (let index = 1; index < keyframeTimes.length; index++)
 		gap = Math.max(gap, keyframeTimes[index] - keyframeTimes[index - 1])
-	return Math.max(gap, duration - keyframeTimes[keyframeTimes.length - 1])
+	return Math.max(gap, duration - (keyframeTimes.at(-1) ?? 0))
 }
