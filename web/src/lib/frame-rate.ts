@@ -1,6 +1,8 @@
 // The Lapse API doesn't expose a video's encoded frame rate, so we measure it by playing a hidden, muted copy for a short window and counting how many frames are presented per second of media time.
 // Only playback metadata is read, so the copy can play straight from the CDN without going through /lapse-proxy.
 
+import { readFrameRate, writeFrameRate } from "./timelapse-cache.js"
+
 // Stop once we've seen this many frame presentations (enough for a stable rate)
 const MIN_FRAMES = 3
 // Give up after this long, e.g. for extremely low frame rate videos
@@ -33,13 +35,24 @@ export function detectFrameRate(src: string): Promise<number> {
 		const oldest = frameRateCache.keys().next().value
 		if (oldest !== undefined) frameRateCache.delete(oldest)
 	}
-	const promise = probeFrameRate(src).then(rate => {
+	const promise = loadFrameRate(src).then(rate => {
 		// Don't memoize failures, so a later attempt can retry.
 		if (rate <= 0) frameRateCache.delete(src)
 		return rate
 	})
 	frameRateCache.set(src, promise)
 	return promise
+}
+
+/**
+ * The stored rate when one exists, otherwise a fresh measurement. Successful measurements are stored, so a timelapse opened in a later session doesn't need the probe again.
+ */
+async function loadFrameRate(src: string): Promise<number> {
+	const stored = await readFrameRate(src)
+	if (stored > 0) return stored
+	const rate = await probeFrameRate(src)
+	if (rate > 0) void writeFrameRate(src, rate)
+	return rate
 }
 
 /** Create the hidden element the probe plays through. */

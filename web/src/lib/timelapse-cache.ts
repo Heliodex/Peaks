@@ -1,4 +1,4 @@
-// Persistent cache for prepared timelapses in IndexedDB. Losing the cache only costs a new decode, so every failure reads as a miss.
+// Persistent cache for timelapse data in IndexedDB: prepared decodes and measured frame rates. Losing the cache only costs a new decode or probe, so every failure reads as a miss.
 
 export interface CachedRecord {
 	blob: Blob | null
@@ -19,51 +19,73 @@ function openDatabase(): Promise<IDBDatabase> {
 		})
 		request.addEventListener("success", () => resolve(request.result))
 		request.addEventListener("error", () =>
-			reject(new Error("IndexedDB request failed")),
+			reject(new Error("IndexedDB open failed")),
 		)
 	})
 	return database
 }
 
-/** Read a cached record, or `null` on a miss or when storage is unavailable. */
-export async function readPrepared(key: string): Promise<CachedRecord | null> {
-	if (typeof indexedDB === "undefined") return null
+/** Read a value, or `undefined` on a miss or when storage is unavailable. */
+async function getValue(key: string): Promise<unknown> {
+	if (typeof indexedDB === "undefined") return undefined
 	try {
 		const db = await openDatabase()
-		return await new Promise<CachedRecord | null>((resolve, reject) => {
+		return await new Promise<unknown>((resolve, reject) => {
 			const request = db
 				.transaction(STORE, "readonly")
 				.objectStore(STORE)
 				.get(key)
-			request.addEventListener("success", () =>
-				resolve((request.result as CachedRecord | undefined) ?? null),
-			)
+			request.addEventListener("success", () => resolve(request.result))
 			request.addEventListener("error", () =>
-				reject(new Error("IndexedDB request failed")),
+				reject(new Error("IndexedDB read failed")),
 			)
 		})
 	} catch {
-		return null
+		return undefined
 	}
 }
 
-/** Store a record. Storage failures are ignored, since the cache is optional. */
-export async function writePrepared(
-	key: string,
-	record: CachedRecord,
-): Promise<void> {
+/** Store a value. Storage failures are ignored, since the cache is optional. */
+async function putValue(key: string, value: unknown): Promise<void> {
 	if (typeof indexedDB === "undefined") return
 	try {
 		const db = await openDatabase()
 		await new Promise<void>((resolve, reject) => {
 			const transaction = db.transaction(STORE, "readwrite")
-			transaction.objectStore(STORE).put(record, key)
+			transaction.objectStore(STORE).put(value, key)
 			transaction.addEventListener("complete", () => resolve())
 			transaction.addEventListener("error", () =>
 				reject(new Error("IndexedDB write failed")),
 			)
 		})
 	} catch {
-		// Keep the prepared data in memory only.
+		// Keep the data in memory only.
 	}
+}
+
+/** Read a cached prepared decode, or `null` on a miss. */
+export async function readPrepared(key: string): Promise<CachedRecord | null> {
+	const value = await getValue(key)
+	return (value as CachedRecord | undefined) ?? null
+}
+
+/** Store a prepared decode. */
+export function writePrepared(
+	key: string,
+	record: CachedRecord,
+): Promise<void> {
+	return putValue(key, record)
+}
+
+const frameRateKey = (src: string): string => `frame-rate|${src}`
+
+/** The cached frame rate for a source, or `0` when none is stored. */
+export async function readFrameRate(src: string): Promise<number> {
+	const value = await getValue(frameRateKey(src))
+	return typeof value === "number" && value > 0 ? value : 0
+}
+
+/** Store a measured frame rate for a source. */
+export function writeFrameRate(src: string, rate: number): Promise<void> {
+	return putValue(frameRateKey(src), rate)
 }
