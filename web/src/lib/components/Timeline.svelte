@@ -400,6 +400,7 @@ function onKeyDown(event: KeyboardEvent) {
 		<FrameChanges
 			analyzing={idle.analyzing}
 			changes={idle.changes}
+			idleRanges={idle.ranges}
 			threshold={idleThreshold}
 			view={viewport.view}
 		/>

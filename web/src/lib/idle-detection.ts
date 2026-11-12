@@ -123,6 +123,15 @@ export function idleRangesAreFrameAligned(
 	)
 }
 
+/**
+ * Shortest idle stretch kept, in playback seconds. A lone repeated frame is compression or sampling noise rather than time away from the screen, so only sustained stillness counts.
+ */
+export const MIN_IDLE_SPAN = 1
+
+/** Drop idle ranges too short to be time away from the screen. */
+export const keepSustainedIdle = (ranges: IdleRange[]): IdleRange[] =>
+	ranges.filter(range => range.end - range.start >= MIN_IDLE_SPAN - 1e-6)
+
 /** Collapse adjacent idle intervals into contiguous ranges. */
 export function mergeIdleRanges(intervals: IdleRange[]): IdleRange[] {
 	const sorted = intervals.toSorted((a, b) => a.start - b.start)

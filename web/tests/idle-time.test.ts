@@ -5,6 +5,7 @@ import {
 	IDLE_THRESHOLD_SCALE,
 	idleRangesAreFrameAligned,
 	idleSampleTimes,
+	keepSustainedIdle,
 	mergeIdleRanges,
 	nearestIdleThreshold,
 } from "#lib/idle-detection.js"
@@ -57,6 +58,22 @@ describe("frameDifference", () => {
 		const a = new Uint8ClampedArray([0, 0, 0, 255])
 		const b = new Uint8ClampedArray([30, 30, 30, 255])
 		expect(frameDifference(a, b)).toBe(30)
+	})
+})
+
+describe("keepSustainedIdle", () => {
+	test("drops stretches shorter than a second of playback", () => {
+		expect(
+			keepSustainedIdle([
+				{ end: 1 + 1 / 24, start: 1 },
+				{ end: 4, start: 2 },
+			]),
+		).toEqual([{ end: 4, start: 2 }])
+	})
+	test("keeps a stretch of exactly a second", () => {
+		expect(keepSustainedIdle([{ end: 3, start: 2 }])).toEqual([
+			{ end: 3, start: 2 },
+		])
 	})
 })
 

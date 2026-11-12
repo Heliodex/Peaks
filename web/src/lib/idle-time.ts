@@ -5,6 +5,7 @@ import {
 	frameDifference,
 	type IdleRange,
 	idleSampleTimes,
+	keepSustainedIdle,
 	mergeIdleRanges,
 	spansFrameBoundary,
 } from "./idle-detection.js"
@@ -253,7 +254,7 @@ async function scanIdleFrames(
 		callbacks.onChanges?.([...changes])
 
 		// Only push partial ranges when a new idle span appears, so the idle overlays aren't rebuilt on every single sampled frame.
-		const live = mergeIdleRanges(intervals)
+		const live = keepSustainedIdle(mergeIdleRanges(intervals))
 		const done = i === times.length - 1
 		if (done || live.length !== reportedCount) {
 			reportedCount = live.length
@@ -261,7 +262,7 @@ async function scanIdleFrames(
 		}
 	}
 
-	return mergeIdleRanges(intervals)
+	return keepSustainedIdle(mergeIdleRanges(intervals))
 }
 
 /**

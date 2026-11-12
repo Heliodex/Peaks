@@ -1,14 +1,17 @@
 <script lang="ts">
-import type { FrameChange } from "#lib/idle-detection.js"
+import type { FrameChange, IdleRange } from "#lib/idle-detection.js"
 import { percentWithin, type ViewWindow } from "#lib/timeline.js"
 
 let {
 	changes,
+	idleRanges,
 	threshold,
 	view,
 	analyzing = false,
 }: {
 	changes: FrameChange[]
+	/** The idle stretches the scan kept. A change is amber only when it falls inside one. */
+	idleRanges: IdleRange[]
 	/** Changes at or below this count as idle, as in the idle scan. */
 	threshold: number
 	/** The visible window, shared with the timeline above so the columns line up with the frames. */
@@ -21,6 +24,13 @@ const peak = $derived(Math.max(0, ...changes.map(item => item.change)))
 const visible = $derived(
 	changes.filter(item => item.end > view.start && item.start < view.end),
 )
+
+/** Whether a change is idle: under the threshold and inside a kept idle stretch. */
+const isIdle = (item: FrameChange): boolean =>
+	item.change <= threshold
+	&& idleRanges.some(
+		range => item.end > range.start && item.start < range.end,
+	)
 </script>
 
 <div class="relative h-10 w-full shrink-0 border-b border-line">
@@ -34,9 +44,7 @@ const visible = $derived(
 		<div
 			class={[
 				"pointer-events-none absolute bottom-0 min-h-px",
-				item.change <= threshold
-					? "bg-amber-400/70"
-					: "bg-primary-500/70",
+				isIdle(item) ? "bg-amber-400/70" : "bg-primary-500/70",
 			]}
 			style:height="{peak > 0 ? (item.change / peak) * 100 : 0}%"
 			style:left="{left}%"
