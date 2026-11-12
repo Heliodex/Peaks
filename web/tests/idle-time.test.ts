@@ -8,6 +8,7 @@ import {
 	keepSustainedIdle,
 	mergeIdleRanges,
 	nearestIdleThreshold,
+	repeatInterval,
 } from "#lib/idle-detection.js"
 
 describe("nearestIdleThreshold", () => {
@@ -58,6 +59,12 @@ describe("frameDifference", () => {
 		const a = new Uint8ClampedArray([0, 0, 0, 255])
 		const b = new Uint8ClampedArray([30, 30, 30, 255])
 		expect(frameDifference(a, b)).toBe(30)
+	})
+})
+
+describe("repeatInterval", () => {
+	test("covers the repeated frame, not the original", () => {
+		expect(repeatInterval(4, 5, 24)).toEqual({ end: 6 / 24, start: 5 / 24 })
 	})
 })
 

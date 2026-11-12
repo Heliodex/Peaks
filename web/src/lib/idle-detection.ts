@@ -128,6 +128,17 @@ export function idleRangesAreFrameAligned(
  */
 export const MIN_IDLE_SPAN = 1
 
+/**
+ * The idle interval a repeated frame covers, between two whole frame indices. It covers the repeat rather than the original, matching the seek-based scan.
+ */
+export function repeatInterval(
+	previous: number,
+	current: number,
+	frameRate: number,
+): IdleRange {
+	return { end: (current + 1) / frameRate, start: (previous + 1) / frameRate }
+}
+
 /** Drop idle ranges too short to be time away from the screen. */
 export const keepSustainedIdle = (ranges: IdleRange[]): IdleRange[] =>
 	ranges.filter(range => range.end - range.start >= MIN_IDLE_SPAN - 1e-6)
