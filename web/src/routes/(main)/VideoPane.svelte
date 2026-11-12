@@ -1,4 +1,7 @@
 <script lang="ts">
+import { detectFrameRate } from "#lib/frame-rate.js"
+import { lapseProxyUrl } from "#lib/lapse.js"
+import { type ReencodeJob, reencodeTimelapse } from "#lib/reencode.js"
 import { TIMELINE_KEYS } from "#lib/timeline.js"
 import type { ReviewTimelapse } from "./review-types.js"
 
@@ -14,6 +17,48 @@ let {
 	timelapse: ReviewTimelapse
 	videoEl?: HTMLVideoElement
 } = $props()
+
+/**
+ * Move playback onto the re-encoded file, keeping the position and play state. The original keeps playing until the switch.
+ */
+function switchSource(el: HTMLVideoElement, next: string) {
+	const time = el.currentTime
+	const wasPaused = el.paused
+	el.addEventListener(
+		"loadedmetadata",
+		() => {
+			el.currentTime = time
+			if (!wasPaused) void el.play().catch(() => {})
+		},
+		{ once: true },
+	)
+	el.src = next
+}
+
+// Re-encode the timelapse with a keyframe every second, so seeks stay quick. Any failure keeps the original source.
+$effect(() => {
+	const url = timelapse.playbackUrl
+	if (!url) return
+	let cancelled = false
+	let job: ReencodeJob | null = null
+	let objectUrl: string | null = null
+
+	void (async () => {
+		const frameRate = await detectFrameRate(url)
+		if (cancelled || frameRate <= 0) return
+		job = reencodeTimelapse({ frameRate, url: lapseProxyUrl(url) })
+		const blob = await job.promise
+		if (cancelled || !videoEl) return
+		objectUrl = URL.createObjectURL(blob)
+		switchSource(videoEl, objectUrl)
+	})().catch(() => {})
+
+	return () => {
+		cancelled = true
+		job?.cancel()
+		if (objectUrl) URL.revokeObjectURL(objectUrl)
+	}
+})
 </script>
 
 <section
