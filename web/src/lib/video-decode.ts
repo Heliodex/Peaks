@@ -9,13 +9,22 @@ import {
 	type Track,
 } from "mp4box"
 
+export interface VideoStart {
+	/** Coded frame height. */
+	height: number
+	/** Number of encoded samples, which is the frame count. */
+	total: number
+	/** Coded frame width. */
+	width: number
+}
+
 export interface DecodeVideoOptions {
 	/** Frames per second, used to number frames in whole steps. */
 	frameRate: number
 	/** Receives each decoded frame. The frame is closed after this returns, so copy whatever you need synchronously. */
 	onFrame(frame: VideoFrame, index: number): void
-	/** Called with the total frame count once the track is known. */
-	onStart?(total: number): void
+	/** Called once the track is known, before any frame is decoded. Awaited, so callers can prepare an encoder. */
+	onStart?(start: VideoStart): void | Promise<void>
 	/** Fetch URL for the encoded file. */
 	url: string
 }
@@ -83,7 +92,11 @@ export async function decodeVideoFrames(
 		file.appendBuffer(buffer)
 		file.flush()
 	})
-	options.onStart?.(track.nb_samples)
+	await options.onStart?.({
+		height: track.video?.height ?? 0,
+		total: track.nb_samples,
+		width: track.video?.width ?? 0,
+	})
 
 	const config: VideoDecoderConfig = {
 		codec: track.codec,

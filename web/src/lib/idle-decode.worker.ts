@@ -68,7 +68,7 @@ async function scanIdle(request: DecodeRequest): Promise<void> {
 			decoded++
 			if (decoded % BATCH_FRAMES === 0) postBatch()
 		},
-		onStart: count => {
+		onStart: ({ total: count }) => {
 			total = count
 		},
 		url: request.url,
