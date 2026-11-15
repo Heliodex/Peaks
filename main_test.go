@@ -11,10 +11,10 @@ import (
 
 const (
 	lookoutVideoURL = "https://lookout.hackclub.com/api/media/7e3d670e-28a0-465c-8747-73fc50ef44c7/video.mp4"
-	legacyVideoURL  = "https://public.lapse-hackclub.link/timelapses/pgigZC4HUf6P/timelapse-pgigZC4HUf6P.mp4"
-	lapseLegacyURL  = "https://lapse-legacy.hackclub-assets.com/timelapses/p7lHPSrXIDkD/timelapse-p7lHPSrXIDkD.mp4"
+	legacyVideoURL = "https://public.lapse-hackclub.link/timelapses/pgigZC4HUf6P/timelapse-pgigZC4HUf6P.mp4"
+	lapseLegacyURL = "https://lapse-legacy.hackclub-assets.com/timelapses/p7lHPSrXIDkD/timelapse-p7lHPSrXIDkD.mp4"
 	lookoutAssetURL = "https://lookout.hackclub-assets.com/timelapses/7e3d670e-28a0-465c-8747-73fc50ef44c7/original-ff41fe17601ec9b75be7a80b135e2e35.mp4"
-	r2VideoURL      = "https://f8d710a55cb9b516d88635f103c2c9f2.r2.cloudflarestorage.com/collapse/timelapses/7e3d670e-28a0-465c-8747-73fc50ef44c7/original-video.mp4?signature=test"
+	r2VideoURL = "https://f8d710a55cb9b516d88635f103c2c9f2.r2.cloudflarestorage.com/collapse/timelapses/7e3d670e-28a0-465c-8747-73fc50ef44c7/original-video.mp4?signature=test"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -31,8 +31,8 @@ func fakeResponse(status int, body string, headers map[string]string) *http.Resp
 
 	return &http.Response{
 		StatusCode: status,
-		Header:     header,
-		Body:       io.NopCloser(strings.NewReader(body)),
+		Header: header,
+		Body: io.NopCloser(strings.NewReader(body)),
 	}
 }
 
@@ -148,12 +148,12 @@ func TestHandlerForwardsRange(t *testing.T) {
 		upstream = r
 
 		return fakeResponse(http.StatusPartialContent, "video-bytes", map[string]string{
-			"Accept-Ranges":  "bytes",
+			"Accept-Ranges": "bytes",
 			"Content-Length": "11",
-			"Content-Range":  "bytes 0-10/11",
-			"Content-Type":   "video/mp4; charset=binary",
-			"ETag":           `"etag"`,
-			"Last-Modified":  "Wed, 21 Oct 2015 07:28:00 GMT",
+			"Content-Range": "bytes 0-10/11",
+			"Content-Type": "video/mp4; charset=binary",
+			"ETag": `"etag"`,
+			"Last-Modified": "Wed, 21 Oct 2015 07:28:00 GMT",
 		}), nil
 	})
 
@@ -404,7 +404,7 @@ func TestHandlerPassesThroughUpstreamErrors(t *testing.T) {
 
 type shortWriteBuffer struct {
 	data []byte
-	max  int
+	max int
 }
 
 func (w *shortWriteBuffer) Write(p []byte) (int, error) {

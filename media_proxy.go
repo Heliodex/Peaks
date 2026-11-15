@@ -17,16 +17,16 @@ const (
 )
 
 var (
-	errInvalidMediaURL    = errors.New("invalid media URL")
-	errTooManyRedirects   = errors.New("too many media redirects")
+	errInvalidMediaURL = errors.New("invalid media URL")
+	errTooManyRedirects = errors.New("too many media redirects")
 	errNoRedirectLocation = errors.New("media redirect had no destination")
-	errBlockedRedirect    = errors.New("media redirect blocked")
+	errBlockedRedirect = errors.New("media redirect blocked")
 
 	mediaOrigins = map[string]struct{}{
-		"lookout.hackclub.com":             {},
+		"lookout.hackclub.com": {},
 		"lapse-legacy.hackclub-assets.com": {},
-		"lookout.hackclub-assets.com":      {},
-		"public.lapse-hackclub.link":       {},
+		"lookout.hackclub-assets.com": {},
+		"public.lapse-hackclub.link": {},
 	}
 
 	mediaPathPatterns = []*regexp.Regexp{
@@ -35,7 +35,7 @@ var (
 		regexp.MustCompile(`(?i)^/timelapses/[A-Za-z0-9_-]+/original-[A-Za-z0-9]+\.(?:mp4|webm|mov)$`),
 	}
 
-	r2HostSuffix  = ".r2.cloudflarestorage.com"
+	r2HostSuffix = ".r2.cloudflarestorage.com"
 	r2PathPattern = regexp.MustCompile(
 		`(?i)^/collapse/timelapses/[A-Za-z0-9_-]+/[^/]+$`,
 	)
