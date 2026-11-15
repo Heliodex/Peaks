@@ -127,9 +127,9 @@ func mediaErrorMessage(err error) string {
 		return "Media redirect had no destination"
 	case errors.Is(err, errBlockedRedirect):
 		return "Media redirect blocked"
-	default:
-		return "Unable to fetch media"
 	}
+
+	return "Unable to fetch media"
 }
 
 func newMediaProxy(client *http.Client) *mediaProxy {

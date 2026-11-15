@@ -218,10 +218,9 @@ func TestHandlerFollowsAllowedRedirect(t *testing.T) {
 			}
 
 			return fakeResponse(http.StatusPartialContent, "asset", map[string]string{"Content-Type": "video/mp4"}), nil
-		default:
-			t.Fatalf("unexpected request %d to %s", calls, r.URL)
-			return fakeResponse(http.StatusInternalServerError, "", nil), nil
 		}
+		t.Fatalf("unexpected request %d to %s", calls, r.URL)
+		return fakeResponse(http.StatusInternalServerError, "", nil), nil
 	})
 	request := httptest.NewRequest(http.MethodGet, proxyRequest(lookoutVideoURL), nil)
 
