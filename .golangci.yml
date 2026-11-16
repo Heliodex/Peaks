@@ -82,18 +82,6 @@ linters:
                         - wt.example
                         - github.com/heliodex/better-deploy/wt/packages
                         - ire/contract
-        canonicalheader:
-            exclusions:
-                - X-WT-App-Body-SHA256
-                - X-WT-App-Caller
-                - X-WT-App-Signature
-                - X-WT-App-Signature-V2
-                - X-WT-App-Timestamp
-                - X-WT-User-Email
-                - X-WT-User-Groups
-                - X-WT-User-Id
-                - X-WT-User-Name
-                - X-WT-User-Signature
         exhaustive:
             default-signifies-exhaustive: true
         funcorder:
