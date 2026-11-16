@@ -17,5 +17,6 @@ func newHandler(client *http.Client) http.Handler {
 	mux.HandleFunc("HEAD /healthz", health)
 	mux.HandleFunc("GET /lapse-proxy", proxy.handle)
 	mux.HandleFunc("HEAD /lapse-proxy", proxy.handle)
+
 	return mux
 }

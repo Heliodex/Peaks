@@ -144,6 +144,7 @@ func upstreamHeaders(r *http.Request) http.Header {
 
 	headers.Set("Accept", "*/*")
 	headers.Set("User-Agent", "Peaks/1.0")
+
 	if value := r.Header.Get("Range"); value != "" {
 		headers.Set("Range", value)
 		return headers
@@ -199,6 +200,7 @@ func (p *mediaProxy) fetchMedia(ctx context.Context, target *url.URL, r *http.Re
 	}
 
 	request.Header = upstreamHeaders(r)
+
 	response, err := p.client.Do(request)
 	if err != nil {
 		return nil, err
@@ -278,7 +280,9 @@ func (p *mediaProxy) handle(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Header().Set("Cache-Control", "no-store")
 	}
+
 	w.WriteHeader(upstream.StatusCode)
+
 	if upstream.StatusCode == http.StatusNotModified {
 		return
 	}

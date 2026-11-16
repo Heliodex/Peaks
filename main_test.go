@@ -32,6 +32,7 @@ func TestCopyResponseBodyHandlesShortWrites(t *testing.T) {
 	dst := &shortWriteBuffer{
 		max: 2,
 	}
+
 	written, err := copyResponseBody(dst, strings.NewReader("abcdef"))
 	if err != nil {
 		t.Fatalf("copyResponseBody returned %v", err)
@@ -55,6 +56,7 @@ func TestHealth(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
 	if recorder.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
 	}
@@ -156,6 +158,7 @@ func TestHandlerRejectsMissingAndInvalidURLs(t *testing.T) {
 		recorder := httptest.NewRecorder()
 
 		handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+
 		if recorder.Code != http.StatusBadRequest {
 			t.Errorf("GET %s status = %d, want %d", path, recorder.Code, http.StatusBadRequest)
 		}
@@ -186,6 +189,7 @@ func TestHandlerBlocksDisallowedRedirect(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, proxyRequest(lookoutVideoURL), nil))
+
 	if recorder.Code != http.StatusBadGateway {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusBadGateway)
 	}
@@ -219,7 +223,9 @@ func TestHandlerFollowsAllowedRedirect(t *testing.T) {
 
 			return fakeResponse(http.StatusPartialContent, "asset", map[string]string{"Content-Type": "video/mp4"}), nil
 		}
+
 		t.Fatalf("unexpected request %d to %s", calls, r.URL)
+
 		return fakeResponse(http.StatusInternalServerError, "", nil), nil
 	})
 	request := httptest.NewRequest(http.MethodGet, proxyRequest(lookoutVideoURL), nil)
@@ -229,6 +235,7 @@ func TestHandlerFollowsAllowedRedirect(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, request)
+
 	if recorder.Code != http.StatusPartialContent {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusPartialContent)
 	}
@@ -258,6 +265,7 @@ func TestHandlerForwardsConditionalHeadersWithoutRange(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, request)
+
 	if got := upstream.Header.Get("If-None-Match"); got != `"etag"` {
 		t.Errorf("upstream If-None-Match = %q", got)
 	}
@@ -294,6 +302,7 @@ func TestHandlerForwardsRange(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, request)
+
 	if upstream == nil {
 		t.Fatal("upstream request was never made")
 	}
@@ -334,6 +343,7 @@ func TestHandlerNotModifiedHasNoBody(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, proxyRequest(lookoutVideoURL), nil))
+
 	if recorder.Code != http.StatusNotModified {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusNotModified)
 	}
@@ -358,6 +368,7 @@ func TestHandlerPassesThroughUpstreamErrors(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, proxyRequest(lookoutVideoURL), nil))
+
 	if recorder.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusInternalServerError)
 	}
@@ -378,6 +389,7 @@ func TestHandlerRejectsNonVideoResponse(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, proxyRequest(lookoutVideoURL), nil))
+
 	if recorder.Code != http.StatusBadGateway {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusBadGateway)
 	}
@@ -394,6 +406,7 @@ func TestHandlerStopsAfterTooManyRedirects(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, proxyRequest(lookoutVideoURL), nil))
+
 	if recorder.Code != http.StatusBadGateway {
 		t.Errorf("status = %d, want %d", recorder.Code, http.StatusBadGateway)
 	}
