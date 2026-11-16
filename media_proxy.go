@@ -52,14 +52,10 @@ var (
 func copyResponseBody(dst io.Writer, src io.Reader) (int64, error) {
 	buffer := make([]byte, 32*1024)
 
-	var total int64
-
-	for {
+	for total := int64(0); ; {
 		read, readErr := src.Read(buffer)
 		if read > 0 {
-			var written int
-
-			for written < read {
+			for written := 0; written < read; {
 				count, writeErr := dst.Write(buffer[written:read])
 				total += int64(count)
 				written += count
